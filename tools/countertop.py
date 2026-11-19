@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
-"""Silk probe: task-driven agent + operator console.
+"""Countertop server: serves the kitchen dashboard and its data feeds.
 
 Start:
-    python3 tools/silk_probe.py --port 8090            # http
-    python3 tools/silk_probe.py --tls --port 8443      # https (secure context tests)
+    python3 tools/countertop.py --port 8090
+    python3 tools/countertop.py --port 8090 --also-tls --tls-port 8443   # also HTTPS (cert in work/tls/)
 
-Open on the Echo Show (once):
-    http://<mac-ip>:8090/        or   https://<mac-ip>:8443/
+On the Echo Show (Silk):    http://<server-ip>:8090/dash
+Controls (any computer):    http://<server-ip>:8090/control
+Grocery list (phone):       http://<server-ip>:8090/list
 
-Then drive all tests from the Mac:
-    http://127.0.0.1:8090/ctl
-
-The device page long-polls /task, runs each queued task, and posts results back.
-Tasks: full, secure, download, sw, eval (arbitrary JS sent from the console).
+The dashboard posts heartbeats and page errors to /report; they are appended to work/heartbeat.log.
 """
 import argparse
 import json
@@ -23,7 +20,6 @@ import subprocess
 import threading
 import time
 import uuid
-from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -31,18 +27,13 @@ from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
 HERE = Path(__file__).resolve().parent
-DEVICE_PAGE = HERE / "silk_agent.html"
-CONSOLE_PAGE = HERE / "silk_console.html"
-LOG = HERE.parent / "work" / "silk_collect.log"
-DOWNLOAD = HERE.parent / "work" / "silk_download_test.bin"
+LOG = HERE.parent / "work" / "heartbeat.log"
+OLD_LOG = HERE.parent / "work" / "silk_collect.log"     # name used before the rename; moved over once at startup
 NOTES = HERE.parent / "work" / "notes.json"
 NOTES_LOCK = threading.Lock()
 
-TASKS = deque()          # pending: dicts
-RESULTS = []             # completed: dicts
 ICS_CACHE = {}           # url -> (ts, [events])
-LOCK = threading.Lock()
-WAITERS = threading.Condition(LOCK)
+LOG_LOCK = threading.Lock()
 
 
 def lan_ip() -> str:
@@ -57,16 +48,17 @@ def lan_ip() -> str:
 
 
 def log_entry(e):
+    """Append one report (heartbeat, page error, frame refresh...) to work/heartbeat.log as a JSON line."""
     LOG.parent.mkdir(parents=True, exist_ok=True)
-    with LOG.open("a") as f:
+    with LOG_LOCK, LOG.open("a") as f:
         f.write(json.dumps(e, ensure_ascii=False) + "\n")
-    tag = e.get("kind")
-    print("\n=== %s from %s ===" % (tag, e.get("client")), flush=True)
-    print(json.dumps(e.get("payload"), indent=2, ensure_ascii=False)[:6000], flush=True)
+    if e.get("task") != "beat":          # heartbeats every minute would drown the console
+        print("%s %s from %s: %s" % (e.get("t"), e.get("task"), e.get("client"),
+                                     str(e.get("error") or e.get("result") or "")[:300]), flush=True)
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "SilkProbe/2.0"
+    server_version = "Countertop/1.0"
 
     def _send(self, code, body=b"", ctype="text/plain", extra=None):
         self.send_response(code)
@@ -91,47 +83,17 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {"raw": raw[:4000].decode("utf-8", "replace")}
 
-    # ---------- device side ----------
     def do_GET(self):
         p = self.path.split("?")[0]
         if p in ("/", "/index.html"):
-            self._send(200, DEVICE_PAGE.read_bytes(), "text/html; charset=utf-8")
-        elif p == "/ctl":
-            self._send(200, CONSOLE_PAGE.read_bytes(), "text/html; charset=utf-8")
-        elif p == "/task":
-            self._task()
-        elif p == "/results":
-            q = self.path.split("?", 1)[1] if "?" in self.path else ""
-            since = 0
-            for part in q.split("&"):
-                if part.startswith("since="):
-                    try:
-                        since = int(part[6:])
-                    except ValueError:
-                        pass
-            with LOCK:
-                self._json({"results": RESULTS[since:], "next": len(RESULTS)})
-        elif p == "/download":
-            body = DOWNLOAD.read_bytes() if DOWNLOAD.exists() else b"probe"
-            self._send(200, body, "application/octet-stream",
-                       {"Content-Disposition": 'attachment; filename="silk_probe_test.bin"'})
-            log_entry({"t": time.strftime("%H:%M:%S"), "kind": "download",
-                       "client": self.client_address[0], "payload": {"bytes": len(body)}})
-        elif p == "/sw.js":
-            js = ("self.addEventListener('install',e=>self.skipWaiting());"
-                  "self.addEventListener('activate',e=>self.clients.claim());"
-                  "self.addEventListener('message',e=>{if(e.source)e.source.postMessage('sw-ok')});")
-            self._send(200, js.encode(), "application/javascript",
-                       {"Service-Worker-Allowed": "/"})
+            self._send(302, extra={"Location": "/dash"})
         elif p == "/events":
             self._events()
         elif p == "/sample.ics":
             self._send(200, SAMPLE_ICS.encode(), "text/calendar")
         elif p == "/dash":
             # shell page: owns fullscreen + keep-alive, hosts the dashboard in an iframe
-            shell = HERE / "shell.html"
-            page = shell if shell.exists() else HERE / "dashboard.html"
-            self._send(200, page.read_bytes(), "text/html; charset=utf-8")
+            self._send(200, (HERE / "shell.html").read_bytes(), "text/html; charset=utf-8")
         elif p in ("/dash/content", "/dashboard"):
             self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
         elif p == "/config":
@@ -206,22 +168,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "fonts" / p[7:]).read_bytes(), "font/woff2", {"Cache-Control": "max-age=2592000"})
         else:
             self._send(204)
-            log_entry({"t": time.strftime("%H:%M:%S"), "kind": "other-get",
-                       "client": self.client_address[0], "payload": {"path": self.path}})
 
-    def _task(self):
-        """Long-poll: block up to 25s for a queued task."""
-        deadline = time.time() + 25
-        with WAITERS:
-            while not TASKS and time.time() < deadline:
-                WAITERS.wait(timeout=max(0.1, deadline - time.time()))
-            if not TASKS:
-                self._send(204)
-                return
-            task = TASKS.popleft()
-        self._json(task)
-
-    # ---------- console side ----------
     def do_POST(self):
         p = self.path.split("?")[0]
         if self.headers.get("Origin") == "null":       # a sandboxed tile frame: it may not post anything here
@@ -231,24 +178,7 @@ class Handler(BaseHTTPRequestHandler):
             body["t"] = time.strftime("%H:%M:%S")
             body["client"] = self.client_address[0]
             body["kind"] = "report"
-            with LOCK:
-                RESULTS.append(body)
             log_entry(body)
-            self._send(204)
-        elif p == "/enqueue":
-            name = body.get("name") or "eval"
-            task = {"id": uuid.uuid4().hex[:8], "name": name}
-            if name == "eval":
-                task["code"] = body.get("code") or ""
-            if name == "url":
-                task["url"] = body.get("url") or ""
-            with WAITERS:
-                TASKS.append(task)
-                WAITERS.notify_all()
-            self._json(task)
-        elif p == "/clear":
-            with LOCK:
-                RESULTS.clear()
             self._send(204)
         elif p == "/config":
             try:
@@ -295,7 +225,7 @@ class Handler(BaseHTTPRequestHandler):
                 merged.extend(tag(cached[1]))
                 continue
             try:
-                req = Request(url, headers={"User-Agent": "Mozilla/5.0 silk-probe/2.0"})
+                req = Request(url, headers={"User-Agent": "Mozilla/5.0 Countertop/1.0"})
                 raw = urlopen(req, timeout=15).read(3_000_000).decode("utf-8", "replace")
                 evs = parse_ics(raw)
                 ICS_CACHE[url] = (now, evs)
@@ -1913,7 +1843,7 @@ def album_photos(sid=""):
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(description="Countertop dashboard server")
     ap.add_argument("--port", type=int, default=8090)
     ap.add_argument("--tls", action="store_true")
     ap.add_argument("--cert", default=str(HERE.parent / "work" / "tls" / "cert.pem"))
@@ -1921,6 +1851,11 @@ def main():
     ap.add_argument("--also-tls", action="store_true", help="also listen HTTPS on --tls-port sharing state")
     ap.add_argument("--tls-port", type=int, default=8443)
     a = ap.parse_args()
+    if OLD_LOG.exists() and not LOG.exists():
+        try:
+            OLD_LOG.rename(LOG)
+        except OSError:
+            pass
     threading.Thread(target=reminders_loop, daemon=True).start()
     ip = lan_ip()
     scheme = "https" if a.tls else "http"
@@ -1935,16 +1870,17 @@ def main():
         ctx2.load_cert_chain(a.cert, a.key)
         tls_srv.socket = ctx2.wrap_socket(tls_srv.socket, server_side=True)
         threading.Thread(target=tls_srv.serve_forever, daemon=True).start()
-        print("device page (TLS): https://%s:%d/" % (ip, a.tls_port))
-    print("device page : %s://%s:%d/" % (scheme, ip, a.port))
-    print("console     : %s://127.0.0.1:%d/ctl" % (scheme, a.port))
-    print("log         : %s" % LOG)
+        print("dashboard (TLS): https://%s:%d/dash" % (ip, a.tls_port))
+    print("dashboard    : %s://%s:%d/dash" % (scheme, ip, a.port))
+    print("controls     : %s://%s:%d/control" % (scheme, ip, a.port))
+    print("heartbeat log: %s" % LOG, flush=True)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
 
 
+# served at /sample.ics; the demo data (demo/work/sources.json) uses it as its calendar
 SAMPLE_ICS = """BEGIN:VCALENDAR\r
 VERSION:2.0\r
 BEGIN:VEVENT\r

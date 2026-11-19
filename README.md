@@ -176,7 +176,7 @@ Open `http://<server>:8090/control` on a laptop. You get a live, full-size previ
  │                                                                   │
  │  Echo Show 15 (Silk)            Server (Mac / Linux box)          │
  │  ┌──────────────────┐   HTTP   ┌──────────────────────────────┐   │
- │  │ /dash  shell     │◀────────▶│ tools/silk_probe.py          │   │
+ │  │ /dash  shell     │◀────────▶│ tools/countertop.py          │   │
  │  │  └ /dash/content │          │  · serves pages + tiles      │   │
  │  │     (dashboard)  │          │  · fetches ICS calendars     │──────▶ Open-Meteo, RainViewer,
  │  └──────────────────┘          │  · list, deals, sports, ...  │   │   ESPN / MLS, Flipp, NASA,
@@ -185,7 +185,7 @@ Open `http://<server>:8090/control` on a laptop. You get a live, full-size previ
  └───────────────────────────────────────────────────────────────────┘
 ```
 
-* **One Python file, standard library only.** `tools/silk_probe.py` is the whole server. No pip install, no database; settings live as JSON in `work/`.
+* **One Python file, standard library only.** `tools/countertop.py` is the whole server. No pip install, no database; settings live as JSON in `work/`.
 * **Tiles are plain JS files.** Each tile type is one file in `tools/tiles/`, served together at `/tiles.js`. A tile declares its size, settings and data feeds, and the editor builds its settings form from that.
 * **A shell that never lets go.** `/dash` is a thin page that owns full screen, wake lock and a silent-audio keep-alive, and hosts the dashboard in an iframe. It reloads the dashboard when files or settings change, once a night, or if it stops reporting in.
 * **Secrets stay on the server.** Calendar URLs are write-only: the browser never sees them. `work/sources.json` is saved with owner-only permissions.
@@ -202,13 +202,13 @@ You need a computer that stays on and is on the same network as the Echo: a Mac 
 ```sh
 git clone https://github.com/kizit/countertop.git
 cd countertop
-python3 tools/silk_probe.py --port 8090
+python3 tools/countertop.py --port 8090
 ```
 
-It prints the address to use, e.g. `http://192.168.1.20:8090/`. To keep it running after you log out:
+It prints the addresses to use, e.g. `http://192.168.1.20:8090/dash` for the Echo and `/control` for setup. To keep it running after you log out:
 
 ```sh
-nohup python3 tools/silk_probe.py --port 8090 > work/server.log 2>&1 &
+nohup python3 tools/countertop.py --port 8090 > work/server.log 2>&1 &
 ```
 
 > **Docker / Unraid (coming soon):** draft files are in `docker/` (a `Dockerfile`, `docker-compose.yml` and an Unraid template), not yet released. The server runs unchanged on Linux; mount `work/` as a volume and set `TZ` to your time zone so events and the night page line up. Apple Reminders sync is the one feature that needs a Mac (see below).

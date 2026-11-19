@@ -8,7 +8,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TMP="$(mktemp -d)"
 cp -R "$ROOT/tools" "$TMP/tools"
 cp -R "$ROOT/demo/work" "$TMP/work"
-python3 "$TMP/tools/silk_probe.py" --port 8091 > "$TMP/server.log" 2>&1 &
+python3 "$TMP/tools/countertop.py" --port 8091 > "$TMP/server.log" 2>&1 &
 PID=$!
 trap 'kill $PID 2>/dev/null; rm -rf "$TMP"' EXIT
 sleep 2

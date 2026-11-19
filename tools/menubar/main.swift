@@ -30,7 +30,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let p = defaults.string(forKey: "projectDir"), !p.isEmpty { return URL(fileURLWithPath: p) }
         return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Projects/hoya")
     }
-    var logURL: URL { projectDir.appendingPathComponent("work/silk_collect.log") }
+    /// Heartbeats and page errors the dashboard reports (the server renamed this from silk_collect.log on first start).
+    var logURL: URL {
+        let new = projectDir.appendingPathComponent("work/heartbeat.log")
+        let old = projectDir.appendingPathComponent("work/silk_collect.log")
+        return FileManager.default.fileExists(atPath: new.path) || !FileManager.default.fileExists(atPath: old.path) ? new : old
+    }
+    var serverLogURL: URL { projectDir.appendingPathComponent("work/server.log") }
     var keepRunning: Bool {
         get { defaults.bool(forKey: "keepRunning") }
         set { defaults.set(newValue, forKey: "keepRunning") }
@@ -135,7 +141,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }.resume()
     }
 
-    /// Reads the end of work/silk_collect.log for the Echo's last heartbeat and recent JS errors.
+    /// Reads the end of work/heartbeat.log for the Echo's last heartbeat and recent JS errors.
     func readLog(into s: Status) {
         guard let fh = try? FileHandle(forReadingFrom: logURL) else { return }
         defer { try? fh.close() }
@@ -200,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func startServer() {
         let dir = shellQuote(projectDir.path)
         // -i so ~/.zshrc runs and the same python3 you use in Terminal (with dateutil) is found
-        let cmd = "cd \(dir) && nohup python3 tools/silk_probe.py --port \(PORT) --also-tls --tls-port 8443 > work/probe_live.log 2>&1 &"
+        let cmd = "cd \(dir) && nohup python3 tools/countertop.py --port \(PORT) --also-tls --tls-port 8443 > work/server.log 2>&1 &"
         _ = run("/bin/zsh", ["-lic", cmd])
     }
 
@@ -234,16 +240,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         doBusy("Stopping…") { self.stopServer() }
     }
     @objc func refreshEcho() {
-        // the /dash shell reloads its frame when dashboard.html's modification time changes
-        let f = projectDir.appendingPathComponent("tools/dashboard.html")
+        // the /dash shell reloads its frame when /version changes, which follows dash3.html's modification time
+        let f = projectDir.appendingPathComponent("tools/dash3.html")
         try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: f.path)
     }
     @objc func openURL(_ sender: NSMenuItem) {
         if let s = sender.representedObject as? String, let u = URL(string: s) { NSWorkspace.shared.open(u) }
     }
     @objc func openLog() { NSWorkspace.shared.open(logURL) }
-    @objc func openServerLog() { NSWorkspace.shared.open(projectDir.appendingPathComponent("work/probe_live.log")) }
-    @objc func openFolder() { NSWorkspace.shared.activateFileViewerSelecting([projectDir.appendingPathComponent("tools/dashboard.html")]) }
+    @objc func openServerLog() { NSWorkspace.shared.open(serverLogURL) }
+    @objc func openFolder() { NSWorkspace.shared.activateFileViewerSelecting([projectDir.appendingPathComponent("tools/countertop.py")]) }
     @objc func toggleKeep() { keepRunning.toggle(); refresh() }
     @objc func chooseFolder() {
         let panel = NSOpenPanel()
@@ -361,7 +367,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         m.addItem(action("Dashboard Controls…", #selector(openURL(_:)), url: "http://127.0.0.1:\(PORT)/control"))
         m.addItem(action("Open Dashboard", #selector(openURL(_:)), url: "http://127.0.0.1:\(PORT)/dash"))
         m.addItem(action("Open Grocery List Page", #selector(openURL(_:)), url: "http://127.0.0.1:\(PORT)/list"))
-        m.addItem(action("Open Diagnostic Console", #selector(openURL(_:)), url: "http://127.0.0.1:\(PORT)/ctl"))
         m.addItem(action("Show Heartbeat Log", #selector(openLog)))
         m.addItem(action("Show Server Output", #selector(openServerLog)))
         m.addItem(action("Show Project in Finder", #selector(openFolder)))
