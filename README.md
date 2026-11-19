@@ -1,7 +1,7 @@
 <h1 align="center">Countertop</h1>
 
 <p align="center">
-  <img src="docs/screenshots/overview.png" alt="Countertop on an Echo Show 15" width="100%" />
+  <img src="docs/screenshots/overview.gif" alt="Countertop on an Echo Show 15, with autumn leaves and sun rays moving over the dashboard" width="100%" />
 </p>
 
 <h2 align="center">Turn the Echo Show on your kitchen wall into the family screen you actually wanted.<br />
