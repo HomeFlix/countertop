@@ -16,12 +16,12 @@ async function open(b, url, {w=1920, h=1080, time='2026-11-19T09:24:00', dpr=1, 
   await p.goto(BASE + url);
   await p.addStyleTag({content: HIDE + (nofx ? '#fx{display:none!important}' : '')});
   await p.waitForTimeout(wait);
-  // the list hint shows the server's address; show a typical LAN address instead
-  await p.evaluate(() => { for (const d of [document, ...[...document.querySelectorAll('iframe')].map(i => { try{ return i.contentDocument; }catch(e){ return null; } })]) if (d){
-    const t = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT); for (let n = t.nextNode(); n; n = t.nextNode()) n.nodeValue = n.nodeValue.replace(/(127\.0\.0\.1|localhost)/g, '192.168.1.20'); } });
   return p;
 }
-const shot = (p, name, o) => p.screenshot(Object.assign({path: path.join(OUT, name + '.png')}, o || {}));
+// the list hint shows the server's address; show a typical LAN address instead
+const fixIP = p => p.evaluate(() => { for (const d of [document, ...[...document.querySelectorAll('iframe')].map(i => { try{ return i.contentDocument; }catch(e){ return null; } })]) if (d){
+  const t = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT); for (let n = t.nextNode(); n; n = t.nextNode()) n.nodeValue = n.nodeValue.replace(/(127\.0\.0\.1|localhost)/g, '192.168.1.20'); } });
+const shot = async (p, name, o) => { await fixIP(p); await p.screenshot(Object.assign({path: path.join(OUT, name + '.png')}, o || {})); };
 (async () => {
   fs.mkdirSync(path.join(OUT, 'tiles'), {recursive:true});
   const b = await chromium.launch();
@@ -36,7 +36,7 @@ const shot = (p, name, o) => p.screenshot(Object.assign({path: path.join(OUT, na
   await p.mouse.click(250, 120); await p.waitForTimeout(1200); await shot(p, 'editor');
   await p.click('text=Add another tile to this box'); await p.waitForTimeout(1500); await shot(p, 'tile-store');
   p = await open(b, '/dash/content', {nofx:true}); await p.evaluate(() => dashEdit(true)); await p.waitForTimeout(1200);
-  await p.mouse.click(250, 120); await p.waitForTimeout(1000); await p.click('text=Customize the design'); await p.waitForTimeout(1500); await shot(p, 'designer');
+  await p.mouse.click(250, 120); await p.waitForTimeout(1000); await p.click('[data-act="dznew"]'); await p.waitForTimeout(1500); await shot(p, 'designer');
   p = await open(b, '/control', {w:1600, h:1000}); await shot(p, 'controls');
   for (const [go, name] of [['mod:general', 'controls-location'], ['looks', 'controls-looks'], ['effects', 'controls-effects'], ['night', 'controls-night'], ['newpage', 'controls-newpage']]){
     await p.evaluate(g => document.querySelector('[data-go="' + g + '"]').click(), go); await p.waitForTimeout(1500); await shot(p, name);
