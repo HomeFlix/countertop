@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kitchen</title>
+<style>
+  html,body{margin:0;height:100%;background:#0a0c0f;overflow:hidden;cursor:none}
+  @media (pointer:fine){ html,body{cursor:default} }
+  iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0a0c0f;
+    transition:opacity .9s}
+  iframe.loading{opacity:0}
+</style>
+</head>
+<body>
+<!--
+  Shell page. It stays loaded for good and owns everything that a reload would lose:
+  fullscreen, the keep-alive audio, the wake lock and the heartbeat. The dashboard itself
+  lives in an iframe, so it can be refreshed (on a schedule, when dashboard.html changes on
+  disk, or when it stops responding) without exiting fullscreen or disarming keep-alive.
+-->
+<iframe id="f" src="/dash/content" allow="fullscreen; autoplay"></iframe>
+<script>
+(function(){
+  "use strict";
+  var REFRESH_AT = "03:30";      // daily iframe refresh, local time ("" disables)
+  var VERSION_POLL = 30e3;       // how often to look for a new dashboard.html
+  var STALL_MS = 120e3;          // reload the iframe if it stops ticking this long
+
+  function report(task, ok, result, error){
+    try{
+      fetch("/report", {method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({task:task, ok:ok, result:result, error:error})}).catch(function(){});
+    }catch(e){}
+  }
+  window.addEventListener("error", function(e){
+    report("js-error", false, {src:e.filename, line:e.lineno, where:"shell"}, "error: " + e.message);
+  });
+  window.addEventListener("unhandledrejection", function(e){
+    report("js-error", false, {where:"shell"}, "rejection: " + String(e.reason));
+  });
+
+  /* ---------- fullscreen + keep-alive, triggered by taps here or inside the iframe ---------- */
+  function isFull(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  function goFull(){
+    if (isFull()) return;
+    var el = document.documentElement;
+    var fn = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!fn) return;
+    try{ var p = fn.call(el); if (p && p.catch) p.catch(function(){}); }catch(e){}
+  }
+  function armAudio(){
+    var a = document.querySelector("audio");
+    if (!a) return;
+    try{
+      a.muted = false;
+      if (a.paused){ var p = a.play(); if (p && p.catch) p.catch(function(){}); }
+    }catch(e){}
+  }
+  function audioOk(){
+    var a = document.querySelector("audio");
+    return !!(a && !a.paused && !a.muted);
+  }
+  async function wake(){
+    try{ if ("wakeLock" in navigator) await navigator.wakeLock.request("screen"); }catch(e){}
+  }
+  function onTap(){ goFull(); armAudio(); wake(); }
+  window.shellTap = onTap;                       // called by the dashboard iframe on pointerdown
+  window.shellState = function(){ return {fs:isFull(), audio:audioOk()}; };
+  document.addEventListener("pointerdown", onTap);
+
+  // keep-alive script; the dashboard used to load this itself
+  var ks = document.createElement("script");
+  ks.src = "/keep.js"; ks.defer = true;
+  document.body.appendChild(ks);
+  setTimeout(armAudio, 1500);                    // may succeed without a tap (media engagement)
+  wake();
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) wake(); });
+
+  /* ---------- iframe management ---------- */
+  var frame = document.getElementById("f");
+  var lastTick = Date.now();
+  var lastLoad = Date.now();
+  var version = null;
+  var swapping = false;
+  window.contentTick = function(){ lastTick = Date.now(); };
+
+  // load the new dashboard in a hidden iframe, then cross-fade, so there is no blank flash
+  function refresh(reason){
+    if (swapping) return;
+    swapping = true;
+    var nf = document.createElement("iframe");
+    nf.className = "loading";
+    nf.setAttribute("allow", "fullscreen; autoplay");
+    nf.src = "/dash/content?r=" + Date.now();
+    var done = false;
+    function finish(){
+      if (done) return; done = true;
+      nf.className = "";
+      var old = frame;
+      frame = nf;
+      lastTick = Date.now(); lastLoad = Date.now();
+      setTimeout(function(){ if (old && old.parentNode) old.parentNode.removeChild(old); swapping = false; }, 1200);
+    }
+    nf.addEventListener("load", function(){ setTimeout(finish, 600); });
+    setTimeout(finish, 20e3);                    // swap anyway if load never fires
+    document.body.appendChild(nf);
+    report("frame-refresh", true, {reason:reason});
+  }
+  window.shellRefresh = refresh;
+
+  function checkVersion(){
+    fetch("/version", {cache:"no-store"}).then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (!j || !j.v) return;
+        if (version === null){ version = j.v; return; }
+        if (j.v !== version){ version = j.v; refresh("dashboard.html changed"); }
+      }).catch(function(){});
+  }
+  checkVersion();
+  setInterval(checkVersion, VERSION_POLL);
+
+  var lastDaily = "";
+  setInterval(function(){
+    var d = new Date();
+    var hm = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    if (REFRESH_AT && hm === REFRESH_AT && lastDaily !== d.toDateString()){
+      lastDaily = d.toDateString();
+      refresh("daily");
+    }
+    if (!document.hidden && Date.now() - lastTick > STALL_MS && Date.now() - lastLoad > STALL_MS){
+      refresh("stalled");
+    }
+  }, 5e3);
+
+  /* ---------- heartbeat ---------- */
+  function beat(){
+    report("beat", true, {
+      up: Math.round(performance.now()/1000),
+      fs: isFull(), vis: document.visibilityState, audio: audioOk(),
+      shell: true, frameAge: Math.round((Date.now() - lastLoad)/1000),
+      fx: (function(){ try{ return frame.contentWindow.FXINFO || null; }catch(e){ return null; } })()
+    });
+  }
+  beat(); setInterval(beat, 60e3);
+  setTimeout(function(){
+    report("diag", true, {where:"shell", fsEnabled:document.fullscreenEnabled, fsActive:isFull(),
+      innerH: innerHeight, screenH: screen.height});
+  }, 2500);
+})();
+</script>
+</body>
+</html>

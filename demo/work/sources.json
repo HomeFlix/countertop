@@ -1,0 +1,38 @@
+{
+ "calendars": [
+  {
+   "id": "fam",
+   "name": "Family",
+   "color": "#7cb7ff",
+   "url": "http://127.0.0.1:8090/sample.ics"
+  },
+  {
+   "id": "school",
+   "name": "School",
+   "color": "#f4a259",
+   "url": "http://127.0.0.1:8090/sample.ics"
+  }
+ ],
+ "lists": [
+  {
+   "id": "groc",
+   "name": "Grocery",
+   "kind": "This dashboard"
+  }
+ ],
+ "teams": [
+  {
+   "id": "team1",
+   "name": "Riverside FC",
+   "league": "usa.1"
+  }
+ ],
+ "albums": [],
+ "cams": [
+  {
+   "id": "c1",
+   "name": "Harbor cam",
+   "url": "https://example.com/cam"
+  }
+ ]
+}

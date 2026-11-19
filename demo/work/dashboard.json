@@ -1,0 +1,475 @@
+{
+ "modules": {
+  "general": {
+   "on": true,
+   "settings": {
+    "place": "Lakewood, CO",
+    "lat": 39.7047,
+    "lon": -105.0814,
+    "units": "F",
+    "h24": false,
+    "dateFmt": "Wednesday, November 18",
+    "weekStart": "Sunday",
+    "emoji": "Emoji",
+    "swap": [],
+    "gear": true
+   }
+  },
+  "effects": {
+   "on": true,
+   "settings": {
+    "front": true,
+    "items": [
+     {
+      "id": "snow",
+      "amount": "Some",
+      "when": "weather"
+     },
+     {
+      "id": "sun",
+      "on": true
+     }
+    ]
+   }
+  },
+  "look": {
+   "on": true,
+   "settings": {
+    "mode": "Dark",
+    "accent": "#7cb7ff",
+    "holiday": false,
+    "tiles": "Solid",
+    "opacity": 60,
+    "textScale": 100,
+    "titles": true,
+    "bg": "Sky",
+    "bgColor": "#0a0c0f",
+    "dim": 0,
+    "fx": "On",
+    "items": [
+     {
+      "id": "tmwnvoo8c",
+      "name": "Weekend",
+      "values": {
+       "tiles": "Clear"
+      }
+     },
+     {
+      "id": "tmwnx60ex",
+      "name": "Glass",
+      "values": {
+       "mode": "Dark",
+       "accent": "#7cb7ff",
+       "holiday": false,
+       "tiles": "See-through",
+       "opacity": 45,
+       "textScale": 100,
+       "titles": true,
+       "bg": "Sky",
+       "bgColor": "#0a0c0f",
+       "dim": 0,
+       "fx": "On"
+      }
+     }
+    ],
+    "rules": [
+     {
+      "id": "rtmwnvoo8c",
+      "on": false,
+      "look": "tmwnvoo8c",
+      "when": {}
+     }
+    ]
+   }
+  },
+  "night": {
+   "on": true,
+   "settings": {
+    "start": 22,
+    "end": 4,
+    "dim": 25,
+    "drift": true
+   }
+  },
+  "deals": {
+   "on": true,
+   "settings": {
+    "zip": "80226",
+    "stores": [
+     "Corner Market",
+     "Big Box",
+     "Warehouse Club"
+    ],
+    "watch": 40,
+    "recentDays": 180,
+    "always": []
+   }
+  },
+  "pages": {
+   "on": true,
+   "settings": {
+    "items": [
+     {
+      "id": "main",
+      "name": "Main",
+      "on": true,
+      "cols": 48,
+      "slots": [
+       {
+        "id": "m0mwnqp4uc",
+        "x": 0,
+        "y": 0,
+        "w": 13,
+        "h": 8,
+        "mod": "clock"
+       },
+       {
+        "id": "m1mwnqp4uc",
+        "x": 36,
+        "y": 0,
+        "w": 12,
+        "h": 8,
+        "mod": "weather"
+       },
+       {
+        "id": "m2mwnqp4ud",
+        "x": 0,
+        "y": 8,
+        "w": 48,
+        "h": 7,
+        "mod": "week"
+       },
+       {
+        "id": "m3mwnqp4ud",
+        "x": 0,
+        "y": 15,
+        "w": 27,
+        "h": 17,
+        "mod": "radar",
+        "more": [
+         "hours"
+        ],
+        "every": 75
+       },
+       {
+        "id": "m4mwnqp4ud",
+        "x": 27,
+        "y": 15,
+        "w": 11,
+        "h": 11,
+        "mod": "grocery"
+       },
+       {
+        "id": "m5mwnqp4ud",
+        "x": 38,
+        "y": 15,
+        "w": 10,
+        "h": 11,
+        "mod": "dinner",
+        "more": [
+         "dsales"
+        ],
+        "every": 45
+       },
+       {
+        "id": "m6mwnqp4ud",
+        "x": 27,
+        "y": 26,
+        "w": 11,
+        "h": 6,
+        "mod": "hometeam"
+       },
+       {
+        "id": "m7mwnqp4ud",
+        "x": 38,
+        "y": 26,
+        "w": 10,
+        "h": 6,
+        "mod": "onthisday",
+        "more": [
+         "joke",
+         "tip"
+        ],
+        "every": 90
+       }
+      ]
+     },
+     {
+      "id": "month",
+      "name": "Month",
+      "on": true,
+      "back": 60,
+      "cols": 48,
+      "slots": [
+       {
+        "id": "mo1",
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 32,
+        "mod": "month"
+       }
+      ]
+     },
+     {
+      "id": "deals",
+      "name": "Deals",
+      "on": true,
+      "back": 90,
+      "cols": 48,
+      "slots": [
+       {
+        "id": "dc1",
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 32,
+        "mod": "dealcards"
+       }
+      ]
+     },
+     {
+      "id": "night",
+      "name": "Night",
+      "on": true,
+      "cols": 48,
+      "slots": [
+       {
+        "id": "n1",
+        "x": 0,
+        "y": 0,
+        "w": 48,
+        "h": 32,
+        "mod": "nightclock"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "tiles": {
+   "on": true,
+   "settings": {
+    "items": [
+     {
+      "id": "clock",
+      "type": "clock",
+      "settings": {
+       "style": "Minimal",
+       "font": "Style default",
+       "size": 100,
+       "align": "Left",
+       "color": "#ffffff",
+       "ampm": true,
+       "seconds": false,
+       "date": true,
+       "greeting": true,
+       "countdowns": true,
+       "extra": [],
+       "design": {
+        "on": true,
+        "parts": {
+         "time": {
+          "x": 50,
+          "y": 0.5,
+          "s": 40.65,
+          "a": "c",
+          "c": "#e9ecf1",
+          "w": 200,
+          "ff": "Outfit, system-ui, sans-serif",
+          "ls": -0.02
+         },
+         "date": {
+          "x": 50,
+          "y": 41.5,
+          "s": 8.94,
+          "a": "c",
+          "c": "#a9b1bb",
+          "w": 400,
+          "ff": "Outfit, system-ui, sans-serif"
+         },
+         "greet": {
+          "x": 50,
+          "y": 54,
+          "s": 8.94,
+          "a": "c",
+          "c": "#a9b1bb",
+          "w": 400,
+          "ff": "Outfit, system-ui, sans-serif"
+         },
+         "holiday": {
+          "x": 50,
+          "y": 66,
+          "s": 27.53,
+          "a": "c",
+          "c": "#7cb7ff",
+          "w": 400,
+          "ff": "Outfit, system-ui, sans-serif"
+         },
+         "bday": {
+          "hide": true,
+          "x": 6,
+          "y": 18,
+          "s": 8,
+          "a": "l"
+         },
+         "count": {
+          "hide": true,
+          "x": 6,
+          "y": 28,
+          "s": 8,
+          "a": "l"
+         }
+        }
+       }
+      }
+     },
+     {
+      "id": "weather",
+      "type": "weather",
+      "settings": {
+       "style": "Big temperature",
+       "font": "Style default",
+       "size": 100,
+       "align": "Right",
+       "icon": true,
+       "cond": true,
+       "hilo": true,
+       "air": true,
+       "sun": true,
+       "rain": true
+      }
+     },
+     {
+      "id": "week",
+      "type": "week",
+      "settings": {
+       "days": 7,
+       "perDay": 2,
+       "cals": [],
+       "teams": [],
+       "holidays": true
+      }
+     },
+     {
+      "id": "hometeam",
+      "type": "team",
+      "settings": {
+       "team": "team1",
+       "count": 3,
+       "within": 10,
+       "always": false,
+       "takeover": false
+      }
+     },
+     {
+      "id": "grocery",
+      "type": "list",
+      "settings": {
+       "list": "groc",
+       "max": 20,
+       "saleTag": true,
+       "deals": true
+      }
+     },
+     {
+      "id": "dinner",
+      "type": "dinner",
+      "settings": {
+       "every": 30,
+       "season": true
+      }
+     },
+     {
+      "id": "dsales",
+      "type": "sales",
+      "settings": {
+       "count": 5,
+       "layout": "List",
+       "skipListed": true
+      },
+      "name": "More on sale"
+     },
+     {
+      "id": "radar",
+      "type": "radar",
+      "settings": {
+       "zoom": "region",
+       "onlyRain": true,
+       "hours": 2,
+       "chance": 40,
+       "takeover": true
+      }
+     },
+     {
+      "id": "hours",
+      "type": "nexthours",
+      "settings": {
+       "hours": 18,
+       "cals": []
+      }
+     },
+     {
+      "id": "cams",
+      "type": "cam",
+      "settings": {
+       "cams": [],
+       "every": 600
+      }
+     },
+     {
+      "id": "onthisday",
+      "type": "onthisday",
+      "settings": {
+       "every": 90
+      }
+     },
+     {
+      "id": "joke",
+      "type": "joke",
+      "settings": {
+       "every": 90,
+       "punch": 7
+      }
+     },
+     {
+      "id": "tip",
+      "type": "tip",
+      "settings": {
+       "every": 90
+      }
+     },
+     {
+      "id": "month",
+      "type": "month",
+      "settings": {
+       "cals": [],
+       "teams": []
+      }
+     },
+     {
+      "id": "dealcards",
+      "type": "sales",
+      "settings": {
+       "count": 12,
+       "layout": "Cards",
+       "skipListed": false
+      },
+      "name": "On sale this week"
+     },
+     {
+      "id": "nightclock",
+      "type": "nightclock",
+      "settings": {
+       "color": "#7c828c",
+       "ampm": false,
+       "moon": true,
+       "next": true
+      }
+     }
+    ]
+   }
+  }
+ },
+ "saved": 1795117408
+}

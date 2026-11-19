@@ -1,0 +1,9 @@
+work/
+docker/data/
+**/*.backup*
+**/*backup-*
+**/__pycache__/
+tools/menubar/
+tools/tiles-off/
+*.log
+.DS_Store

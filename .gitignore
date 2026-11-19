@@ -1,0 +1,22 @@
+# Personal data and settings: never commit
+/work/
+*.log
+
+# Leftovers from development
+tools/*.backup*
+tools/silk_probe.backup*.py
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+
+# Private notes about my own setup (device IPs, feeds)
+DASHBOARD_HANDOFF.md
+
+# Old v1/v2 pages, no longer served
+tools/dash2.html
+tools/control.html
+tools/dashboard.html
+
+# Retired tiles
+tools/tiles-off/

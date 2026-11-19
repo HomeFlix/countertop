@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kitchen list">
+<meta name="theme-color" content="#0f1216">
+<title>Kitchen list</title>
+<style>
+  :root{--fg:#e9ecf1;--dim:#98a0aa;--faint:#5d6570;--bg:#0f1216;--card:#181d23;--line:#262d36;--accent:#7cb7ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:17px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+    padding:max(16px,env(safe-area-inset-top)) 16px 40px}
+  h1{font-size:24px;font-weight:600;margin:4px 0 14px}
+  h2{font-size:13px;letter-spacing:.8px;text-transform:uppercase;color:var(--dim);margin:22px 0 8px;font-weight:600}
+  form{display:flex;gap:8px}
+  input,textarea{flex:1;font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px;outline:none}
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{width:100%;min-height:64px;resize:vertical}
+  button{font:inherit;border:0;border-radius:12px;padding:12px 16px;background:var(--accent);color:#0b1520;font-weight:600}
+  button.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
+  ul{list-style:none;margin:0;padding:0;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  li{display:flex;align-items:center;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line)}
+  li:last-child{border-bottom:0}
+  li .box{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--faint)}
+  li.done .box{background:var(--accent);border-color:var(--accent)}
+  li .tx{flex:1}
+  li.done .tx{color:var(--faint);text-decoration:line-through}
+  li .x{background:none;color:var(--faint);padding:4px 8px;font-size:20px;font-weight:400}
+  .row{display:flex;gap:8px;margin-top:8px;justify-content:flex-end}
+  .empty{color:var(--faint);padding:14px}
+  #status{color:var(--faint);font-size:13px;margin-top:18px;text-align:center}
+</style>
+</head>
+<body>
+<h1>Kitchen list</h1>
+
+<form id="add" autocomplete="off">
+  <input id="item" placeholder="Add an item…" maxlength="80" enterkeyhint="done">
+  <button>Add</button>
+</form>
+
+<h2 id="lname">Grocery list</h2>
+<ul id="items"><li class="empty">Loading…</li></ul>
+<div class="row"><button class="ghost" id="clear">Clear checked</button></div>
+
+<h2>Note on the dashboard</h2>
+<textarea id="note" maxlength="240" placeholder="e.g. Dog has been fed · Pizza night"></textarea>
+<div class="row"><button class="ghost" id="clrnote">Remove</button><button id="savenote">Show on dashboard</button></div>
+
+<div id="status"></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let noteDirty = false;
+function render(d){
+  const items = (d.items || []).slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
+  $("items").innerHTML = items.length ? items.map(i =>
+    '<li class="' + (i.done ? "done" : "") + '" data-id="' + esc(i.id) + '"><span class="box"></span><span class="tx">' +
+    esc(i.text) + '</span><button class="x" data-del="1" aria-label="Remove">×</button></li>').join("")
+    : '<li class="empty">Nothing on the list.</li>';
+  if (!noteDirty) $("note").value = d.note || "";
+  $("lname").textContent = d.list ? d.list + " (synced with Reminders)" : "Grocery list";
+  $("status").textContent = (d.error ? "Reminders error: " + d.error + " · " : "") + "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+}
+async function call(body){
+  try{
+    const r = body
+      ? await fetch("/notes", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)})
+      : await fetch("/notes", {cache:"no-store"});
+    render(await r.json());
+  }catch(e){ $("status").textContent = "Can't reach the dashboard server"; }
+}
+$("add").addEventListener("submit", e => {
+  e.preventDefault();
+  const v = $("item").value.trim();
+  if (!v) return;
+  // allow "milk, eggs, bread" in one go
+  v.split(/\s*,\s*/).filter(Boolean).reduce((p, t) => p.then(() => call({op:"add", text:t})), Promise.resolve());
+  $("item").value = "";
+});
+$("items").addEventListener("click", e => {
+  const li = e.target.closest("li[data-id]"); if (!li) return;
+  const id = li.getAttribute("data-id");
+  call(e.target.getAttribute("data-del") ? {op:"remove", id} : {op:"toggle", id});
+});
+$("clear").addEventListener("click", () => call({op:"clear_done"}));
+$("note").addEventListener("input", () => { noteDirty = true; });
+$("savenote").addEventListener("click", () => { noteDirty = false; call({op:"note", text:$("note").value}); });
+$("clrnote").addEventListener("click", () => { noteDirty = false; $("note").value = ""; call({op:"note", text:""}); });
+call();
+setInterval(() => { if (!document.hidden) call(); }, 10e3);
+</script>
+</body>
+</html>

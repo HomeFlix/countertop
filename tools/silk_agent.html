@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Silk Agent</title>
+<style>
+ body{font:15px/1.4 -apple-system,system-ui,sans-serif;margin:20px;color:#111}
+ #st{font-weight:600} .ok{color:#0a7a2f} .bad{color:#a11}
+ pre{background:#f4f4f6;padding:10px;border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:12px}
+</style>
+<h2>Silk Agent</h2>
+<p>status: <span id="st">starting…</span></p>
+<pre id="out"></pre>
+
+<script>
+const st = document.getElementById('st');
+const out = document.getElementById('out');
+let lastTask = '';
+
+function show(o){ out.textContent = JSON.stringify(o, null, 2); }
+
+async function collectFull(){
+  const d = {};
+  d.userAgent = navigator.userAgent;
+  d.platform = navigator.platform;
+  d.vendor = navigator.vendor;
+  d.languages = navigator.languages;
+  d.hardwareConcurrency = navigator.hardwareConcurrency;
+  d.deviceMemory = navigator.deviceMemory;
+  d.maxTouchPoints = navigator.maxTouchPoints;
+  d.screen = {w:screen.width,h:screen.height,dpr:devicePixelRatio,depth:screen.colorDepth};
+  d.viewport = {w:innerWidth,h:innerHeight};
+  try{ d.timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; }catch(e){}
+  try{
+    const gl = document.createElement('canvas').getContext('webgl');
+    if(gl){
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      d.webgl = {vendor:gl.getParameter(gl.VENDOR), renderer:gl.getParameter(gl.RENDERER),
+        unmaskedVendor: dbg?gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL):null,
+        unmaskedRenderer: dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):null};
+    }
+  }catch(e){}
+  return d;
+}
+
+async function collectSecure(){
+  const r = {};
+  r.secureContext = window.isSecureContext;
+  r.crossOriginIsolated = !!window.crossOriginIsolated;
+  r.serviceWorker = 'serviceWorker' in navigator;
+  r.caches = 'caches' in window;
+  r.sharedArrayBuffer = typeof SharedArrayBuffer !== 'undefined';
+  r.credentials = !!navigator.credentials;
+  r.clipboard = !!navigator.clipboard;
+  r.storage = !!(navigator.storage);
+  try{ r.estimate = await navigator.storage.estimate(); }catch(e){ r.estimateError=String(e); }
+  if('serviceWorker' in navigator){
+    try{
+      const reg = await navigator.serviceWorker.register('/sw.js', {scope:'/'});
+      r.swRegistered = true;
+      r.swScope = reg.scope;
+      r.swState = reg.active ? 'active' : (reg.installing ? 'installing' : 'waiting');
+      await navigator.serviceWorker.ready.catch(()=>{});
+    }catch(e){ r.swError = String(e); }
+  }
+  return r;
+}
+
+async function doDownload(){
+  const a = document.createElement('a');
+  a.href = '/download';
+  a.download = 'silk_probe_test.bin';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  return {triggered:true, href:'/download', note:'check device Downloads / notification'};
+}
+
+async function doSW(){
+  if(!('serviceWorker' in navigator)) return {supported:false};
+  try{
+    const reg = await navigator.serviceWorker.register('/sw.js', {scope:'/'});
+    const worker = reg.active || reg.installing || reg.waiting;
+    return {supported:true, scope:reg.scope, state:worker?worker.state:null};
+  }catch(e){ return {supported:true, error:String(e)}; }
+}
+
+async function runTask(t){
+  switch(t.name){
+    case 'full': return await collectFull();
+    case 'secure': return await collectSecure();
+    case 'download': return await doDownload();
+    case 'sw': return await doSW();
+    case 'eval': {
+      const fn = new Function('return (async()=>{' + (t.code||'') + '})()');
+      return await fn();
+    }
+    default: return {unsupported:t.name};
+  }
+}
+
+async function loop(){
+  for(;;){
+    let t = null;
+    try{
+      const r = await fetch('/task', {cache:'no-store'});
+      if(r.status === 204){ st.textContent='idle — waiting for task'; st.className=''; continue; }
+      t = await r.json();
+    }catch(e){
+      st.textContent = 'server unreachable: ' + e;
+      st.className='bad';
+      await new Promise(r=>setTimeout(r,2000));
+      continue;
+    }
+    st.textContent = 'running ' + t.name + ' …';
+    st.className='';
+    let ok = true, result = null, err = null;
+    try{ result = await runTask(t); }
+    catch(e){ ok = false; err = String(e && e.stack || e); }
+    lastTask = t.name;
+    show({task:t.name, ok, result, error:err});
+    st.textContent = (ok?'done: ':'failed: ') + t.name;
+    st.className = ok?'ok':'bad';
+    try{
+      await fetch('/report', {method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({id:t.id, task:t.name, ok, result, error:err})});
+    }catch(e){}
+  }
+}
+
+st.textContent='ready';
+loop();
+</script>

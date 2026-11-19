@@ -1,0 +1,19 @@
+# docker compose -f docker/docker-compose.yml up -d --build   (run from the project root)
+services:
+  dashboard:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: countertop:local
+    container_name: countertop
+    restart: unless-stopped
+    user: "99:100"                 # Unraid's nobody:users; use your own uid:gid elsewhere
+    environment:
+      TZ: America/Chicago          # must match your calendar's time zone
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./data:/app/work           # settings, sources (calendar URLs), grocery list, logs, caches
+      # While still editing the dashboard often, uncomment to serve the files straight
+      # from the folder instead of the image (edits show up on the Echo with no rebuild):
+      # - ../tools:/app/tools:ro

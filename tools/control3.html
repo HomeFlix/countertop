@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f1216">
+<title>Dashboard settings</title>
+<style>
+  /* Settings-app pattern: grouped lists, one level of detail, Back to return. Layout is its own screen. */
+  :root{--fg:#eef1f5;--dim:#9aa3ad;--faint:#636c77;--bg:#0d1014;--group:#191e25;--line:#2a313a;--accent:#5aa9ff;--ok:#4cd27a;--bad:#ff6b6b;--hl:#22303f}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--fg);font:17px/1.35 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+  .app{min-height:100%}
+  .nav{max-width:720px;margin:0 auto;padding:0 16px 80px}
+  .bar{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+    padding:max(10px,env(safe-area-inset-top)) 0 10px;background:linear-gradient(var(--bg) 80%,rgba(13,16,20,0))}
+  .bar h1{grid-column:2;margin:0;font-size:17px;font-weight:600;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bar .l{justify-self:start;grid-column:1;grid-row:1} .bar .r{justify-self:end;grid-column:3;grid-row:1}
+  .link{color:var(--accent);font-size:17px;padding:8px 4px;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+  .link[hidden]{display:none}
+  .big{font-size:32px;font-weight:700;margin:6px 4px 14px}
+  .sec{margin:22px 0 0}
+  .sec > h2{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:0 16px 7px}
+  .sec > .foot{font-size:13px;color:var(--faint);margin:7px 16px 0}
+  .grp{background:var(--group);border-radius:12px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;min-height:50px;padding:8px 14px 8px 16px;position:relative;width:100%;text-align:left}
+  .row + .row::before,.gap + .row::before{content:"";position:absolute;top:0;left:16px;right:0;border-top:1px solid var(--line)}
+  .row.tap{cursor:pointer} .row.tap:hover{background:var(--hl)}
+  .row .t{flex:1;min-width:0}
+  .row .t b{display:block;font-weight:400}
+  .row .t small{display:block;color:var(--faint);font-size:13px;margin-top:1px}
+  .row .v{color:var(--dim);font-size:15px;white-space:nowrap}
+  .row .chev{color:var(--faint);font-size:20px;margin-left:2px}
+  .row.off .t b{color:var(--faint)}
+  .row.col{flex-direction:column;align-items:stretch;gap:8px;padding-top:12px;padding-bottom:12px}
+  .sw{position:relative;flex:none;width:51px;height:31px;border-radius:16px;background:#3a424c;transition:background .2s}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 2px 4px rgba(0,0,0,.3)}
+  .sw.on{background:var(--ok)} .sw.on::after{transform:translateX(20px)}
+  select,input[type=text],input[type=number],textarea{font:inherit;color:var(--fg);background:#232a33;border:1px solid var(--line);border-radius:9px;padding:7px 10px;outline:none;max-width:100%}
+  select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+  input[type=number]{width:96px;text-align:right}
+  input[type=text],textarea{width:100%}
+  textarea{min-height:84px;resize:vertical}
+  textarea.code{font:13px/1.45 ui-monospace,Menlo,Consolas,monospace;min-height:240px;white-space:pre;tab-size:2}
+  .seg{display:inline-flex;background:#232a33;border-radius:9px;padding:2px;flex:none}
+  .seg button{padding:5px 12px;border-radius:7px;font-size:14px;color:var(--dim)}
+  .seg button.on{background:#3d4652;color:var(--fg)}
+  .row.add b{color:var(--accent)}
+  .btnrow{display:block;width:100%;text-align:center;padding:14px;font-size:17px}
+  .btnrow.red{color:var(--bad)} .btnrow.blue{color:var(--accent)}
+  .minus{flex:none;width:24px;height:24px;border-radius:50%;background:var(--bad);color:#fff;font-size:18px;line-height:22px;text-align:center;font-weight:700}
+  .btnrow.pri{background:var(--accent);color:#06121f;font-weight:600}
+  .emopt{display:flex;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .emopt:last-child{border-bottom:0}
+  .emopt input{width:20px;height:20px;accent-color:var(--accent,#5aa9ff);flex:none}
+  .emopt .t{display:flex;flex-direction:column;gap:3px}
+  .emopt .ex{font-size:14px;color:var(--dim)}
+  .emgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(48px,1fr));gap:6px;background:var(--group);border-radius:12px;padding:10px}
+  .lnk{color:var(--accent);font-size:15px;flex:none}
+  .emp{font-size:28px;line-height:1;height:48px;border-radius:10px;background:none}
+  .emp:hover{background:#2a313b}
+  .emp.on{background:#3d4652;box-shadow:inset 0 0 0 2px var(--accent,#5aa9ff)}
+  .row.swp{gap:10px}
+  .emb{font-size:26px;min-width:52px;height:46px;border-radius:10px;background:#232a33;padding:0 8px}
+  .emb.none{font-size:14px;color:var(--dim)}
+  .row.swp .arr{color:var(--dim);font-size:18px}
+  .embig{font-size:26px;vertical-align:middle}
+  .intro{color:var(--dim);font-size:15px;margin:0 4px 6px}
+  .help{color:var(--faint);font-size:13px;line-height:1.4}
+  .dot{flex:none;width:12px;height:12px;border-radius:50%}
+  .saverow{display:flex;gap:10px;margin-top:16px}
+  .saverow button{flex:1;padding:13px;border-radius:12px;background:var(--group);font-weight:600}
+  .saverow button.pri{background:var(--accent);color:#06121f}
+  #pvedit{background:var(--accent);color:#06121f;font-weight:600;border-radius:9px;padding:6px 14px;font-size:14px}
+  #pvedit.on{background:#2a313b;color:var(--dim)}
+  /* preview */
+  .pv{padding:0 16px 24px}
+  .pvbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 0 10px}
+  .pvbar .note{color:var(--faint);font-size:13px;margin-left:auto}
+  .pvbox{position:relative;width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .pvbox iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0}
+  @media (min-width:1100px){
+    body.desk .app{display:grid;grid-template-columns:440px 1fr;align-items:start}
+    body.desk .nav{margin:0;max-width:none;border-right:1px solid var(--line);min-height:100vh}
+    body.desk .pv{position:sticky;top:0;padding:0 24px 24px}
+  }
+  @media (max-width:699px){ .pv{display:none} }
+  /* looks: picture cards */
+  .lcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:14px}
+  .lcard{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--group);border-radius:12px;padding:8px 8px 10px;border:2px solid transparent}
+  .lcard.now{border-color:var(--accent)}
+  .lcard b{font-weight:600;font-size:15px;margin:4px 2px 0} .lcard small{color:var(--faint);font-size:12px;margin:0 2px}
+  .lpic{position:relative;width:100%;aspect-ratio:16/9;border-radius:7px;overflow:hidden;font-size:7px}
+  .lpic.big{font-size:16px;border-radius:12px;margin:4px 0 6px;box-shadow:0 8px 30px rgba(0,0,0,.35)}
+  .lpic.plus{display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--accent);background:#141a21;border:1px dashed #33404e}
+  .lpic i{position:absolute;border-radius:.6em;border:1px solid transparent;padding:.5em .7em;display:flex;flex-direction:column;gap:.45em;overflow:hidden}
+  .lpic i.dm{inset:0;border-radius:0;padding:0;border:0}
+  .lpic s{display:block;width:30%;height:.4em;border-radius:.2em;opacity:.7}
+  .lpic em{font-style:normal;font-weight:600;line-height:1}
+  .lpic u{display:block;border-radius:.25em;opacity:.55}
+  .lpic b{display:block;width:22%;height:.5em;border-radius:.25em}
+  .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px}
+  .opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:10px;background:#212832;border:2px solid transparent;font-size:14px}
+  .opt.on{border-color:var(--accent);background:#1d2a39}
+  .opt b{font-weight:500} .opt small{color:var(--faint);font-size:11px}
+  .sample{display:block;width:100%;aspect-ratio:16/9;border-radius:6px;position:relative;overflow:hidden}
+  .sample.tl{background:linear-gradient(180deg,#2f6aa3,#0d1a2b)}
+  .sample.tl i{position:absolute;top:18%;bottom:18%;width:38%;border-radius:5px}
+  .sample.tl i:first-child{left:8%} .sample.tl i + i{right:8%}
+  .sample.solid i{background:rgba(18,22,28,.88)} .sample.see i{background:rgba(18,22,28,.45)} .sample.clear i{background:none;border:1px dashed rgba(255,255,255,.3)}
+  .sws{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+  .swc{width:32px;height:32px;border-radius:50%;border:3px solid transparent;box-shadow:0 0 0 1px rgba(255,255,255,.12)}
+  .swc.on{border-color:#fff}
+  input[type=color]{width:44px;height:32px;border:0;background:none;padding:0}
+  input[type=range]{width:150px;accent-color:var(--accent)}
+  .seg.wide{display:flex;width:100%} .seg.wide button{flex:1}
+  details.more > summary{cursor:pointer;color:var(--accent);font-size:15px;margin:0 16px 8px;list-style:none}
+  details.more > summary::before{content:"▸ "} details.more[open] > summary::before{content:"▾ "}
+  /* effects library */
+  .fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+  .fxc{background:var(--group);border-radius:12px;overflow:hidden;cursor:pointer}
+  .fxc canvas{display:block;width:100%;aspect-ratio:16/9;background:#0b1022}
+  .fxc.off canvas{opacity:.35}
+  .fxc.big{cursor:default;margin:4px 0 12px} .fxc.big canvas{border-radius:12px}
+  .fxt{display:flex;align-items:center;gap:8px;padding:8px 10px 10px}
+  .fxt > div{flex:1;min-width:0} .fxt b{display:block;font-weight:500;font-size:15px} .fxt small{color:var(--faint);font-size:12px}
+  .fxt .sw{transform:scale(.8);transform-origin:right center}
+  .nowtag{color:var(--ok)}
+  #toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#232a33;z-index:60;
+    border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:15px;color:var(--dim);box-shadow:0 8px 30px rgba(0,0,0,.4);transition:opacity .3s;pointer-events:none}
+  #toast.ok{color:var(--ok)} #toast.bad{color:var(--bad)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nav">
+    <div class="bar">
+      <button class="link l" id="back" hidden>‹ <span id="backlbl">Settings</span></button>
+      <h1 id="title"></h1>
+      <a class="link r" id="done" href="/dash" target="_blank">Open dashboard</a>
+    </div>
+    <div id="screen"></div>
+  </div>
+  <div class="pv" id="pv" hidden>
+    <div class="pvbar">
+      <span class="seg" id="pvpage"></span>
+      <button id="pvedit">Edit on screen</button>
+      <span class="seg" id="pvsize"><button data-h="1080" class="on">Full screen</button><button data-h="980">With browser bar</button></span>
+      <span class="note">The Echo screen at its real size (1920×<span id="pvh">1080</span>). Click a tile to change it.</span>
+    </div>
+    <div class="pvbox" id="pvbox"><iframe id="pvf" title="Dashboard preview" width="1920" height="1080"></iframe></div>
+  </div>
+</div>
+<div id="toast" style="opacity:0"></div>
+<script>
+"use strict";
+/* Controls: Setup (your location, calendars, lists, teams, albums, cams, store deals), Pages, and the look.
+   Tiles themselves are added, arranged and set up on the dashboard: Edit on screen (or hold a tile on the screen). */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ECHO = /[?&]echo=1/.test(location.search);
+let schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
+const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams"];
+
+if (ECHO){
+  $("done").textContent = "Done"; $("done").removeAttribute("target"); $("done").href = "/dash/content";
+  document.addEventListener("pointerdown", () => { try{ window.top.shellTap && window.top.shellTap(); }catch(e){} });
+  setInterval(() => { try{ window.top.contentTick && window.top.contentTick(); }catch(e){} }, 20e3);
+}
+
+function toast(msg, cls){
+  const t = $("toast"); t.textContent = msg; t.className = cls || ""; t.style.opacity = 1;
+  clearTimeout(toast.h); toast.h = setTimeout(() => { t.style.opacity = 0; }, cls === "bad" ? 8000 : 2200);
+}
+async function load(){
+  try{
+    const [j, s] = await Promise.all([fetch("/config", {cache:"no-store"}).then(r => r.json()), fetch("/sources", {cache:"no-store"}).then(r => r.json())]);
+    schema = j.schema; mods = j.modules; SRC = s.sources || {}; KINDS = s.kinds || {};
+    await titlesLoad; show();
+  }catch(e){ toast("Can't reach the dashboard server", "bad"); }
+}
+function pvRefresh(){
+  if (ECHO) return;
+  let ed = false; try{ ed = pvWin().dashEditing(); }catch(e){}
+  if (ed){ try{ pvWin().dashApply(mods); }catch(e){} } else pvLoad();
+}
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try{
+      const r = await fetch("/config", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({modules: mods})});
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || r.status);
+      mods = j.modules;
+      toast("Saved", "ok"); pvRefresh();
+    }catch(e){ toast("Didn't save: " + e.message, "bad"); }
+  }, 450);
+}
+
+/* ---------- helpers ---------- */
+const U = 2, GC = 24 * U;
+function gpAll(){
+  if (!(mods.pages && mods.pages.settings)) return [];
+  const L = mods.pages.settings.items = mods.pages.settings.items || [];
+  for (const p of L) if (p.cols !== GC){ const f = GC / (p.cols || 12); (p.slots || []).forEach(s => { s.x *= f; s.y *= f; s.w *= f; s.h *= f; }); p.cols = GC; }
+  return L;
+}
+const cpList = () => gpAll().filter(p => p.id !== "main" && p.id !== "night");
+const cpById = id => cpList().find(p => p.id === id);
+const smods = s => [s.mod].concat(s.more || []).filter(Boolean);
+const tileList = () => (mods.tiles && mods.tiles.settings && mods.tiles.settings.items) || [];
+const sw = (on, attrs) => '<button class="sw' + (on ? " on" : "") + '" role="switch" aria-checked="' + !!on + '" ' + attrs + '></button>';
+function row(o){   // {t, sub, v, chev, cls, attrs, pre, post}
+  return '<div class="row' + (o.chev ? " tap" : "") + (o.cls ? " " + o.cls : "") + '" ' + (o.attrs || "") + '>' + (o.pre || "") +
+    '<div class="t"><b>' + esc(o.t) + '</b>' + (o.sub ? '<small>' + esc(o.sub) + '</small>' : "") + '</div>' +
+    (o.v ? '<span class="v">' + esc(o.v) + '</span>' : "") + (o.post || "") + (o.chev ? '<span class="chev">›</span>' : "") + '</div>';
+}
+const sec = (title, body, foot) => '<div class="sec">' + (title ? '<h2>' + esc(title) + '</h2>' : "") + '<div class="grp">' + body + '</div>' + (foot ? '<div class="foot">' + esc(foot) + '</div>' : "") + '</div>';
+const n = (k, c) => c + " " + (c === 1 ? KINDS[k].one : KINDS[k].title.toLowerCase());
+function tileName(id){ const t = tileList().find(x => x.id === id); return t ? t.name || TITLES[t.type] || t.type : id; }
+// which tiles use a source (a tile set to "all calendars" counts for every calendar)
+function usedBy(kind, id){
+  return tileList().filter(t => Object.values(t.settings || {}).some(v => v === id || Array.isArray(v) && v.includes(id))).map(t => t.name || TITLES[t.type] || t.type);
+}
+let TITLES = {};          // tile type -> its name, read from the tile files
+const titlesLoad = fetch("/tiles.js").then(r => r.text()).then(t => { for (const m of t.matchAll(/(?:Tile|viewTile)\("(\w+)",\s*\{[^}]*?title:"([^"]+)"/g)) TITLES[m[1]] = m[2]; }).catch(() => {});
+
+/* ---------- screens ---------- */
+function rootScreen(){
+  let h = '<div class="big">Dashboard</div>';
+  h += sec("", ECHO ? row({t:"Change what's on the screen", sub:"Press Done, then hold any tile for a second. You can add tiles, move and resize them, and change each one's settings right there."})
+    : '<button class="btnrow pri" data-act="edit" data-id="main">Edit dashboard on screen</button>',
+    ECHO ? "" : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
+  const g = mods.general ? mods.general.settings : {};
+  h += sec("Setup",
+    row({t:"Location & units", sub: g.place || (g.lat ? g.lat + ", " + g.lon : "Not set: needed for weather"), chev:true, attrs:'data-go="mod:general"'}) +
+    KIND_ORDER.filter(k => KINDS[k]).map(k => { const c = (SRC[k] || []).length;
+      return row({t:KINDS[k].title, sub: c ? (SRC[k] || []).map(x => x.name).join(", ") : "None yet", chev:true, attrs:'data-go="src:' + k + '"'}); }).join("") +
+    (schema.deals ? row({t:"Store deals", sub: (mods.deals.settings.stores || []).length ? (mods.deals.settings.stores || []).join(", ") : "Not set up", chev:true, attrs:'data-go="mod:deals"'}) : ""),
+    "Set these up once. Any tile can use them, and several tiles can share the same one.");
+  h += sec("Pages", row({t:"Main", sub:pageSummary(gpAll().find(p => p.id === "main")), v:"Always on"}) +
+    cpList().map(p => row({t:p.name, sub:pageSummary(p), chev:true, attrs:'data-go="page:' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : ""})).join("") +
+    row({t:"Night page", sub:nightText() + " · " + pageSummary(gpAll().find(p => p.id === "night")), chev:true, attrs:'data-go="night"'}) +
+    row({t:"Add page", chev:true, cls:"add", attrs:'data-go="newpage"'}),
+    "Swipe left and right on the screen to move between pages.");
+  h += sec("Look", row({t:"Looks", sub:"Colors, background, tiles, text size · now: " + lookName(curLook()), chev:true, attrs:'data-go="looks"'}) +
+    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
+    row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}) +
+    row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}));
+  return h;
+}
+function pageSummary(p){
+  if (!p) return "Empty";
+  const t = [].concat(...(p.slots || []).map(smods)).map(tileName);
+  return t.length ? t.join(", ") : "No tiles yet";
+}
+function field(mid, key, s, val){
+  const a = 'data-m="' + mid + '" data-k="' + key + '" data-t="' + s.type + '"';
+  if (s.type === "bool") return row({t:s.label, post: sw(val, a)});
+  if (s.type === "color") return row({t:s.label, post:'<input type="color" ' + a + ' value="' + esc(val || "#000000") + '">'});
+  if (s.type === "choice") return row({t:s.label, post:'<select ' + a + '>' + s.choices.map(c => '<option' + (c === val ? " selected" : "") + '>' + esc(c) + '</option>').join("") + '</select>'});
+  if (s.type === "int" || s.type === "number")
+    return row({t:s.label, sub:(s.min != null && s.max != null ? s.min + "–" + s.max : ""), post:'<input type="number" ' + a + (s.min != null ? ' min="' + s.min + '"' : "") +
+      (s.max != null ? ' max="' + s.max + '"' : "") + ' step="' + (s.type === "int" ? 1 : "any") + '" value="' + esc(val) + '" inputmode="decimal">'});
+  if (s.type === "list") return '<div class="row col"><div class="t"><b>' + esc(s.label) + '</b><small>One per line</small></div><textarea ' + a + '>' + esc((val || []).join("\n")) + '</textarea></div>';
+  return '<div class="row col"><div class="t"><b>' + esc(s.label) + '</b></div><input type="text" ' + a + ' value="' + esc(val) + '" autocapitalize="off" spellcheck="false"></div>';
+}
+function modScreen(m){
+  const s = schema[m], c = mods[m];
+  let h = '<div class="big">' + esc(s.title) + '</div>';
+  if (s.desc) h += '<p class="intro">' + esc(s.desc) + '</p>';
+  if (m === "general"){
+    h += sec("", '<button class="btnrow blue" data-act="locate">Find a place by name…</button>', "Or type the latitude and longitude below.");
+    const G = [["Place", ["place", "lat", "lon"]], ["Units and formats", ["units", "h24", "dateFmt", "weekStart"]], ["Icons", ["emoji", "swap"]], ["Screen", ["gear"]]];
+    G.forEach(([g, keys]) => { const K = keys.filter(k => s.settings[k]); if (!K.length) return;
+      if (g === "Icons"){ h += emojiPicker(c.settings.emoji, c.settings.swap); return; }
+      h += sec(g, K.map(k => field(m, k, s.settings[k], c.settings[k])).join("")); });
+    return h;
+  }
+  const keys = Object.keys(s.settings).filter(k => k !== "items");
+  if (keys.length) h += sec("Settings", keys.map(k => field(m, k, s.settings[k], c.settings[k])).join(""));
+  return h;
+}
+// Icons: color emoji, simple one-color symbols, or words only, each shown as it would look
+const EMOJI_OPTS = [["Emoji", "Color emoji", "☁️ 44° · 🌅 6:45 AM · 🌔 Waxing gibbous · 🦃 Thanksgiving in 7 days"],
+  ["Simple symbols", "Simple symbols", "☁︎ 44° · ↑ 6:45 AM · ☾ Waxing gibbous · Thanksgiving in 7 days"],
+  ["No emoji", "Words only", "44° Overcast · Sunrise 6:45 AM · Waxing gibbous · Thanksgiving in 7 days"]];
+function emojiPicker(cur, swap){
+  cur = EMOJI_OPTS.some(o => o[0] === cur) ? cur : "Emoji";
+  const opts = EMOJI_OPTS.map(([v, t, ex]) => '<label class="emopt"><input type="radio" name="emoji" data-m="general" data-k="emoji" data-t="choice" value="' + v + '"' + (v === cur ? " checked" : "") + '>' +
+    '<span class="t"><b>' + t + '</b><span class="ex">' + ex + '</span></span></label>').join("");
+  return sec("Icons", opts, "Simple symbols keeps the weather, sun and moon icons as plain one-color shapes and drops the rest. With either of the last two, the emoji effects (falling leaves, turkeys, confetti) rest too; rain, snow and the other weather effects keep going.") +
+    (cur === "Emoji" ? swapRows() : "");
+}
+function srcScreen(k){
+  const K = KINDS[k], L = SRC[k] || [];
+  let h = '<div class="big">' + esc(K.title) + '</div><p class="intro">' + esc(K.desc || "") + '</p>';
+  h += sec("", (L.length ? L.map(x => { const u = usedBy(k, x.id);
+      return row({t:x.name || "(no name)", sub: u.length ? "Used by " + u.join(", ") : "", chev:true, attrs:'data-go="srci:' + k + ':' + x.id + '"',
+        pre: x.color ? '<span class="dot" style="background:' + esc(x.color) + '"></span>' : ""}); }).join("") : '<div class="row"><div class="t"><small>None yet</small></div></div>') +
+    row({t:"Add a " + K.one, chev:true, cls:"add", attrs:'data-go="srci:' + k + ':new"'}),
+    "Then pick it in a tile's settings: Edit dashboard on screen, tap the tile.");
+  return h;
+}
+function srcItemScreen(k, id){
+  const K = KINDS[k], x = id === "new" ? {} : (SRC[k] || []).find(v => v.id === id);
+  if (!x) return '<div class="big">Not found</div>';
+  let h = '<div class="big">' + (id === "new" ? "New " + esc(K.one) : esc(x.name || K.one)) + '</div>';
+  let rows = "";
+  for (const f in K.fields){
+    const F = K.fields[f], a = 'data-sf="' + f + '"', help = F.help ? '<div class="help">' + esc(F.help) + '</div>' : "";
+    const hide = F.when && Object.keys(F.when).some(w => (x[w] || (K.fields[w].choices || [])[0]) !== F.when[w]);
+    let inp;
+    if (F.type === "color") inp = row({t:F.label, sub:F.help, post:'<input type="color" ' + a + ' value="' + esc(x[f] || "#7cb7ff") + '">'});
+    else if (F.type === "choice"){
+      const ch = F.choices.map(c => Array.isArray(c) ? c : [c, c]), cur = x[f] || ch[0][0];
+      inp = '<div class="row col"><div class="t"><b>' + esc(F.label) + '</b></div><select ' + a + '>' + ch.map(([v, l]) => '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + '>' + esc(l) + '</option>').join("") + '</select>' + help + '</div>';
+    } else {
+      const ph = F.secret && x.urlSet ? "Saved and hidden. Paste a new link to replace it." : "";
+      inp = '<div class="row col"><div class="t"><b>' + esc(F.label) + '</b></div><input type="text" ' + a + ' value="' + esc(F.secret ? "" : x[f] || "") + '" placeholder="' + esc(ph) + '" autocapitalize="off" spellcheck="false">' + help + '</div>';
+    }
+    rows += '<div data-fw="' + f + '"' + (hide ? " hidden" : "") + '>' + inp + '</div>';
+  }
+  h += sec("", rows);
+  h += '<div class="saverow">' + (id === "new" ? "" : '<button class="red" data-sact="del" data-k="' + k + '" data-id="' + id + '" style="color:var(--bad)">Delete</button>') +
+    '<button class="pri" data-sact="save" data-k="' + k + '" data-id="' + id + '">' + (id === "new" ? "Add " + esc(K.one) : "Save") + '</button></div>';
+  if (id !== "new"){ const u = usedBy(k, id); if (u.length) h += '<div class="sec"><div class="foot">Used by ' + esc(u.join(", ")) + '.</div></div>'; }
+  return h;
+}
+async function srcAction(act, k, id){
+  const K = KINDS[k], item = {id: id === "new" ? undefined : id};
+  if (act === "save"){
+    document.querySelectorAll("[data-sf]").forEach(el => { const v = el.value.trim(); if (!(K.fields[el.dataset.sf].secret && !v)) item[el.dataset.sf] = v; });
+    if (!item.name){ toast("Give it a name first", "bad"); return; }
+    if (id === "new" && K.fields.url && K.fields.url.secret && !item.url){ toast("Paste the link first", "bad"); return; }
+  } else if (!confirmDel(K, id)) return;
+  try{
+    const r = await fetch("/sources", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind:k, op: act === "del" ? "delete" : id === "new" ? "add" : "update", item})});
+    const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+    SRC = j.sources; toast(act === "del" ? "Deleted" : "Saved", "ok"); stack.pop(); show(); pvRefresh();
+  }catch(e){ toast("Didn't save: " + e.message, "bad"); }
+}
+let delArm = "";
+function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Echo can't show them reliably)
+  if (delArm === id) return true;
+  delArm = id; toast("Tap Delete again to remove this " + K.one, "bad"); setTimeout(() => { if (delArm === id) delArm = ""; }, 4000);
+  return false;
+}
+const PAGE_TPL = [
+  {name:"Top row + two columns", sub:"A wide strip on top, a big box and a side box below", boxes:[[0, 0, 24, 4], [0, 4, 14, 12], [14, 4, 10, 12]]},
+  {name:"Big + side stack", sub:"One large box with two smaller ones beside it", boxes:[[0, 0, 16, 16], [16, 0, 8, 8], [16, 8, 8, 8]]},
+  {name:"Four squares", sub:"Four equal boxes", boxes:[[0, 0, 12, 8], [12, 0, 12, 8], [0, 8, 12, 8], [12, 8, 12, 8]]},
+  {name:"Blank", sub:"Start empty and add boxes yourself", boxes:[]}];
+function newPageScreen(){
+  return '<div class="big">Add page</div>' + sec("Pick a starting layout", PAGE_TPL.map((t, i) => row({t:t.name, sub:t.sub, chev:true, cls:"add", pre:tplPic(t.boxes), attrs:'data-act="new" data-id="' + i + '"'})).join(""),
+    "Then put tiles in its boxes on screen. You can move, resize, add and delete boxes too.");
+}
+function tplPic(boxes){
+  return '<svg width="60" height="40" viewBox="0 0 120 80" style="flex:none;margin-right:4px"><rect width="120" height="80" rx="6" fill="#1c2430"/>' +
+    boxes.map(b => '<rect x="' + (b[0] * 5 + 2) + '" y="' + (b[1] * 5 + 2) + '" width="' + (b[2] * 5 - 4) + '" height="' + (b[3] * 5 - 4) + '" rx="3" fill="none" stroke="#5aa9ff" stroke-width="2" stroke-dasharray="5 3"/>').join("") + '</svg>';
+}
+function pageScreen(id){
+  const p = cpById(id); if (!p) return '<div class="big">Page not found</div>';
+  let h = '<div class="big">' + esc(p.name) + '</div>';
+  h += sec("", row({t:"Show this page", post: sw(p.on !== false, 'data-act="toggle" data-id="' + id + '"')}));
+  h += sec("Name", '<div class="row col"><input type="text" data-pg="' + id + '" data-k="name" value="' + esc(p.name) + '"></div>');
+  h += sec("", row({t:"Go back to the main page after", sub:"Seconds; 0 stays on this page", post:'<input type="number" min="0" max="3600" step="1" data-pg="' + id + '" data-k="back" value="' + (+p.back || 0) + '">'}));
+  h += sec("On this page", '<div class="row"><div class="t"><b>' + esc(pageSummary(p)) + '</b></div></div>' +
+    (ECHO ? "" : '<button class="btnrow blue" data-act="edit" data-id="' + id + '">Edit this page on screen</button>'),
+    ECHO ? "To change it, swipe to this page on the screen and hold any tile." : "");
+  h += sec("", '<button class="btnrow red" data-act="del" data-id="' + id + '">Delete page</button>', "Its tiles are deleted with it.");
+  return h;
+}
+function pvGoPage(id){
+  const tryGo = () => { try{ const w = pvWin(); if (!w.dashGoPage || w.dashEditing()) return; if (w.dashGoPage("c:" + id) >= 0) pvTabs(); }catch(e){} };
+  tryGo(); setTimeout(tryGo, 1500);
+}
+function act(a, id){
+  const L = cpList(), p = cpById(id);
+  if (a === "new"){
+    const t = PAGE_TPL[+id], pid = "p" + Date.now().toString(36);
+    gpAll().push({id:pid, name:"Page " + (L.length + 2), on:true, back:0, cols:GC, slots:t.boxes.map((r, j) => ({id:"s" + j + pid, x:r[0] * U, y:r[1] * U, w:r[2] * U, h:r[3] * U, mod:null}))});
+    stack.pop(); save(); go("page:" + pid);
+    if (!ECHO) PV.editPage = pid;     // the preview reloads after saving; open the editor there
+    return;
+  }
+  if (a === "toggle"){ p.on = p.on === false; save(); show(); return; }
+  if (a === "edit"){ try{
+      const w = pvWin(), name = id === "main" || id === "night" ? id : "c:" + id;
+      if (w.dashGoPage(name) < 0 && w.dashApply) w.dashApply(mods);         // a page added or changed here that the preview hasn't seen yet
+      if (w.dashGoPage(name) >= 0){ w.dashEdit(true); w.dashGoPage(name); pvTabs(); } else toast(p && p.on === false ? "Turn the page on first" : "The preview is still loading; try again", "bad");
+    }catch(e){} return; }
+  if (a === "del"){
+    if (!confirmDel({one:"page"}, id)) return;
+    const gone = new Set([].concat(...(p.slots || []).map(smods)));
+    if (mods.tiles) mods.tiles.settings.items = tileList().filter(t => !gone.has(t.id));
+    mods.pages.settings.items = gpAll().filter(x => x !== p); stack.pop(); save(); show(); return;
+  }
+  if (a === "locate") return locate();
+}
+// place search: Open-Meteo's free geocoder (no key); only the typed place name is sent
+async function locate(){
+  const box = document.querySelector('[data-act="locate"]').closest(".grp");
+  box.innerHTML = '<div class="row col"><input type="text" id="locq" placeholder="City or town, e.g. Denver" autocapitalize="words"><div id="locres"></div></div>';
+  const inp = $("locq"); inp.focus();
+  let t = null;
+  inp.addEventListener("input", () => { clearTimeout(t); t = setTimeout(async () => {
+    const v = inp.value.trim(); if (v.length < 2){ $("locres").innerHTML = ""; return; }
+    try{
+      const j = await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=6&language=en&name=" + encodeURIComponent(v))).json();
+      $("locres").innerHTML = (j.results || []).map(r => row({t:r.name, sub:[r.admin1, r.country].filter(Boolean).join(", "), chev:true,
+        attrs:'data-loc="' + esc(JSON.stringify({place:r.name, lat:+r.latitude.toFixed(4), lon:+r.longitude.toFixed(4)})) + '"'})).join("") || '<div class="help">No match</div>';
+    }catch(e){ $("locres").innerHTML = '<div class="help">Search isn\'t reachable; type the latitude and longitude below instead.</div>'; }
+  }, 350); });
+}
+function show(){
+  const cur = stack[stack.length - 1];
+  let h, title;
+  if (cur === "root"){ h = rootScreen(); title = ""; }
+  else if (cur === "newpage"){ h = newPageScreen(); title = "Add page"; }
+  else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = p ? p.name : "Page"; }
+  else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
+  else if (cur.startsWith("srci:")){ const [, k, id] = cur.split(":"); h = srcItemScreen(k, id); title = KINDS[k] ? KINDS[k].title : ""; }
+  else if (cur === "looks"){ h = looksScreen(); title = "Looks"; }
+  else if (cur === "newlook"){ h = newLookScreen(); title = "New look"; }
+  else if (cur.startsWith("look:")){ h = lookScreen(cur.slice(5)); title = lookName(cur.slice(5)); }
+  else if (cur === "sched"){ h = schedScreen(); title = "Schedule"; }
+  else if (cur.startsWith("rule:")){ h = ruleScreen(cur.slice(5)); title = "Schedule"; }
+  else if (cur === "night"){ h = nightScreen(); title = "Night page"; }
+  else if (cur === "effects"){ h = effectsScreen(); title = "Effects"; }
+  else if (cur.startsWith("emo:")){ h = emoScreen(cur); title = "Swap emoji"; }
+  else if (cur.startsWith("fx:")){ h = fxScreen(cur.slice(3)); title = (FXLIB.BY[cur.slice(3)] || {}).name || "Effect"; }
+  else { const m = cur.slice(4); h = schema[m] ? modScreen(m) : ""; title = schema[m] ? schema[m].title : ""; }
+  $("screen").innerHTML = h;
+  $("title").textContent = title;
+  $("back").hidden = stack.length < 2;
+  const prev = stack[stack.length - 2];
+  const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Looks", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New look"};
+  $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? lookName(prev.slice(5)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
+    prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "newpage" ? "Add page" : "Back";
+  const want = cur.startsWith("look:") ? cur.slice(5) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
+  if (!ECHO && (want !== PV.theme || night !== !!PV.night)){ PV.theme = want; PV.night = night; pvLoad(); }
+  fxPreviews();
+  if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
+}
+function go(to){ stack.push(to); show(); scrollTo(0, 0); }
+$("back").addEventListener("click", () => { stack.pop(); show(); });
+
+/* ---------- edits ---------- */
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-go]"); if (!t) return;
+  if (lookClick(t)) return;
+  if (t.dataset.act){ act(t.dataset.act, t.dataset.id); return; }
+  if (t.dataset.sact){ srcAction(t.dataset.sact, t.dataset.k, t.dataset.id); return; }
+  if (t.dataset.loc){ Object.assign(mods.general.settings, JSON.parse(t.dataset.loc)); save(); show(); return; }
+  if (t.dataset.on){ const m = t.dataset.on; mods[m].on = !mods[m].on; show(); save(); return; }
+  if (t.dataset.t === "bool"){ const d = t.dataset, v = !mods[d.m].settings[d.k]; mods[d.m].settings[d.k] = v; t.classList.toggle("on", v); t.setAttribute("aria-checked", v); save(); return; }
+  if (t.dataset.go){ go(t.dataset.go); return; }
+});
+document.addEventListener("change", e => {
+  const t = e.target, d = t.dataset;
+  if ((d.lk && d.lv === undefined) || d.rk || (d.fxk && d.fxv === undefined) || (d.nk && d.nv === undefined)){ lookChange(t); return; }
+  if (d.sf){       // show only the fields that apply (e.g. the Reminders list name)
+    const cur = stack[stack.length - 1].split(":"), K = KINDS[cur[1]]; if (!K) return;
+    for (const f in K.fields){ const F = K.fields[f]; if (!F.when) continue;
+      const ok = Object.keys(F.when).every(w => { const el = document.querySelector('[data-sf="' + w + '"]'); return el && el.value === F.when[w]; });
+      const wrap = document.querySelector('[data-fw="' + f + '"]'); if (wrap) wrap.hidden = !ok; }
+    return;
+  }
+  if (d.pg){ const p = cpById(d.pg); if (!p) return;
+    if (d.k === "name"){ p.name = t.value.trim() || p.name; t.value = p.name; $("title").textContent = p.name; }
+    else { const v = parseInt(t.value, 10); p.back = isFinite(v) ? Math.max(0, Math.min(3600, v)) : 0; t.value = p.back; }
+    save(); return; }
+  if (!d.m) return;
+  const s = schema[d.m].settings[d.k];
+  let v = t.value;
+  if (d.t === "int" || d.t === "number"){
+    v = d.t === "int" ? parseInt(v, 10) : parseFloat(v);
+    if (!isFinite(v)){ t.value = mods[d.m].settings[d.k]; return; }
+    if (s.min != null) v = Math.max(s.min, v);
+    if (s.max != null) v = Math.min(s.max, v);
+    t.value = v;
+  } else if (d.t === "list") v = v.split("\n").map(x => x.trim()).filter(Boolean);
+  else if (d.t === "text") v = v.trim();
+  mods[d.m].settings[d.k] = v;
+  save();
+  if (d.m === "general" && d.k === "emoji") show();
+});
+
+/* ---------- effects library: every effect is one small animation that can be turned on, sized and timed on its own ----------
+   Shared by the dashboard (full-screen canvases) and Controls (little live previews on each card). */
+const FXLIB = (function(){
+  const R = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  const weighted = list => { const tot = list.reduce((a, x) => a + x[1], 0); let r = Math.random() * tot; for (const x of list){ r -= x[1]; if (r <= 0) return x; } return list[0]; };
+  const COLORS = ["#ff6b6b","#ffd36e","#6bd3ff","#8fffa0","#c58bff","#ff9ad5","#ffffff"];
+  const AMT = {Few:.5, Some:1, Lots:1.8};
+  // emoji are drawn once into small canvases and reused (much cheaper than fillText every frame)
+  const sprites = {};
+  function sprite(g, s){
+    s = Math.max(12, Math.round(s / 4) * 4);
+    const k = g + s;
+    if (!sprites[k]){
+      const c = document.createElement("canvas"); c.width = c.height = Math.ceil(s * 1.3);
+      const x = c.getContext("2d"); x.font = s + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText(g, c.width / 2, c.height / 2 + s * .06);
+      sprites[k] = c;
+    }
+    return sprites[k];
+  }
+  function drawSprite(cx, g, s, x, y, rot, a, sy){
+    const sp = sprite(g, s);
+    cx.save(); cx.globalAlpha = a; cx.translate(x, y); if (rot) cx.rotate(rot); if (sy) cx.scale(1, sy);
+    cx.drawImage(sp, -sp.width / 2, -sp.height / 2); cx.restore();
+  }
+
+  /* ----- weather ----- */
+  function rain(o){
+    const n = Math.round((o.kind === "drizzle" ? 70 : 140) * o.amt), P = [];
+    const drop = init => ({x:R(0, o.W * 1.1), y:init ? R(-o.H, o.H) : R(-80, -10), v:R(16, 26), l:R(14, 26)});
+    for (let i = 0; i < n; i++) P.push(drop(true));
+    let flash = 0, next = Date.now() + R(3e3, 8e3);
+    return cx => {
+      cx.strokeStyle = o.front ? "rgba(185,210,255,.34)" : "rgba(160,195,255,.3)"; cx.lineWidth = 1.5;
+      cx.beginPath();
+      for (const p of P){ cx.moveTo(p.x, p.y); cx.lineTo(p.x - p.l * .25, p.y + p.l); p.y += p.v; p.x -= p.v * .25; if (p.y > o.H) Object.assign(p, drop(false)); }
+      cx.stroke();
+      if (o.kind === "storm" || o.preview){
+        if (Date.now() > next){ flash = .16; next = Date.now() + (o.preview ? R(4e3, 7e3) : R(9e3, 25e3)); }
+        if (flash > 0){ cx.fillStyle = "rgba(220,230,255," + flash.toFixed(3) + ")"; cx.fillRect(0, 0, o.W, o.H); flash -= .012; }
+      }
+      return true;
+    };
+  }
+  function snow(o){
+    const P = [], f = init => ({x:R(0, o.W), y:init ? R(-o.H, o.H) : R(-30, -5), v:R(.8, 2.2), r:R(2, 5), ph:R(0, 6.3)});
+    for (let i = 0; i < Math.round(110 * o.amt); i++) P.push(f(true));
+    return cx => {
+      cx.fillStyle = "rgba(255,255,255,.7)"; cx.beginPath();
+      for (const p of P){ p.ph += .02; p.y += p.v; p.x += Math.sin(p.ph) * .6; cx.moveTo(p.x + p.r, p.y); cx.arc(p.x, p.y, p.r, 0, 6.29); if (p.y > o.H + 5) Object.assign(p, f(false)); }
+      cx.fill(); return true;
+    };
+  }
+  function clouds(o){
+    const P = [], c = () => ({x:R(-300, o.W), y:R(-60, o.H * .6), v:R(.1, .3), r:R(240, 460)});
+    for (let i = 0; i < Math.max(2, Math.round(6 * o.amt)); i++) P.push(c());
+    return cx => {
+      for (const p of P){
+        p.x += p.v; if (p.x - p.r > o.W){ p.x = -p.r; p.y = R(-60, o.H * .6); }
+        const g = cx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
+        g.addColorStop(0, "rgba(190,200,215,.13)"); g.addColorStop(1, "rgba(190,200,215,0)");
+        cx.fillStyle = g; cx.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+      }
+      return true;
+    };
+  }
+  function fog(o){
+    const P = [];
+    for (let i = 0; i < Math.max(2, Math.round(5 * o.amt)); i++) P.push({x:R(-o.W, 0), y:R(0, o.H), v:R(.2, .45), h:R(90, 200)});
+    return cx => {
+      for (const p of P){
+        p.x += p.v; if (p.x > o.W) p.x = -o.W;
+        const g = cx.createLinearGradient(0, p.y - p.h, 0, p.y + p.h);
+        g.addColorStop(0, "rgba(190,198,208,0)"); g.addColorStop(.5, "rgba(190,198,208,.12)"); g.addColorStop(1, "rgba(190,198,208,0)");
+        cx.fillStyle = g; cx.fillRect(p.x, p.y - p.h, o.W, p.h * 2);
+      }
+      return true;
+    };
+  }
+  function sun(o){
+    const P = [];
+    for (let i = 0; i < Math.round(26 * o.amt); i++) P.push({x:R(0, o.W), y:R(0, o.H), vx:R(-.15, .15), vy:R(-.25, -.05), r:R(1.5, 3.5), ph:R(0, 6.3)});
+    let a = 0;
+    return cx => {
+      const sx = o.W * .8, sy = -60, H = o.H;
+      const g = cx.createRadialGradient(sx, sy, 0, sx, sy, H * .95);
+      g.addColorStop(0, "rgba(255,214,140,.32)"); g.addColorStop(.5, "rgba(255,200,120,.09)"); g.addColorStop(1, "rgba(255,200,120,0)");
+      cx.fillStyle = g; cx.fillRect(0, 0, o.W, H);
+      a += .0012;
+      cx.save(); cx.translate(sx, sy); cx.rotate(a);
+      for (let i = 0; i < 12; i++){
+        cx.rotate(Math.PI / 6);
+        const rg = cx.createLinearGradient(0, 0, 0, H * 1.1);
+        rg.addColorStop(0, "rgba(255,225,160,.11)"); rg.addColorStop(1, "rgba(255,225,160,0)");
+        cx.fillStyle = rg; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(-70, H * 1.1); cx.lineTo(70, H * 1.1); cx.closePath(); cx.fill();
+      }
+      cx.restore();
+      for (const p of P){
+        p.ph += .02; p.x += p.vx; p.y += p.vy; if (p.y < -10){ p.y = H + 10; p.x = R(0, o.W); }
+        cx.fillStyle = "rgba(255,236,190," + (.25 + .2 * Math.sin(p.ph)).toFixed(3) + ")";
+        cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, 6.29); cx.fill();
+      }
+      return true;
+    };
+  }
+  function stars(o){
+    const P = [];
+    for (let i = 0; i < Math.round(70 * o.amt); i++) P.push({x:R(0, o.W), y:R(0, o.H * .7), r:R(.7, 1.9), ph:R(0, 6.3), sp:R(.01, .03)});
+    return cx => {
+      for (const p of P){ p.ph += p.sp; cx.fillStyle = "rgba(225,232,255," + (.3 + .3 * Math.sin(p.ph)).toFixed(3) + ")"; cx.beginPath(); cx.arc(p.x, p.y, p.r, 0, 6.29); cx.fill(); }
+      return true;
+    };
+  }
+
+  /* ----- seasonal: emoji drifting across the screen. [glyph, weight, motion]: fall | rise | fly | flutter ----- */
+  const SETS = {
+    leaves:    {n:16, dots:0,  g:[["🍂",5,"fall"],["🍁",5,"fall"],["🌰",1,"fall"],["🍎",1,"fall"]]},
+    halloween: {n:16, dots:0,  g:[["🍂",3,"fall"],["🍁",3,"fall"],["🎃",3,"fall"],["🦇",2,"fly"],["👻",1,"rise"],["🍬",1,"fall"]]},
+    thanks:    {n:18, dots:0,  g:[["🍂",5,"fall"],["🍁",5,"fall"],["🦃",1,"fall"],["🥧",1,"fall"],["🌽",1,"fall"],["🎃",1,"fall"]]},
+    xmas:      {n:12, dots:45, g:[["❄️",4,"fall"],["⭐",1,"fall"],["🎁",1,"fall"],["🔔",1,"fall"],["🍬",1,"fall"],["🎄",1,"fall"]]},
+    winter:    {n:8,  dots:55, g:[["❄️",1,"fall"]]},
+    newyear:   {n:10, dots:0,  g:[["🎉",1,"fall"],["✨",2,"fall"],["🥳",1,"fall"]]},
+    valentine: {n:14, dots:0,  g:[["💕",2,"rise"],["💗",2,"rise"],["❤️",1,"rise"]]},
+    spring:    {n:12, dots:0,  g:[["🌸",4,"fall"],["🌼",2,"fall"],["🦋",1,"flutter"]]},
+    july4:     {n:10, dots:0,  g:[["⭐",2,"fall"],["🇺🇸",1,"fall"]]},
+    summer:    {n:5,  dots:0,  g:[["🦋",2,"flutter"],["🐝",1,"flutter"]]}
+  };
+  function falling(set){
+    return o => {
+      const S = SETS[set], W = o.W, H = o.H, P = [], D = [];
+      const part = init => {
+        const [g, , mo] = weighted(S.g), s = R(24, 58), depth = (s - 24) / 34;
+        const p = {g, mo, s, a:.55 + depth * .4, ph:R(0, 6.3), rot:R(-.6, .6), vr:R(-.02, .02)};
+        if (mo === "fall"){ p.x = R(0, W); p.y = init ? R(-H, H) : R(-80, -30); p.vy = R(.7, 1.3) + depth * 1.3; }
+        if (mo === "rise"){ p.x = R(0, W); p.y = init ? R(0, H * 2) : H + 50; p.vy = -(R(.6, 1.1) + depth); }
+        if (mo === "fly"){ p.x = init ? R(-W, W) : -80; p.y = R(H * .05, H * .6); p.vx = R(1.6, 3) + depth; p.rot = 0; p.vr = 0; }
+        if (mo === "flutter"){ p.x = R(0, W); p.y = R(H * .1, H * .9); p.vx = R(-1, 1); p.vy = R(-.6, .6); p.rot = 0; p.vr = 0; }
+        return p;
+      };
+      for (let i = 0; i < Math.max(1, Math.round(S.n * o.amt)); i++) P.push(part(true));
+      for (let i = 0; i < Math.round(S.dots * o.amt); i++) D.push({x:R(0, W), y:R(-H, H), r:R(1.2, 3.6), v:R(.5, 1.6), ph:R(0, 6.3)});
+      return cx => {
+        if (D.length){
+          cx.fillStyle = "rgba(255,255,255,.7)"; cx.beginPath();
+          for (const d of D){ d.ph += .02; d.y += d.v; d.x += Math.sin(d.ph) * .5; if (d.y > H + 5){ d.y = -5; d.x = R(0, W); } cx.moveTo(d.x + d.r, d.y); cx.arc(d.x, d.y, d.r, 0, 6.29); }
+          cx.fill();
+        }
+        for (const p of P){
+          p.ph += .02;
+          if (p.mo === "fall"){ p.y += p.vy; p.x += Math.sin(p.ph) * (1 + p.s / 40); p.rot += p.vr + Math.sin(p.ph) * .01; }
+          if (p.mo === "rise"){ p.y += p.vy; p.x += Math.sin(p.ph) * .8; }
+          if (p.mo === "fly"){ p.x += p.vx; p.y += Math.sin(p.ph * 2) * 1.2; }
+          if (p.mo === "flutter"){
+            p.vx = Math.max(-1.6, Math.min(1.6, p.vx + R(-.15, .15))); p.vy = Math.max(-1, Math.min(1, p.vy + R(-.12, .12)));
+            p.x += p.vx; p.y += p.vy; if (p.x < -40) p.x = W + 30; if (p.x > W + 40) p.x = -30; if (p.y < 0 || p.y > H) p.vy = -p.vy;
+          }
+          const flap = (p.mo === "fly" || p.mo === "flutter") ? .65 + .35 * Math.abs(Math.sin(p.ph * 5)) : 0;
+          drawSprite(cx, p.g, p.s, p.x, p.y, p.rot, p.a, flap);
+          if (p.y > H + 70 || p.y < -90 || p.x > W + 90) Object.assign(p, part(false));
+        }
+        return true;
+      };
+    };
+  }
+
+  /* ----- shows: a short scene that plays once, then ends ----- */
+  function show(kind){
+    return o => {
+      const W = o.W, H = o.H, a = o.amt; let fx = [];
+      const N = n => Math.max(1, Math.round(n * a));
+      const gust = glyphs => { for (let i = 0; i < N(40); i++) fx.push({k:"spr", g:pick(glyphs), s:R(26, 60), x:R(-600, -40), y:R(H * .1, H * .9), vx:R(9, 16), vy:0, ph:R(0, 6.3), amp:R(1.5, 4), rot:R(0, 6.3), vr:R(.05, .15), a:.9}); };
+      if (kind === "gust") gust(["🍂","🍁","🍂","🍁","🌰"]);
+      if (kind === "flurry") for (let i = 0; i < N(90); i++) fx.push({k:"dot", x:R(-700, -10), y:R(0, H), vx:R(8, 15), vy:R(.5, 2), r:R(1.5, 4.5), ph:R(0, 6.3)});
+      if (kind === "turkey") fx.push({k:"walker", g:"🦃", s:110, x:W + 80, y:H - 70, vx:-2.6, ph:0, trail:"🍂"});
+      if (kind === "santa") fx.push({k:"sleigh", x:W + 150, t:0});
+      if (kind === "bats") for (let i = 0; i < N(14); i++) fx.push({k:"spr", g:"🦇", s:R(30, 64), x:R(-500, -40), y:R(H * .05, H * .55), vx:R(5, 9), vy:0, ph:R(0, 6.3), amp:R(2, 5), rot:0, vr:0, a:.95, flap:true});
+      if (kind === "heartburst") for (let i = 0; i < N(30); i++) fx.push({k:"spr", g:pick(["💕","💗","❤️","💖"]), s:R(26, 56), x:R(0, W), y:H + R(20, 400), vx:0, vy:-R(3, 6), ph:R(0, 6.3), amp:R(1, 3), rot:0, vr:0, a:.9});
+      if (kind === "butterflies") for (let i = 0; i < N(6); i++) fx.push({k:"spr", g:pick(["🦋","🦋","🐝"]), s:R(34, 56), x:R(-400, -40), y:R(H * .2, H * .8), vx:R(2.5, 4.5), vy:0, ph:R(0, 6.3), amp:R(2, 4), rot:0, vr:0, a:.95, flap:true});
+      if (kind === "fireworks") for (let i = 0; i < N(7); i++) fx.push({k:"rocket", x:R(W * .1, W * .9), y:H + 10, vy:-R(19, 25) * Math.sqrt(H / 1080), fuse:R(.3, .6) * H, delay:i * R(500, 1100), born:Date.now(), c:pick(COLORS)});
+      if (kind === "confetti") fx.push({k:"confgen", until:Date.now() + (o.ms || 4500)});
+      function step(cx, f, now){
+        if (f.k === "spr"){
+          f.ph += .06; f.x += f.vx; f.y += f.vy + Math.sin(f.ph) * f.amp; f.rot += f.vr;
+          if (f.fade) f.a = Math.max(0, f.a - .01);
+          drawSprite(cx, f.g, f.s, f.x, f.y, f.rot, f.a, f.flap ? .6 + .4 * Math.abs(Math.sin(f.ph * 3)) : 0);
+          return f.x < W + 120 && f.y > -120 && f.a > 0;
+        }
+        if (f.k === "dot"){
+          f.ph += .05; f.x += f.vx; f.y += f.vy + Math.sin(f.ph) * 2;
+          cx.fillStyle = "rgba(255,255,255,.8)"; cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, 6.29); cx.fill();
+          return f.x < W + 20;
+        }
+        if (f.k === "walker"){
+          f.ph += .25; f.x += f.vx;
+          drawSprite(cx, f.g, f.s, f.x, f.y - Math.abs(Math.sin(f.ph)) * 10, Math.sin(f.ph) * .08, 1, 0);
+          if (Math.random() < .08) fx.push({k:"spr", g:f.trail, s:R(20, 30), x:f.x + 40, y:f.y + 20, vx:R(.5, 1.5), vy:-R(.5, 1.5), ph:0, amp:.3, rot:R(0, 6), vr:.05, a:.8, fade:1});
+          return f.x > -150;
+        }
+        if (f.k === "sleigh"){
+          f.t += 1; f.x -= 5.2;
+          const y = H * .2 + Math.sin(f.x / W * Math.PI) * -H * .08 + Math.sin(f.t * .08) * 6;
+          for (let i = 0; i < 3; i++) drawSprite(cx, "🦌", 58, f.x + i * 66, y + Math.sin(f.t * .25 + i) * 5, 0, 1, 0);
+          drawSprite(cx, "🛷", 74, f.x + 230, y + 12, 0, 1, 0);
+          drawSprite(cx, "🎅", 56, f.x + 226, y - 18, 0, 1, 0);
+          if (f.t % 2 === 0) fx.push({k:"spark", x:f.x + 270 + R(-10, 10), y:y + R(-20, 25), life:1, c:pick(["#fff6c2","#ffe27a","#ffffff","#bfe3ff"])});
+          return f.x > -420;
+        }
+        if (f.k === "spark"){
+          f.life -= .025; f.y += .4;
+          cx.fillStyle = f.c; cx.globalAlpha = Math.max(0, f.life); cx.beginPath(); cx.arc(f.x, f.y, 2.6 * f.life + .5, 0, 6.29); cx.fill(); cx.globalAlpha = 1;
+          return f.life > 0;
+        }
+        if (f.k === "rocket"){
+          if (now - f.born < f.delay) return true;
+          f.y += f.vy; f.vy *= .975;
+          cx.strokeStyle = "rgba(255,240,190,.8)"; cx.lineWidth = 3;
+          cx.beginPath(); cx.moveTo(f.x, f.y); cx.lineTo(f.x, f.y - f.vy * 3); cx.stroke();
+          if (H - f.y > f.fuse + H * .25 || f.vy > -3){
+            for (let i = 0; i < 80; i++){ const an = R(0, 6.29), sp = R(2, 8); fx.push({k:"spk", x:f.x, y:f.y, vx:Math.cos(an) * sp, vy:Math.sin(an) * sp, life:1, c:f.c}); }
+            return false;
+          }
+          return true;
+        }
+        if (f.k === "spk"){
+          f.x += f.vx; f.y += f.vy; f.vy += .07; f.vx *= .985; f.life -= .016;
+          cx.globalAlpha = Math.max(0, f.life); cx.fillStyle = f.c; cx.beginPath(); cx.arc(f.x, f.y, 2.8, 0, 6.29); cx.fill(); cx.globalAlpha = 1;
+          return f.life > 0;
+        }
+        if (f.k === "confgen"){
+          for (let i = 0; i < Math.max(1, Math.round(3 * a)); i++) fx.push({k:"conf", x:R(0, W), y:-10, vx:R(-2, 2), vy:R(2, 6), r:R(0, 6.3), vr:R(-.2, .2), c:pick(COLORS), w:R(8, 14)});
+          return now < f.until;
+        }
+        if (f.k === "conf"){
+          f.x += f.vx; f.y += f.vy; f.vy += .05; f.r += f.vr;
+          cx.save(); cx.translate(f.x, f.y); cx.rotate(f.r); cx.fillStyle = f.c; cx.fillRect(-f.w / 2, -3, f.w, 6); cx.restore();
+          return f.y < H + 20;
+        }
+        return false;
+      }
+      return cx => {
+        const now = Date.now(), cur = fx; fx = [];          // a step may add sparks, trails or confetti
+        const kept = cur.filter(f => step(cx, f, now));
+        fx = kept.concat(fx);
+        return fx.length > 0;
+      };
+    };
+  }
+
+  /* ----- the catalog. layer: sky = always behind the tiles; fall = follows "in front of tiles"; show = always in front ----- */
+  const L = [
+    {id:"rain", grp:"Weather", name:"Rain", icon:"🌧️", layer:"fall", wx:["rain", "drizzle", "storm"], make:rain,
+     desc:"Rain streaks down the screen while it's raining outside. Drizzle is lighter, and thunderstorms add an occasional flash of lightning."},
+    {id:"snow", grp:"Weather", name:"Snow", icon:"🌨️", layer:"fall", wx:["snow"], make:snow,
+     desc:"Soft snowflakes drift down while it's snowing outside."},
+    {id:"fog", grp:"Weather", name:"Fog", icon:"🌫️", layer:"sky", wx:["fog"], make:fog,
+     desc:"Slow bands of mist roll across the background on foggy days."},
+    {id:"clouds", grp:"Weather", name:"Clouds", icon:"☁️", layer:"sky", wx:["clouds"], make:clouds,
+     desc:"Faint clouds drift across the background when it's cloudy."},
+    {id:"sun", grp:"Weather", name:"Sun rays", icon:"☀️", layer:"sky", wx:["sun"], make:sun,
+     desc:"A warm glow and slowly turning rays from the top corner, with specks of light floating up, on clear days."},
+    {id:"stars", grp:"Weather", name:"Stars", icon:"✨", layer:"sky", wx:["stars"], make:stars,
+     desc:"Stars twinkle in the background on clear nights."},
+
+    {id:"leaves", grp:"Seasons", name:"Falling leaves", icon:"🍂", layer:"fall", season:[["09-22", "11-30"]], make:falling("leaves"),
+     desc:"Autumn leaves drift down, with the odd acorn or apple."},
+    {id:"halloween", grp:"Seasons", name:"Halloween", icon:"🎃", layer:"fall", replaces:["leaves"], season:[["10-20", "10-31"]], make:falling("halloween"),
+     desc:"Pumpkins, leaves and candy fall, bats flit across and a ghost floats up now and then. Takes the place of the plain falling leaves."},
+    {id:"thanks", grp:"Seasons", name:"Thanksgiving", icon:"🦃", layer:"fall", replaces:["leaves"], season:"thanks", make:falling("thanks"),
+     desc:"Falling leaves with a turkey, a pie or an ear of corn mixed in. Plays the week of Thanksgiving, in place of the plain falling leaves."},
+    {id:"xmas", grp:"Seasons", name:"Christmas", icon:"🎄", layer:"fall", replaces:["winter"], season:[["12-01", "12-25"]], make:falling("xmas"),
+     desc:"Snowflakes, stars, presents and bells fall over fine snow."},
+    {id:"winter", grp:"Seasons", name:"Winter snowflakes", icon:"❄️", layer:"fall", season:[["12-26", "02-28"]], make:falling("winter"),
+     desc:"A few big snowflakes over fine snow, whatever the weather is doing."},
+    {id:"newyear", grp:"Seasons", name:"New Year's sparkle", icon:"🥳", layer:"fall", season:[["12-31", "01-01"]], make:falling("newyear"),
+     desc:"Party poppers and sparkles fall on New Year's Eve and Day."},
+    {id:"valentine", grp:"Seasons", name:"Valentine hearts", icon:"💕", layer:"fall", season:[["02-07", "02-14"]], make:falling("valentine"),
+     desc:"Hearts float slowly up the screen in the week before Valentine's Day."},
+    {id:"spring", grp:"Seasons", name:"Spring blossoms", icon:"🌸", layer:"fall", season:[["03-01", "05-31"]], make:falling("spring"),
+     desc:"Blossoms drift down and a butterfly flutters by."},
+    {id:"july4", grp:"Seasons", name:"Fourth of July", icon:"🇺🇸", layer:"fall", season:[["07-01", "07-04"]], make:falling("july4"),
+     desc:"Stars and little flags drift down."},
+    {id:"summer", grp:"Seasons", name:"Butterflies & bees", icon:"🦋", layer:"fall", season:[["06-01", "08-31"]], make:falling("summer"),
+     desc:"A few butterflies and bees wander around the screen."},
+
+    {id:"gust", grp:"Shows", name:"Leaf gust", icon:"🍁", layer:"show", season:[["09-22", "11-30"]], make:show("gust"),
+     desc:"A gust of wind blows a swirl of leaves across the screen."},
+    {id:"bats", grp:"Shows", name:"Bats", icon:"🦇", layer:"show", season:[["10-20", "10-31"]], make:show("bats"),
+     desc:"A colony of bats flaps across the top of the screen."},
+    {id:"turkey", grp:"Shows", name:"Turkey walk", icon:"🦃", layer:"show", season:"thanks", make:show("turkey"),
+     desc:"A turkey struts along the bottom of the screen, kicking up leaves."},
+    {id:"santa", grp:"Shows", name:"Santa's sleigh", icon:"🎅", layer:"show", season:[["12-01", "12-25"]], make:show("santa"),
+     desc:"Santa and his reindeer fly across the sky, trailing sparkles."},
+    {id:"flurry", grp:"Shows", name:"Snow flurry", icon:"🌬️", layer:"show", season:[["12-01", "02-28"]], make:show("flurry"),
+     desc:"A burst of snow blows sideways across the screen."},
+    {id:"fireworks", grp:"Shows", name:"Fireworks", icon:"🎆", layer:"show", season:[["12-31", "01-01"], ["07-03", "07-04"]], make:show("fireworks"),
+     desc:"Rockets shoot up and burst into color. New Year's and the Fourth of July."},
+    {id:"heartburst", grp:"Shows", name:"Hearts rising", icon:"💖", layer:"show", season:[["02-07", "02-14"]], make:show("heartburst"),
+     desc:"A rush of hearts floats up from the bottom of the screen."},
+    {id:"butterflies", grp:"Shows", name:"Butterflies fly by", icon:"🦋", layer:"show", season:[["03-01", "08-31"]], make:show("butterflies"),
+     desc:"A few butterflies and a bee cross the screen."},
+
+    {id:"confetti", grp:"Celebrations", name:"Birthday confetti", icon:"🎂", layer:"show", party:true, make:show("confetti"),
+     desc:"Confetti rains down when a calendar event today has \"birthday\" in its name: when the birthday is first seen, then once an hour."}
+  ];
+  const BY = {}; L.forEach(d => { BY[d.id] = d; d.emoji = d.grp !== "Weather"; });     // everything but the weather is drawn with emoji
+  const GROUPS = [["Weather", "Plays when the weather outside matches."], ["Seasons", "Things that drift across the screen at their time of year."],
+    ["Shows", "Short scenes that play now and then, then leave. Always in front of the tiles."], ["Celebrations", ""]];
+
+  /* ----- when does an effect play ----- */
+  function nthWeekday(y, m, wd, n){ const d = new Date(y, m, 1); d.setDate(1 + (wd - d.getDay() + 7) % 7 + 7 * (n - 1)); return d; }
+  const mdNum = s => { const [m, d] = String(s).split("-").map(Number); return m * 100 + d; };
+  const inMd = (d, a, b) => { const k = (d.getMonth() + 1) * 100 + d.getDate(), x = mdNum(a), y = mdNum(b); return x <= y ? k >= x && k <= y : k >= x || k <= y; };
+  function seasonRanges(def, y){
+    if (def.season === "thanks"){ const t = nthWeekday(y, 10, 4, 4), s = new Date(t); s.setDate(t.getDate() - 7);
+      const f = d => (d.getMonth() + 1) + "-" + d.getDate(); return [[f(s), f(t)]]; }
+    return def.season || [];
+  }
+  function inSeason(def, d){ return seasonRanges(def, d.getFullYear()).some(r => inMd(d, r[0], r[1])); }
+  const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const mdTxt = s => { const [m, d] = String(s).split("-").map(Number); return MON[m - 1] + " " + d; };
+  function seasonText(def){
+    if (def.season === "thanks") return "Thanksgiving week";
+    return (def.season || []).map(r => r[0] === r[1] ? mdTxt(r[0]) : mdTxt(r[0]) + "–" + mdTxt(r[1])).join(" and ");
+  }
+  const WXTXT = {rain:"When it's raining", snow:"When it's snowing", fog:"When it's foggy", clouds:"When it's cloudy", sun:"On clear days", stars:"On clear nights"};
+  // one effect's settings: what's saved, filled in with its defaults
+  function conf(saved, id){
+    const def = BY[id], o = (saved || []).find(x => x && x.id === id) || {};
+    return Object.assign({id, on:true, amount:"Some", when: def.wx ? "weather" : def.party ? "birthday" : "season", every: def.layer === "show" ? 15 : 0, from:"", to:""}, o);
+  }
+  function whenText(c){
+    const def = BY[c.id];
+    if (c.when === "always") return def.layer === "show" ? "All year" : "Always";
+    if (c.when === "dates") return c.from && c.to ? mdTxt(c.from) + "–" + mdTxt(c.to) : "Pick dates";
+    if (def.wx) return WXTXT[c.id] || "Matching weather";
+    if (def.party) return "On birthdays";
+    return seasonText(def);
+  }
+  function timeOk(c, d){
+    if (c.when === "always") return true;
+    if (c.when === "dates") return !!(c.from && c.to) && inMd(d, c.from, c.to);
+    if (BY[c.id].season) return inSeason(BY[c.id], d);
+    return false;
+  }
+  function wxMode(code, day){
+    if (code == null) return null;
+    if (code >= 95) return "storm";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+    if (code >= 51 && code <= 67) return code <= 57 ? "drizzle" : "rain";
+    if (code >= 80 && code <= 82) return "rain";
+    if (code === 45 || code === 48) return "fog";
+    if (code === 2 || code === 3) return "clouds";
+    return day ? "sun" : "stars";
+  }
+
+  /* ----- a canvas that runs effects. Drawing is in 1920-wide units (opt.base) and scaled to the canvas ----- */
+  function Runner(cv, opt){
+    opt = opt || {};
+    const cx = cv.getContext("2d");
+    let W = 1920, H = 1080, k = 1, list = [], running = false, last = 0, paused = false;
+    function size(){
+      const w = opt.full ? innerWidth : cv.clientWidth || 320, h = opt.full ? innerHeight : cv.clientHeight || 180;
+      const dpr = opt.full ? 1 : Math.min(2, window.devicePixelRatio || 1);
+      cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+      W = opt.base || 1920; k = cv.width / W; H = cv.height / k;
+      list.forEach(e => { if (e.keep) e.draw = e.make(); });
+    }
+    size(); if (opt.full) addEventListener("resize", size);
+    function frame(ts){
+      if (!running) return;
+      requestAnimationFrame(frame);
+      if (ts - last < 1000 / (opt.fps || 25)) return;
+      last = ts;
+      cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height);
+      cx.setTransform(k, 0, 0, k, 0, 0);
+      if (opt.under) opt.under(cx, W, H);
+      const beh = opt.over ? list.filter(e => e.behind) : [], top = opt.over ? list.filter(e => !e.behind) : list;
+      const run = e => { let alive = true; try{ alive = e.draw(cx); }catch(err){ alive = false; } if (!alive && !e.keep){ e.dead = true; if (e.done) e.done(); } };
+      beh.forEach(run);
+      if (opt.over) opt.over(cx, W, H);
+      top.forEach(run);
+      list = list.filter(e => !e.dead);
+      if (!list.length && !opt.always){ running = false; cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height); }
+    }
+    function start(){ if (!running && !paused && (list.length || opt.always)){ running = true; requestAnimationFrame(frame); } }
+    function inst(id, p, keep){
+      const def = BY[id]; if (!def) return null;
+      const e = {id, key:id + "|" + p.amount + "|" + (p.kind || "") + "|" + !!p.front, keep, behind:!!p.behind,
+        make:() => def.make({amt:AMT[p.amount] || 1, kind:p.kind, front:p.front, preview:opt.preview, ms:p.ms, W, H})};
+      e.draw = e.make(); return e;
+    }
+    return {
+      // the continuous effects that should be running now: [{id, amount, kind, front, behind}]
+      set(want){
+        const keys = want.map(p => p.id + "|" + p.amount + "|" + (p.kind || "") + "|" + !!p.front);
+        list = list.filter(e => !e.keep || keys.includes(e.key));
+        want.forEach((p, i) => { if (!list.some(e => e.keep && e.key === keys[i])){ const e = inst(p.id, p, true); if (e) list.push(e); } });
+        start();
+      },
+      play(id, p, done){ const e = inst(id, p || {}, false); if (!e) return; e.done = done; list.push(e); start(); },
+      busy(){ return list.some(e => !e.keep); },
+      pause(p){ paused = p; if (p){ running = false; list = list.filter(e => e.keep); cx.setTransform(1, 0, 0, 1, 0, 0); cx.clearRect(0, 0, cv.width, cv.height); } else start(); },
+      clear(){ list = []; },
+      size, start
+    };
+  }
+  return {L, BY, GROUPS, AMT, conf, whenText, timeOk, inSeason, seasonText, wxMode, Runner, mdTxt};
+})();
+
+/* ---------- Look: looks (picture cards + a short Adjust screen), the schedule, effects, the night page ---------- */
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const LS = () => mods.look.settings;
+const looks = () => (LS().items = LS().items || []);
+const rules = () => (LS().rules = LS().rules || []);
+const lookById = id => looks().find(t => t.id === id);
+const ruleById = id => rules().find(r => r.id === id);
+const LOOK_KEYS = ["mode", "accent", "holiday", "tiles", "opacity", "textScale", "titles", "bg", "bgColor", "dim", "fx"];
+function lookVals(id){
+  const v = {}; LOOK_KEYS.forEach(k => { v[k] = LS()[k]; });
+  const t = id === "default" ? null : lookById(id);
+  return Object.assign(v, t ? t.values || {} : {});
+}
+function lookSet(id, k, v){
+  if (id === "default") LS()[k] = v;
+  else { const t = lookById(id); t.values = t.values || {}; t.values[k] = v; }
+  save();
+}
+const lookName = id => id === "default" ? "Everyday" : (lookById(id) || {}).name || "Look";
+const PRESETS = [
+  {name:"Dark", sub:"Dark tiles over a sky that follows the sun", values:{mode:"Dark", tiles:"Solid", bg:"Sky", textScale:100}},
+  {name:"Light", sub:"Light tiles on a soft gray background", values:{mode:"Light", tiles:"Solid", bg:"Color", bgColor:"#d9e0e8", accent:"#2b7de9"}},
+  {name:"Glass", sub:"See-through tiles so the sky shows through", values:{mode:"Dark", tiles:"See-through", opacity:45, bg:"Sky"}},
+  {name:"Photo frame", sub:"Your photos behind see-through tiles", values:{bg:"Photos", tiles:"See-through", opacity:55}},
+  {name:"Big text", sub:"Everything a size bigger, easy to read across the room", values:{textScale:125}},
+  {name:"Calm evening", sub:"Warmer, a little dimmer, no effects", values:{accent:"#ff9f5a", dim:30, fx:"Off", tiles:"See-through", opacity:55}}];
+const SWATCHES = ["#7cb7ff", "#5fd3c4", "#7fd18a", "#ffd36e", "#ff9f5a", "#ff7a8a", "#c58bff", "#e9ecf1"];
+const SIZES = [["Smaller", 90], ["Normal", 100], ["Bigger", 115], ["Biggest", 130]];
+
+/* ----- a small drawing of the dashboard in a look ----- */
+function lookPic(v, cls){
+  const light = v.mode === "Light", ts = (v.textScale || 100) / 100;
+  const bg = v.bg === "Color" ? esc(v.bgColor || "#0a0c0f") : v.bg === "Photos" ? "linear-gradient(165deg,#88a6c2 0%,#d7b08a 52%,#4d5e43 53%,#2a3624 100%)"
+    : "linear-gradient(180deg,#2f6aa3 0%,#1c4370 45%,#0d1a2b 100%)";
+  const op = v.tiles === "Clear" ? 0 : v.tiles === "See-through" ? (v.opacity || 60) / 100 : light ? .92 : .86;
+  const card = (light ? "rgba(250,251,253," : "rgba(18,22,28,") + op + ")", fg = light ? "#1a1f26" : "#e9ecf1", dim = light ? "#5a6470" : "#8a939e";
+  const bd = v.tiles === "Clear" ? "transparent" : light ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.07)", acc = esc(v.accent || "#7cb7ff");
+  const box = (x, y, w, h, inner) => '<i style="left:' + x + '%;top:' + y + '%;width:' + w + '%;height:' + h + '%;background:' + card + ';border-color:' + bd + '">' +
+    (v.titles !== false ? '<s style="background:' + dim + '"></s>' : "") + inner + '</i>';
+  const lines = (n, w) => [...Array(n)].map((_, i) => '<u style="background:' + (i ? dim : fg) + ';width:' + (w - i * 9) + '%;height:' + (.55 * ts) + 'em"></u>').join("");
+  return '<div class="lpic ' + (cls || "") + '" style="background:' + bg + '">' +
+    box(3, 5, 41, 31, '<em style="color:' + fg + ';font-size:' + (2.6 * ts) + 'em">9:41</em>') +
+    box(46, 5, 51, 31, '<em style="color:' + acc + ';font-size:' + (2 * ts) + 'em">72°</em>') +
+    box(3, 40, 60, 55, '<b style="background:' + acc + '"></b>' + lines(3, 80)) +
+    box(65, 40, 32, 55, lines(4, 85)) +
+    (v.dim ? '<i class="dm" style="background:rgba(0,0,0,' + (v.dim / 100) + ')"></i>' : "") + '</div>';
+}
+
+/* ----- schedule rules ----- */
+function ruleMatches(r, d){
+  const w = r.when || {}; if (r.on === false) return false;
+  const m = x => { const [h, mi] = String(x).split(":").map(Number); return h * 60 + (mi || 0); }, hm = d.getHours() * 60 + d.getMinutes();
+  if (w.from && w.to && w.from !== w.to){ const a = m(w.from), b = m(w.to); if (a < b ? !(hm >= a && hm < b) : !(hm >= a || hm < b)) return false; }
+  if (w.days && w.days.length && !w.days.includes(d.getDay())) return false;
+  if (w.dFrom && w.dTo){ const n = x => { const [mo, da] = String(x).split("-").map(Number); return mo * 100 + da; }, k = (d.getMonth() + 1) * 100 + d.getDate(), a = n(w.dFrom), b = n(w.dTo);
+    if (a <= b ? !(k >= a && k <= b) : !(k >= a || k <= b)) return false; }
+  return true;
+}
+function curLook(){ const R = rules(); for (let i = R.length - 1; i >= 0; i--) if (lookById(R[i].look) && ruleMatches(R[i], new Date())) return R[i].look; return "default"; }
+function curTheme(){ const id = curLook(); return id === "default" ? null : lookById(id); }        // the root screen's summary
+function hm12(x){ const [h, m] = x.split(":").map(Number); return new Date(2000, 0, 1, h, m).toLocaleTimeString([], {hour:"numeric", minute: m ? "2-digit" : undefined}); }
+const hr12 = h => new Date(2000, 0, 1, +h || 0).toLocaleTimeString([], {hour:"numeric"});
+function md(x){ const [mo, da] = x.split("-").map(Number); return MONTHS[mo - 1] + " " + da; }
+function whenText(r){
+  const w = r.when || {}, p = [];
+  if (w.from && w.to && w.from !== w.to) p.push(hm12(w.from) + "–" + hm12(w.to));
+  if (w.days && w.days.length && w.days.length < 7) p.push(w.days.length === 2 && w.days.includes(0) && w.days.includes(6) ? "Weekends" : w.days.length === 5 && !w.days.includes(0) && !w.days.includes(6) ? "Weekdays" : w.days.map(i => DAYS[i]).join(", "));
+  if (w.dFrom && w.dTo) p.push(md(w.dFrom) + "–" + md(w.dTo));
+  return p.length ? p.join(" · ") : "All the time";
+}
+const nightText = () => mods.night && mods.night.on ? hr12(mods.night.settings.start) + "–" + hr12(mods.night.settings.end) : "Off";
+
+/* ----- screens ----- */
+function looksScreen(){
+  const now = curLook();
+  const card = id => { const R = rules().filter(r => r.look === id);
+    const sub = id === now ? "Showing now" : id === "default" ? "When nothing else is scheduled" : R.length ? R.map(whenText).join("; ") : "Not on the schedule";
+    return '<button class="lcard' + (id === now ? " now" : "") + '" data-go="look:' + id + '">' + lookPic(lookVals(id)) + '<b>' + esc(lookName(id)) + '</b><small>' + esc(sub) + '</small></button>'; };
+  let h = '<div class="big">Looks</div><p class="intro">Tap a look to change it. Your everyday look shows unless the schedule switches to another one.</p>';
+  h += '<div class="lcards">' + ["default"].concat(looks().map(t => t.id)).map(card).join("") +
+    '<button class="lcard new" data-go="newlook"><div class="lpic plus">＋</div><b>New look</b><small>Start from a style</small></button></div>';
+  h += sec("", row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") + " · now: " + lookName(now) : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}) +
+    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
+    row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}));
+  h += '<div class="sec"><div class="foot">Date format, 24-hour time and emoji are the same in every look: Setup → Location &amp; units.</div></div>';
+  return h;
+}
+function newLookScreen(){
+  const base = lookVals(curLook());
+  return '<div class="big">New look</div><p class="intro">Pick a style to start from. It starts as a copy of the look showing now, with the style\'s changes. You can change anything after.</p>' +
+    '<div class="lcards">' + PRESETS.map((p, i) => '<button class="lcard" data-lact="make" data-id="' + i + '">' + lookPic(Object.assign({}, base, p.values)) + '<b>' + esc(p.name) + '</b><small>' + esc(p.sub) + '</small></button>').join("") + '</div>';
+}
+const opt = (id, k, val, label, sub, cur, pic) => '<button class="opt' + (cur === val ? " on" : "") + '" data-lid="' + id + '" data-lk="' + k + '" data-lv="' + esc(val) + '">' + (pic || "") + '<b>' + esc(label) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : "") + '</button>';
+function lookScreen(id){
+  const t = id === "default" ? null : lookById(id);
+  if (id !== "default" && !t) return '<div class="big">Look not found</div>';
+  const v = lookVals(id), A = 'data-lid="' + id + '"';
+  let h = '<div class="big">' + esc(lookName(id)) + '</div>' + lookPic(v, "big");
+  if (t) h += sec("Name", '<div class="row col"><input type="text" ' + A + ' data-lk="__name" value="' + esc(t.name) + '"></div>');
+  const bgPic = b => '<span class="sample" style="background:' + (b === "Sky" ? "linear-gradient(180deg,#2f6aa3,#0d1a2b)" : b === "Color" ? esc(v.bgColor) : "linear-gradient(165deg,#88a6c2,#d7b08a 52%,#4d5e43 53%)") + '"></span>';
+  h += sec("Background", '<div class="opts">' + opt(id, "bg", "Sky", "Sky", "Follows the sun", v.bg, bgPic("Sky")) + opt(id, "bg", "Color", "Solid color", "", v.bg, bgPic("Color")) + opt(id, "bg", "Photos", "Photos", "From your album", v.bg, bgPic("Photos")) + '</div>' +
+    (v.bg === "Color" ? row({t:"Background color", post:'<input type="color" ' + A + ' data-lk="bgColor" value="' + esc(v.bgColor) + '">'}) : ""),
+    v.bg === "Sky" ? "The sky changes through the day: dawn, day, golden hour, dusk and night, from your real sunrise and sunset." : v.bg === "Photos" ? "Uses the first album in Setup → Photo albums, a new photo every 5 minutes." : "");
+  h += sec("Colors", row({t:"Light or dark", post:'<span class="seg">' + ["Dark", "Light"].map(m => '<button ' + A + ' data-lk="mode" data-lv="' + m + '"' + (v.mode === m ? ' class="on"' : "") + '>' + m + '</button>').join("") + '</span>'}) +
+    '<div class="row col"><div class="t"><b>Accent color</b><small>Highlights, today\'s date, buttons</small></div><div class="sws">' +
+      SWATCHES.map(c => '<button class="swc' + (String(v.accent).toLowerCase() === c ? " on" : "") + '" style="background:' + c + '" ' + A + ' data-lk="accent" data-lv="' + c + '"></button>').join("") +
+      '<input type="color" ' + A + ' data-lk="accent" value="' + esc(v.accent) + '" title="Any color"></div></div>' +
+    row({t:"Holiday colors", sub:"The accent changes by itself in season: orange in fall, red and green at Christmas, pink for Valentine's", post: sw(v.holiday, A + ' data-lk="holiday" data-lb="1"')}));
+  const tilePic = k => '<span class="sample tl ' + k + '"><i></i><i></i></span>';
+  h += sec("Tiles", '<div class="opts">' + opt(id, "tiles", "Solid", "Solid", "", v.tiles, tilePic("solid")) + opt(id, "tiles", "See-through", "See-through", "", v.tiles, tilePic("see")) + opt(id, "tiles", "Clear", "Clear", "No boxes", v.tiles, tilePic("clear")) + '</div>' +
+    (v.tiles === "See-through" ? row({t:"How solid", sub:"10% is almost clear", post:'<input type="range" min="10" max="100" step="5" ' + A + ' data-lk="opacity" value="' + (v.opacity || 60) + '"><span class="v">' + (v.opacity || 60) + '%</span>'}) : ""));
+  const sz = SIZES.find(s => s[1] === +v.textScale);
+  h += sec("Text size", '<div class="row"><span class="seg wide">' + SIZES.map(([l, n]) => '<button ' + A + ' data-lk="textScale" data-lv="' + n + '"' + (+v.textScale === n ? ' class="on"' : "") + '>' + l + '</button>').join("") + '</span></div>',
+    sz ? "" : "Now " + v.textScale + "%.");
+  h += '<details class="sec more"' + (store.more ? " open" : "") + '><summary>More</summary><div class="grp">' +
+    row({t:"Dim the screen", sub:"Darker without changing the colors", post:'<input type="range" min="0" max="80" step="5" ' + A + ' data-lk="dim" value="' + (v.dim || 0) + '"><span class="v">' + (v.dim || 0) + '%</span>'}) +
+    row({t:"Tile titles", sub:"The small heading on each tile", post: sw(v.titles !== false, A + ' data-lk="titles" data-lb="1"')}) +
+    row({t:"Effects", sub:"Off pauses every effect while this look shows", post: sw(v.fx !== "Off", A + ' data-lk="fx" data-lb="OnOff"')}) +
+    '</div></details>';
+  if (t){
+    const R = rules().filter(r => r.look === id);
+    h += sec("When it shows", (R.length ? R.map(r => row({t:whenText(r), cls: r.on === false ? "off" : "", chev:true, attrs:'data-go="rule:' + r.id + '"'})).join("") : "") +
+      row({t:R.length ? "Add another time" : "Add it to the schedule", cls:"add", chev:true, attrs:'data-lact="sched" data-id="' + id + '"'}),
+      R.length ? "" : "This look only shows once it's on the schedule.");
+    h += sec("", '<button class="btnrow red" data-lact="del" data-id="' + id + '">Delete look</button>');
+  }
+  return h;
+}
+function schedScreen(){
+  const R = rules(), now = curLook();
+  let h = '<div class="big">Schedule</div><p class="intro">Switch to another look at certain times or dates. The rest of the time your everyday look shows.</p>';
+  h += sec("At night", row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}), "A page of its own that takes over the screen at night.");
+  h += sec("Looks", (R.length ? R.map((r, i) => row({t:lookName(r.look), sub:whenText(r), cls: r.on === false ? "off" : "", attrs:'data-go="rule:' + r.id + '"', chev:true,
+      v: ruleMatches(r, new Date()) && now === r.look ? "Now" : "",
+      pre:'<span style="display:flex;flex-direction:column;gap:2px;margin-right:2px"><button class="link" style="padding:0 4px;font-size:13px" data-ract="up" data-id="' + r.id + '"' + (i ? "" : " disabled") + '>▲</button><button class="link" style="padding:0 4px;font-size:13px" data-ract="down" data-id="' + r.id + '"' + (i < R.length - 1 ? "" : " disabled") + '>▼</button></span>',
+      post: sw(r.on !== false, 'data-ract="toggle" data-id="' + r.id + '"')})).join("") : '<div class="row"><div class="t"><small>Nothing scheduled: your everyday look always shows</small></div></div>') +
+    row({t:"Add a time", cls:"add", chev:true, attrs:'data-ract="new"'}),
+    "Showing now: " + lookName(now) + ". When several match, the lowest one in the list wins.");
+  return h;
+}
+function ruleScreen(id){
+  const r = ruleById(id); if (!r) return '<div class="big">Not found</div>';
+  const w = r.when || {}, a = 'data-rid="' + id + '"';
+  let h = '<div class="big">' + esc(lookName(r.look)) + '</div>';
+  h += sec("Use this look", looks().length ? '<div class="row col"><select ' + a + ' data-rk="look">' + looks().map(t => '<option value="' + t.id + '"' + (t.id === r.look ? " selected" : "") + '>' + esc(t.name) + '</option>').join("") + '</select></div>'
+    : row({t:"Make a look first", cls:"add", chev:true, attrs:'data-go="newlook"'}));
+  const mon = (x, k) => '<select ' + a + ' data-rk="' + k + '" data-t="md-m"><option value="">—</option>' + MONTHS.map((m, i) => '<option value="' + (i + 1) + '"' + (x && +x.split("-")[0] === i + 1 ? " selected" : "") + '>' + m + '</option>').join("") + '</select>' +
+    ' <input type="number" min="1" max="31" style="width:64px" ' + a + ' data-rk="' + k + '" data-t="md-d" value="' + (x ? +x.split("-")[1] : "") + '">';
+  h += sec("When", row({t:"From", sub:"Time of day (leave both empty for all day)", post:'<input type="time" ' + a + ' data-rk="from" value="' + esc(w.from || "") + '">'}) +
+    row({t:"Until", post:'<input type="time" ' + a + ' data-rk="to" value="' + esc(w.to || "") + '">'}) +
+    '<div class="row col"><div class="t"><b>Days</b><small>None picked = every day</small></div><div class="seg" style="align-self:flex-start">' +
+      DAYS.map((d, i) => '<button data-ract="day" data-id="' + id + '" data-k="' + i + '"' + ((w.days || []).includes(i) ? ' class="on"' : "") + '>' + d + '</button>').join("") + '</div></div>' +
+    row({t:"Dates from", sub:"Leave empty for all year", post: mon(w.dFrom, "dFrom")}) + row({t:"Dates until", post: mon(w.dTo, "dTo")}),
+    "Right now: " + (ruleMatches(Object.assign({}, r, {on:true}), new Date()) ? "this is its time." : "not its time."));
+  h += sec("", '<button class="btnrow red" data-ract="del" data-id="' + id + '">Remove from schedule</button>');
+  return h;
+}
+function nightScreen(){
+  const c = mods.night, s = c.settings, a = h => '<select data-nk="' + h + '">' + [...Array(24).keys()].map(i => '<option value="' + i + '"' + (+s[h] === i ? " selected" : "") + '>' + hr12(i) + '</option>').join("") + '</select>';
+  const pg = gpAll().find(p => p.id === "night");
+  let h = '<div class="big">Night page</div><p class="intro">' + esc(schema.night.desc) + '</p>';
+  h += sec("", row({t:"Use the night page", post: sw(c.on, 'data-on="night"')}));
+  h += sec("When", row({t:"From", post:a("start")}) + row({t:"Until", post:a("end")}));
+  h += sec("Screen", '<div class="row col"><div class="t"><b>How dark</b></div><span class="seg wide">' + [["Bright", 0], ["Dim", 25], ["Dimmer", 45], ["Darkest", 70]].map(([l, n]) =>
+      '<button data-nk="dim" data-nv="' + n + '"' + (+s.dim === n ? ' class="on"' : "") + '>' + l + '</button>').join("") + '</span></div>' +
+    row({t:"Move slightly every minute", sub:"Shifts the page a few pixels so nothing sits in one spot all night", post: sw(s.drift !== false, 'data-m="night" data-k="drift" data-t="bool"')}),
+    "No effects play on the night page.");
+  h += sec("On this page", '<div class="row"><div class="t"><b>' + esc(pageSummary(pg)) + '</b></div></div>' +
+    (ECHO ? "" : '<button class="btnrow blue" data-act="edit" data-id="night">Edit the night page on screen</button>'),
+    ECHO ? "To change it: press Done, hold any tile, then pick the Night tab at the top." : "Add a forecast, tomorrow's events or anything else, like any page. The preview shows the night page while you're here.");
+  return h;
+}
+
+/* ----- effects ----- */
+const fxItemsC = () => (mods.effects.settings.items = mods.effects.settings.items || []);
+const fxC = id => FXLIB.conf(fxItemsC(), id);
+function fxSet(id, k, v){ let o = fxItemsC().find(x => x.id === id); if (!o){ o = {id}; fxItemsC().push(o); } o[k] = v; save(); }
+function fxSummary(){
+  if (!mods.effects || !mods.effects.on) return "Off";
+  const on = FXLIB.L.filter(d => fxC(d.id).on), now = on.filter(d => !d.wx && FXLIB.timeOk(fxC(d.id), new Date()));
+  return on.length + " on" + (now.length ? " · this time of year: " + now.slice(0, 3).map(d => d.name).join(", ") + (now.length > 3 ? "…" : "") : "");
+}
+function effectsScreen(){
+  const c = mods.effects;
+  let h = '<div class="big">Effects</div><p class="intro">' + esc(schema.effects.desc) + '</p>';
+  h += sec("", row({t:"Effects", post: sw(c.on, 'data-on="effects"')}) +
+    row({t:"Rain, snow and falling things in front of the tiles", sub:"Off puts them behind the tiles, where they show only between and through see-through tiles.", post: sw(c.settings.front !== false, 'data-m="effects" data-k="front" data-t="bool"')}));
+  const noEmo = (mods.general.settings.emoji || "Emoji") !== "Emoji";
+  if (noEmo) h += '<div class="sec"><div class="foot">Emoji are off (Setup → Location &amp; units → Icons), so only the weather effects run. The others keep their settings for when emoji come back.</div></div>';
+  for (const [g, foot] of FXLIB.GROUPS){
+    const L = FXLIB.L.filter(d => d.grp === g);
+    h += '<div class="sec"><h2>' + esc(g) + '</h2><div class="fxgrid">' + L.map(d => { const f = fxC(d.id), now = !d.wx && !d.party && FXLIB.timeOk(f, new Date());
+      return '<div class="fxc' + (f.on ? "" : " off") + '" data-go="fx:' + d.id + '"><canvas data-fx="' + d.id + '"></canvas><div class="fxt"><div><b>' + esc(d.name) + '</b><small>' + esc(FXLIB.whenText(f)) + (now && f.on ? ' · <span class="nowtag">now</span>' : "") + '</small></div>' +
+        sw(f.on, 'data-fxon="' + d.id + '"') + '</div></div>'; }).join("") + '</div>' + (foot ? '<div class="foot">' + esc(foot) + '</div>' : "") + '</div>';
+  }
+  return h;
+}
+function fxScreen(id){
+  const d = FXLIB.BY[id]; if (!d) return '<div class="big">Not found</div>';
+  const f = fxC(id), a = 'data-fxid="' + id + '"';
+  const seg = (k, opts) => '<span class="seg wide">' + opts.map(([l, v]) => '<button ' + a + ' data-fxk="' + k + '" data-fxv="' + v + '"' + (String(f[k]) === String(v) ? ' class="on"' : "") + '>' + esc(l) + '</button>').join("") + '</span>';
+  let h = '<div class="big">' + esc(d.name) + '</div><div class="fxc big"><canvas data-fx="' + id + '"></canvas></div><p class="intro">' + esc(d.desc) + '</p>';
+  h += sec("", row({t:"On", post: sw(f.on, 'data-fxon="' + id + '"')}));
+  let rows = '<div class="row col"><div class="t"><b>How much</b></div>' + seg("amount", [["Few", "Few"], ["Some", "Some"], ["Lots", "Lots"]]) + '</div>';
+  if (!d.party){
+    const W = d.wx ? [[(d.wx[0] === "sun" || d.wx[0] === "stars") ? "Matching weather" : "Matching weather", "weather"], ["Always", "always"]]
+      : [["In season", "season"], ["All year", "always"], ["My dates", "dates"]];
+    rows += '<div class="row col"><div class="t"><b>When</b><small>' + esc(d.wx ? "Matching weather: " + FXLIB.whenText(Object.assign({}, f, {when:"weather"})).toLowerCase() : "In season: " + FXLIB.seasonText(d)) + '</small></div>' + seg("when", W) + '</div>';
+    if (f.when === "dates"){
+      const mon = (x, k) => '<select ' + a + ' data-fxk="' + k + '" data-t="md-m"><option value="">—</option>' + MONTHS.map((m, i) => '<option value="' + (i + 1) + '"' + (x && +x.split("-")[0] === i + 1 ? " selected" : "") + '>' + m + '</option>').join("") + '</select>' +
+        ' <input type="number" min="1" max="31" style="width:64px" ' + a + ' data-fxk="' + k + '" data-t="md-d" value="' + (x ? +x.split("-")[1] : "") + '">';
+      rows += row({t:"From", post:mon(f.from, "from")}) + row({t:"Until", post:mon(f.to, "to")});
+    }
+  }
+  if (d.layer === "show") rows += '<div class="row col"><div class="t"><b>How often</b><small>About; it varies a little so it doesn\'t feel like clockwork</small></div>' +
+    seg("every", [["5 min", 5], ["15 min", 15], ["30 min", 30], ["Hourly", 60], ["3 hours", 180]]) + '</div>';
+  h += sec("Settings", rows, d.layer === "sky" ? "Drawn behind the tiles, on the background." : d.layer === "show" ? "Shows play in front of the tiles and last a few seconds." :
+    (mods.effects.settings.front !== false ? "Drawn in front of the tiles (see Effects)." : "Drawn behind the tiles (see Effects)."));
+  if (!ECHO) h += sec("", '<button class="btnrow blue" data-fxplay="' + id + '">Play it on the preview</button>', "Plays it once on the dashboard preview to the right, whatever the date or weather.");
+  return h;
+}
+// little live previews on the effect cards; only the ones on screen animate
+let FXPV = [], fxObs = null;
+function pvBg(id){
+  const day = ["sun", "clouds", "fog", "rain", "snow", "spring", "summer", "butterflies", "july4", "gust", "leaves", "thanks", "turkey"].includes(id);
+  return (cx, W, H) => { const g = cx.createLinearGradient(0, 0, 0, H);
+    if (day){ g.addColorStop(0, "#2f6aa3"); g.addColorStop(.5, "#1c4370"); g.addColorStop(1, "#0d1a2b"); } else { g.addColorStop(0, "#1b2348"); g.addColorStop(.6, "#0b1022"); g.addColorStop(1, "#06080f"); }
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H); };
+}
+function pvTiles(cx, W, H){
+  const rr = (x, y, w, h) => { cx.beginPath(); if (cx.roundRect) cx.roundRect(x, y, w, h, 28); else cx.rect(x, y, w, h); cx.fill(); };
+  const u = W / 1920;
+  cx.fillStyle = "rgba(18,22,28,.86)"; rr(80 * u, H * .18, 760 * u, H * .64); rr(900 * u, H * .18, 940 * u, H * .64);
+  cx.fillStyle = "rgba(233,236,241,.75)"; cx.font = "600 " + Math.round(H * .2) + "px system-ui,sans-serif"; cx.fillText("9:41", 150 * u, H * .55);
+  cx.fillStyle = "rgba(138,147,158,.6)"; [0, 1, 2].forEach(i => cx.fillRect(980 * u, H * (.32 + i * .14), (700 - i * 160) * u, H * .06));
+}
+function fxPreviews(){
+  FXPV.forEach(p => p.r && p.r.pause(true)); FXPV = [];
+  if (fxObs) fxObs.disconnect();
+  const cvs = [...document.querySelectorAll("canvas[data-fx]")]; if (!cvs.length || typeof FXLIB === "undefined") return;
+  const front = mods.effects.settings.front !== false;
+  const start = cv => {
+    const id = cv.dataset.fx, d = FXLIB.BY[id], f = fxC(id), p = FXPV.find(x => x.cv === cv); if (!p || p.r) { if (p && p.r) p.r.pause(false); return; }
+    p.r = FXLIB.Runner(cv, {preview:true, always:true, fps:20, base:1000, under:pvBg(id), over:pvTiles});
+    const behind = d.layer === "sky" || (d.layer === "fall" && !front);
+    if (d.layer === "show"){ const loop = () => { if (p.r && !p.gone) p.r.play(id, {amount:f.amount, ms:3500}, () => setTimeout(loop, 1500)); }; loop(); }
+    else p.r.set([{id, amount:f.amount, kind: id === "rain" ? "storm" : "", front:!behind, behind}]);
+  };
+  cvs.forEach(cv => FXPV.push({cv}));
+  if ("IntersectionObserver" in window){
+    fxObs = new IntersectionObserver(E => E.forEach(e => { const p = FXPV.find(x => x.cv === e.target); if (!p) return;
+      if (e.isIntersecting) start(e.target); else if (p.r) p.r.pause(true); }));
+    cvs.forEach(cv => fxObs.observe(cv));
+  } else cvs.forEach(start);
+}
+
+/* ----- actions ----- */
+function lookAction(act, id){
+  if (act === "make"){
+    const p = PRESETS[+id], nid = "t" + Date.now().toString(36);
+    looks().push({id:nid, name: looks().some(t => t.name === p.name) ? p.name + " " + (looks().length + 1) : p.name, values:Object.assign(lookVals(curLook()), p.values)});
+    save(); stack.pop(); go("look:" + nid); return;
+  }
+  if (act === "sched"){ const r = {id:"r" + Date.now().toString(36), on:true, look:id, when:{from:"20:00", to:"23:00"}}; rules().push(r); save(); go("rule:" + r.id); return; }
+  if (act === "del"){
+    if (!confirmDel({one:"look"}, id)) return;
+    LS().items = looks().filter(t => t.id !== id); LS().rules = rules().filter(r => r.look !== id); save(); stack.pop(); show(); return;
+  }
+}
+function ruleAction(act, id, el){
+  const R = rules(), i = R.findIndex(r => r.id === id);
+  if (act === "new"){
+    const r = {id:"r" + Date.now().toString(36), on:true, look:(looks()[0] || {}).id || "", when:{from:"20:00", to:"23:00"}};
+    R.push(r); save(); go("rule:" + r.id); return;
+  }
+  if (act === "toggle"){ R[i].on = R[i].on === false; save(); show(); return; }
+  if (act === "up" && i > 0){ [R[i - 1], R[i]] = [R[i], R[i - 1]]; save(); show(); return; }
+  if (act === "down" && i < R.length - 1){ [R[i + 1], R[i]] = [R[i], R[i + 1]]; save(); show(); return; }
+  if (act === "del"){ R.splice(i, 1); save(); stack.pop(); show(); return; }
+  if (act === "day"){ const w = R[i].when = R[i].when || {}, d = +el.dataset.k; w.days = w.days || [];
+    w.days = w.days.includes(d) ? w.days.filter(x => x !== d) : w.days.concat(d).sort(); save(); show(); return; }
+}
+function mdVal(el){ const row = el.closest(".row"), m = row.querySelector('[data-t="md-m"]').value, d = parseInt(row.querySelector('[data-t="md-d"]').value, 10); return m && d ? m + "-" + Math.max(1, Math.min(31, d)) : ""; }
+// clicks on the Look screens; returns true when handled
+function lookClick(t){
+  const d = t.dataset;
+  if (d.lact){ lookAction(d.lact, d.id); return true; }
+  if (d.ract){ ruleAction(d.ract, d.id, t); return true; }
+  if (d.fxon){ const v = !fxC(d.fxon).on; fxSet(d.fxon, "on", v); show(); return true; }
+  if (d.fxk && d.fxv !== undefined){ const v = d.fxk === "every" ? +d.fxv : d.fxv; fxSet(d.fxid, d.fxk, v); show(); return true; }
+  if (d.fxplay){ try{ pvWin().FUN.show(d.fxplay); toast("Playing on the preview", "ok"); }catch(e){ toast("The preview isn't ready yet", "bad"); } return true; }
+  if (d.lk && d.lv !== undefined){ const v = d.lk === "textScale" ? +d.lv : d.lv; lookSet(d.lid, d.lk, v); show(); return true; }
+  if (d.lk && d.lb){ const cur = lookVals(d.lid)[d.lk], on = d.lb === "OnOff" ? cur !== "Off" : d.lk === "holiday" ? !!cur : cur !== false;
+    lookSet(d.lid, d.lk, d.lb === "OnOff" ? (on ? "Off" : "On") : !on); show(); return true; }
+  if (d.nk && d.nv !== undefined){ mods.night.settings[d.nk] = +d.nv; save(); show(); return true; }
+  return false;
+}
+function lookChange(t){
+  const d = t.dataset;
+  if (d.lk === "__name"){ const L = lookById(d.lid); L.name = t.value.trim() || L.name; save(); $("title").textContent = L.name; return true; }
+  if (d.lk){ let v = t.value; if (t.type === "range") v = +v; lookSet(d.lid, d.lk, v); if (t.type === "range"){ const s = t.nextElementSibling; if (s) s.textContent = v + "%"; } show(); return true; }
+  if (d.rk){ const r = ruleById(d.rid); r.when = r.when || {};
+    if (d.rk === "look") r.look = t.value; else if (d.rk === "dFrom" || d.rk === "dTo") r.when[d.rk] = mdVal(t); else r.when[d.rk] = t.value || "";
+    save(); return true; }
+  if (d.fxk){ fxSet(d.fxid, d.fxk, mdVal(t)); return true; }
+  if (d.nk){ mods.night.settings[d.nk] = +t.value; save(); return true; }
+  return false;
+}
+// sliders: update the number beside them while dragging, save when let go
+document.addEventListener("input", e => { const t = e.target; if (t.type === "range" && t.dataset.lk){ const s = t.nextElementSibling; if (s) s.textContent = t.value + "%"; } });
+document.addEventListener("toggle", e => { if (e.target.classList && e.target.classList.contains("more")) store.more = e.target.open; }, true);
+const store = {more:false};
+
+/* ---------- emoji swaps: tap the emoji to change (from the ones the dashboard uses), then tap what shows instead ---------- */
+const EMO_RE = /(?:\p{Extended_Pictographic}|\p{Regional_Indicator}{2})(?:️|⃣|[\u{1F3FB}-\u{1F3FF}]|‍(?:\p{Extended_Pictographic}|\p{Emoji_Component})️?)*/gu;
+const emoKey = e => String(e || "").replace(/️/g, "").trim();
+const EMO_PICK = [
+  ["Weather and sky", "☀️ 🌤️ ⛅ 🌥️ ☁️ 🌦️ 🌧️ ⛈️ 🌩️ 🌨️ ❄️ ☃️ ⛄ 🌬️ 💨 🌪️ 🌫️ 🌈 ☔ ⚡ 🔥 💧 🌊 🌞 🌝 🌙 🌛 ⭐ 🌟 ✨ 🌠 🌅 🌄 🌇 🌆 🌃 🌑 🌒 🌓 🌔 🌕 🌖 🌗 🌘"],
+  ["Faces", "😀 😃 😄 😁 😊 🙂 😉 😍 🥰 😘 😎 🤓 🥳 😴 🥱 🤔 🙃 😬 😮 😱 🥶 🥵 🤒 😷 🤠 😇 👋 👍 👏 🙌 💪 🙏"],
+  ["Food and drink", "🍎 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥑 🥦 🥕 🌽 🌶️ 🥔 🍠 🧄 🧅 🥖 🥐 🥯 🧀 🥚 🍳 🥞 🧇 🥓 🍗 🍖 🌭 🍔 🍟 🍕 🌮 🌯 🥗 🍝 🍜 🍲 🍣 🍱 🥟 🍪 🍩 🧁 🍰 🎂 🥧 🍫 🍬 🍿 ☕ 🍵 🥛 🧃 🍺 🍷 🥂 🍹"],
+  ["Animals and plants", "🐶 🐱 🐭 🐰 🦊 🐻 🐼 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🐔 🐧 🐦 🦆 🦉 🦇 🐺 🐴 🦄 🐝 🦋 🐞 🐢 🐍 🐙 🐠 🐬 🐳 🦖 🦃 🐿️ 🦔 🌲 🌳 🌴 🌵 🌷 🌸 🌹 🌻 🌼 🍀 🍁 🍂 🍃 🌾 🍄"],
+  ["Holidays and fun", "🎉 🎊 🎈 🎁 🎀 🎃 👻 🦇 🕸️ 🍬 🦃 🥧 🎄 🎅 🤶 ⛄ ❄️ 🕎 🎆 🎇 🥳 🍾 💝 💕 💖 ❤️ 🌹 🍀 🐣 🐰 🥚 🇺🇸 🎗️ 🕯️ 🎂 🎵 🎶"],
+  ["Sports", "⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🏒 🏑 🥍 🏏 ⛳ 🏌️ 🏃 🚴 🏊 ⛷️ 🏂 🎿 ⛸️ 🥅 🏆 🥇 🏅 🎯"],
+  ["Things", "📅 📆 🗓️ ⏰ ⏱️ ⌛ 🔔 📣 📌 📍 📝 ✏️ 📚 💼 🎒 🏠 🏡 🏫 🏥 🏢 🚗 🚕 🚌 🚲 ✈️ 🚀 ⛽ 🛒 💡 🔑 🎮 📺 📷 🎧 💊 🧺 🧹 🧼 🗑️ 📦 💰 💵 💳"],
+  ["Symbols", "✅ ✔️ ☑️ ❌ ⚠️ ❗ ❓ 💯 ➡️ ⬅️ ⬆️ ⬇️ ↗️ 🔄 ⏩ ⏪ 🔴 🟠 🟡 🟢 🔵 🟣 🟤 ⚫ ⚪ 🟥 🟧 🟨 🟩 🟦 🟪 ⬛ ⬜ 🔶 🔷 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 ✳️ ✴️ 💠"]];
+let EMO_USED = null, EMO_NEW = "";
+// every emoji in the dashboard's own code and tiles: the ones that can show up on the screen
+function emoUsed(){
+  if (EMO_USED) return EMO_USED;
+  EMO_USED = "loading";
+  Promise.all(["/dash/content", "/tiles.js"].map(u => fetch(u).then(r => r.text()).catch(() => ""))).then(T => {
+    const seen = new Map();
+    for (const m of T.join("\n").matchAll(EMO_RE)){
+      const e = m[0], k = emoKey(e);
+      if (!k || seen.has(k)) continue;
+      if (!/\p{Emoji_Presentation}/u.test(k) && !e.includes("️") && !/\p{Regional_Indicator}/u.test(k)) continue;     // ©, ↔ and other plain text characters
+      seen.set(k, e.includes("️") || /\p{Emoji_Presentation}/u.test(k) ? (e.endsWith("️") || /\p{Emoji_Presentation}/u.test(k) ? e : e + "️") : e);
+    }
+    EMO_USED = [...seen.values()].sort((a, b) => a.codePointAt(0) - b.codePointAt(0));
+    if ((stack[stack.length - 1] || "").startsWith("emo:")) show();
+  });
+  return EMO_USED;
+}
+const swapList = () => (mods.general.settings.swap = Array.isArray(mods.general.settings.swap) ? mods.general.settings.swap : []);
+const swapParse = s => { const i = String(s).indexOf("="); return i < 0 ? [String(s).trim(), ""] : [String(s).slice(0, i).trim(), String(s).slice(i + 1).trim()]; };
+function swapRows(){
+  const L = swapList();
+  return sec("Swap emoji", L.map((s, i) => { const [a, b] = swapParse(s);
+      return '<div class="row swp"><button class="emb" data-emo="' + i + ':old" title="Change which emoji">' + esc(a || "?") + '</button><span class="arr">→</span>' +
+        '<button class="emb' + (b ? "" : " none") + '" data-emo="' + i + ':new" title="Change what shows instead">' + (b ? esc(b) : "nothing") + '</button>' +
+        '<span class="t"></span><button class="lnk" data-emodel="' + i + '">Remove</button></div>'; }).join("") +
+    row({t:"Swap an emoji", chev:true, cls:"add", attrs:'data-emo="new:old"'}),
+    "Tap an emoji to pick it from a list. A swap changes it everywhere on the screen.");
+}
+function emoScreen(cur){
+  const [, i, side] = cur.split(":"), L = swapList(), pair = i === "new" ? [EMO_NEW, ""] : swapParse(L[+i] || "");
+  const btn = e => '<button class="emp' + (emoKey(e) === emoKey(pair[side === "old" ? 0 : 1]) ? " on" : "") + '" data-emopick="' + esc(e) + '">' + esc(e) + '</button>';
+  let h = '<div class="big">' + (side === "old" ? "Which emoji?" : "Show instead") + '</div>';
+  if (side === "old"){
+    h += '<p class="intro">Every emoji the dashboard can show. Tap the one to change.</p>';
+    const U = emoUsed();
+    h += U === "loading" ? '<p class="intro">Loading…</p>' : '<div class="sec"><div class="emgrid">' + U.map(btn).join("") + '</div></div>';
+  } else {
+    h += '<p class="intro">' + (pair[0] ? 'What shows instead of <span class="embig">' + esc(pair[0]) + '</span>' : "Pick what shows instead") + '</p>';
+    h += sec("", '<button class="btnrow" data-emopick="">Show nothing (hide it)</button>');
+    for (const [g, list] of EMO_PICK) h += '<div class="sec"><h2>' + esc(g) + '</h2><div class="emgrid">' + list.split(" ").filter(Boolean).map(btn).join("") + '</div></div>';
+  }
+  h += sec("Or paste one", '<div class="row"><input type="text" data-emoin placeholder="Paste or type an emoji" style="flex:1"><button class="lnk" data-emouse>Use it</button></div>');
+  return h;
+}
+function emoPick(v){
+  const cur = stack[stack.length - 1], [, i, side] = cur.split(":"), L = swapList();
+  v = String(v || "").trim();
+  if (i === "new"){
+    if (side === "old"){ if (!v) return; EMO_NEW = emoKey(v); stack[stack.length - 1] = "emo:new:new"; show(); scrollTo(0, 0); return; }
+    L.push(EMO_NEW + " = " + v); EMO_NEW = "";
+  } else {
+    const p = swapParse(L[+i] || "");
+    if (side === "old"){ if (!v) return; p[0] = emoKey(v); } else p[1] = v;
+    L[+i] = p[0] + " = " + p[1];
+  }
+  save(); stack.pop(); show();
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("[data-emo],[data-emopick],[data-emodel],[data-emouse]"); if (!t) return;
+  const d = t.dataset;
+  if (d.emo){ go("emo:" + d.emo); return; }
+  if (d.emodel != null){ swapList().splice(+d.emodel, 1); save(); show(); return; }
+  if (d.emouse != null){ const inp = document.querySelector("[data-emoin]"); if (inp && inp.value.trim()) emoPick(inp.value); return; }
+  if (d.emopick != null) emoPick(d.emopick);
+});
+/* ---------- preview (on a computer; on the Echo the screen itself is the preview) ---------- */
+const PV = {h:1080, page:0, theme:""};
+function pvWin(){ try{ return $("pvf").contentWindow; }catch(e){ return null; } }
+function pvFit(){
+  const box = $("pvbox"), f = $("pvf"), k = box.clientWidth / 1920;
+  f.style.width = "1920px"; f.style.height = PV.h + "px"; f.style.transform = "scale(" + k + ")";
+  box.style.height = Math.round(PV.h * k) + "px";
+}
+function pvCur(){ try{ return pvWin().dashPage(); }catch(e){ return 0; } }
+function pvLoad(){ PV.page = pvCur(); $("pvf").src = "/dash/content?preview=1" + (PV.theme ? "&theme=" + PV.theme : "") + (PV.night ? "&night=1" : "") + "&t=" + Date.now(); }
+function pvTabs(){
+  let L = ["main"];
+  try{ L = pvWin().pageList(); }catch(e){}
+  const cur = pvCur();
+  $("pvpage").innerHTML = L.length < 2 ? "" : L.map((n, i) => '<button data-pg="' + i + '"' + (i === cur ? ' class="on"' : "") + '>' + esc(n === "main" ? "Main" : n === "night" ? "Night" : (cpById(n.slice(2)) || {}).name || n) + '</button>').join("");
+}
+// called by the dashboard inside the preview
+// the editor in the preview: a tile needs a calendar, team... that isn't set up yet
+window.dashSetup = kind => { stack = ["root", "src:" + kind]; show(); scrollTo(0, 0); };
+window.dashSaved = () => { toast("Layout saved", "ok"); load(); };
+if (!ECHO){
+  let pvRes = null;
+  const pvHold = () => {
+    try{ const w = pvWin(); if (w.dashPause && !w.PAUSED) w.dashPause(true); }catch(e){}
+    clearTimeout(pvRes); pvRes = setTimeout(() => { try{ pvWin().dashPause(false); }catch(e){} }, 400);
+  };
+  addEventListener("scroll", pvHold, {passive:true}); addEventListener("wheel", pvHold, {passive:true});
+  $("pvedit").addEventListener("click", () => { try{ pvWin().dashEditing() ? pvWin().dashEdit(false) : pvWin().dashEdit(true); }catch(e){} });
+  setInterval(() => { let on = false; try{ on = pvWin().dashEditing(); }catch(e){} $("pvedit").classList.toggle("on", on); $("pvedit").textContent = on ? "Cancel editing" : "Edit on screen"; }, 500);
+  document.body.classList.add("desk");
+  $("pv").hidden = false;
+  $("pvf").addEventListener("load", () => setTimeout(() => {
+    try{ if (PV.editPage){ const id = PV.editPage; PV.editPage = ""; pageAction("edit", id); } else if (PV.page) pvWin().showPage(PV.page); }catch(e){}
+    pvTabs();
+  }, 1200));
+  $("pvpage").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    try{ pvWin().showPage(+b.dataset.pg); }catch(err){}
+    pvTabs();
+  });
+  setInterval(() => { const b = $("pvpage").querySelector("button.on"); if (b && +b.dataset.pg !== pvCur()) pvTabs(); }, 700);   // follow swipes
+  $("pvsize").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    PV.h = +b.dataset.h; $("pvh").textContent = PV.h;
+    [...$("pvsize").children].forEach(x => x.classList.toggle("on", x === b));
+    pvFit(); pvLoad();
+  });
+  addEventListener("resize", pvFit);
+  pvFit(); pvLoad();
+}
+load();
+</script>
+</body>
+</html>
