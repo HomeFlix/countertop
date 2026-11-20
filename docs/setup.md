@@ -75,8 +75,6 @@ Open `/dash` in a tall browser window or rotate your display. Countertop reads y
 
 If Silk keeps reporting landscape on a vertically mounted Echo Show, open **Controls → Screen orientation** on any device. Pick **Portrait · left edge up** or **Portrait · right edge up** according to which edge of the landscape screen is now at the top. Countertop saves the setting on the server. Every display at the usual `/dash` address picks it up on its next settings check, within about 30 seconds. Choose **Automatic** to follow each browser's viewport again.
 
-The setting applies to every display. To keep one display out of it, for example a landscape tablet next to a vertical Echo, open that display at `/dash?orientation=auto`. `?orientation=left` and `?orientation=right` pin a display the same way.
-
 On a computer, choose **Portrait** in the Controls preview to see the dashboard at 1080×1920. The editor uses the shared dashboard layout, so changes to your boxes apply in both orientations.
 
 ## Data and access
