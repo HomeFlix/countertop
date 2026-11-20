@@ -10,10 +10,18 @@ case "$ARCH" in arm64) TRIPLE=aarch64-apple-darwin; NAME=apple-silicon ;; x86_64
 VERSION=$(sed -n 's/^VERSION = "\([^"]*\)".*/\1/p' "$ROOT/tools/countertop.py")
 work="$(mktemp -d)"
 
-# a self-contained Python 3.12 for this processor
-url=$(gh api repos/astral-sh/python-build-standalone/releases/latest --jq \
-  "[.assets[].browser_download_url | select(test(\"cpython-3\\\\.12\\\\.[0-9]+\\\\+[0-9]+-$TRIPLE-install_only_stripped\\\\.tar\\\\.gz$\"))][0]")
-[ -n "$url" ] && [ "$url" != "null" ] || { echo "No Python build found for $TRIPLE"; exit 1; }
+# a self-contained Python for this processor (python-build-standalone; newest 3.13, else 3.12)
+assets=$(gh api "repos/astral-sh/python-build-standalone/releases/latest" --jq '.assets[].browser_download_url')
+url=""
+for v in 3.13 3.12; do
+  for kind in install_only_stripped install_only; do
+    url=$(grep -E "/cpython-${v//./\\.}\.[0-9]+\+[0-9]+-$TRIPLE-$kind\.tar\.gz$" <<<"$assets" | head -1 || true)
+    [ -n "$url" ] && break 2
+  done
+done
+if [ -z "$url" ]; then
+  echo "No Python build found for $TRIPLE. Some of the files in the latest release:"; grep -- "$TRIPLE" <<<"$assets" | head -20; exit 1
+fi
 echo "Python: $url"
 curl -fsSL "$url" | tar -xz -C "$work"
 PY="$work/python"
