@@ -117,6 +117,17 @@
   .lpic em{font-style:normal;font-weight:600;line-height:1}
   .lpic u{display:block;border-radius:.25em;opacity:.55}
   .lpic b{display:block;width:22%;height:.5em;border-radius:.25em}
+  /* page thumbnails: each box of the page, drawn in the current look */
+  .lpic i.slot{padding:.5em .6em}
+  .lpic i.slot s{width:40%}
+  .pthumb{flex:none;width:72px;font-size:2.6px;border-radius:5px}
+  .lcard .lpic.page{font-size:4px}
+  .starterfigure .lpic.page{font-size:12px}
+  [data-pid]{transition:transform .15s}
+  .row.drag{z-index:2;transition:none;background:#262e38;box-shadow:0 6px 24px rgba(0,0,0,.45);border-radius:10px}
+  .grip.none{visibility:hidden}
+  .grip{flex:none;align-self:stretch;display:flex;align-items:center;margin:-8px -6px -8px -10px;padding:0 6px;color:var(--faint);font-size:16px;letter-spacing:-3px;touch-action:none;cursor:grab}
+  .tabs{margin:14px 0 0}
   .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px}
   .opt{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:10px;background:#212832;border:2px solid transparent;font-size:14px}
   .opt.on{border-color:var(--accent);background:#1d2a39}
@@ -266,7 +277,12 @@ function gpAll(){
   for (const p of L) if (p.cols !== GC){ const f = GC / (p.cols || 12); (p.slots || []).forEach(s => { s.x *= f; s.y *= f; s.w *= f; s.h *= f; }); p.cols = GC; }
   return L;
 }
-const cpList = () => gpAll().filter(p => p.id !== "main" && p.id !== "night");
+// Saved layouts are switched-off pages marked saved: earlier versions of Main, kept to bring back later.
+// ("Previous main" is what replacing Main used to leave behind.)
+const isSaved = p => !!p.saved || (p.on === false && p.name === "Previous main");
+const cpList = () => gpAll().filter(p => p.id !== "main" && p.id !== "night" && !isSaved(p));
+const savedList = () => gpAll().filter(p => p.id !== "main" && p.id !== "night" && isSaved(p));
+const savedById = id => savedList().find(p => p.id === id);
 const cpById = id => cpList().find(p => p.id === id);
 const smods = s => [s.mod].concat(s.more || []).filter(Boolean);
 const tileList = () => (mods.tiles && mods.tiles.settings && mods.tiles.settings.items) || [];
@@ -301,22 +317,25 @@ function rootScreen(){
       return row({t:KINDS[k].title, sub: c ? (SRC[k] || []).map(x => x.name).join(", ") : "None yet", chev:true, attrs:'data-go="src:' + k + '"'}); }).join("") +
     (schema.deals ? row({t:"Store deals", sub: (mods.deals.settings.stores || []).length ? (mods.deals.settings.stores || []).join(", ") : "Not set up", chev:true, attrs:'data-go="mod:deals"'}) : ""),
     "Set these up once. Any tile can use them, and several tiles can share the same one.");
-  h += sec("Pages", row({t:"Main", sub:pageSummary(gpAll().find(p => p.id === "main")), v:"Always on"}) +
-    cpList().map(p => row({t:p.name, sub:pageSummary(p), chev:true, attrs:'data-go="page:' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : ""})).join("") +
-    row({t:"Night page", sub:nightText() + " · " + pageSummary(gpAll().find(p => p.id === "night")), chev:true, attrs:'data-go="night"'}) +
-    row({t:"Premade dashboards", sub:"Choose a layout with tiles already arranged", chev:true, attrs:'data-go="starters"'}) +
-    row({t:"Add page", chev:true, cls:"add", attrs:'data-go="newpage"'}),
-    "Swipe left and right on the screen to move between pages.");
+  const all = gpAll(), main = all.find(p => p.id === "main"), night = all.find(p => p.id === "night"), CP = cpList(), SV = savedList();
+  h += sec("Pages", row({t:"Main", sub:pageShort(main), v:"Start page", chev:true, attrs:'data-go="page:main"', pre:(CP.length > 1 && !ECHO ? '<span class="grip none" aria-hidden="true">⋮⋮</span>' : "") + pagePic(main, null, "pthumb")}) +
+    CP.map(p => row({t:p.name, sub:pageShort(p), chev:true, attrs:'data-go="page:' + p.id + '" data-pid="' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : "",
+      pre:(CP.length > 1 && !ECHO ? '<span class="grip" data-grip="' + p.id + '" title="Drag to change the order" aria-hidden="true">⋮⋮</span>' : "") + pagePic(p, null, "pthumb")})).join("") +
+    row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-go="newpage"'}),
+    "Swipe left and right on the screen to move between pages." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
+  h += sec("", row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
+    row({t:"Saved layouts", sub: SV.length ? SV.map(p => p.name).join(", ") : "None yet", chev:true, attrs:'data-go="saved"'}),
+    "The night page takes over the screen overnight. Saved layouts keep earlier versions of Main so you can bring them back.");
   h += sec("Look", row({t:"Looks", sub:"Colors, background, tiles, text size · now: " + lookName(curLook()), chev:true, attrs:'data-go="looks"'}) +
     row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
-    row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}) +
-    row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}));
+    row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}));
   return h;
 }
 /* Each box uses the editor's 48 by 32 grid. Extra tile types rotate in the same box. */
-function starterBox(type, x, y, w, h, settings = {}, rotate = []){
-  return {type, x, y, w, h, settings, rotate};
+function starterBox(type, x, y, w, h, settings = {}, rotate = [], name = ""){
+  return {type, x, y, w, h, settings, rotate, name};
 }
+const fullBox = (type, settings, name) => [starterBox(type, 0, 0, 48, 32, settings, [], name)];
 const STARTERS = {
   everyday: {
     name:"Everyday", sub:"The default layout, with the week, radar, hourly forecast, groceries and dinner.",
@@ -354,28 +373,57 @@ const STARTERS = {
     boxes:[starterBox("clock",0,0,19,7,{style:"Bold",countdowns:false,greeting:false}), starterBox("nextevent",19,0,29,7),
       starterBox("month",0,7,32,25), starterBox("agenda",32,7,16,25,{count:10})]
   },
+  // full-screen pages: one tile across the whole screen. "pageName" is the name the new page gets, "back" its return-to-Main time.
+  monthpage:{full:true, name:"Month calendar", pageName:"Month", back:60, sub:"The whole month, with your events and the weather.", boxes:fullBox("month")},
+  hourspage:{full:true, name:"Next hours", pageName:"Hours", back:60, sub:"A big chart of the temperature and rain for the hours ahead.", boxes:fullBox("nexthours")},
+  dealspage:{full:true, name:"Deals", pageName:"Deals", back:90, sub:"This week's sales on the things you usually buy.", needs:"deals", boxes:fullBox("sales", {layout:"Cards", count:12}, "On sale this week")},
+  photospage:{full:true, name:"Photo frame", pageName:"Photos", back:0, sub:"Your shared album, one picture at a time.", boxes:fullBox("photos")},
   scratch:{name:"Start from scratch", sub:"An empty page for your own tiles.", grid:[]},
   columns:{name:"Top row + two columns", sub:"A wide strip above two columns.", grid:[[0,0,48,8],[0,8,28,24],[28,8,20,24]]},
   side:{name:"Big + side stack", sub:"One large box beside two smaller ones.", grid:[[0,0,32,32],[32,0,16,16],[32,16,16,16]]},
   squares:{name:"Four squares", sub:"Four equal boxes.", grid:[[0,0,24,16],[24,0,24,16],[0,16,24,16],[24,16,24,16]]}
 };
-function starterPicture(id){
-  const grid = STARTERS[id].grid;
-  if (grid) return '<span class="blankpreview" aria-hidden="true">' + grid.map(([x,y,w,h]) =>
+const GROUPS = [["dash", "Dashboards"], ["full", "Full-screen"], ["grid", "Empty grids"], ["saved", "Saved"]];
+const starterGroup = s => s.grid ? "grid" : s.full ? "full" : "dash";
+let galTab = "dash", galLook = null;     // galLook: null = the default for where it's going
+// one choice in the gallery: a starter, or "saved:<page id>" for a saved layout
+function choiceOf(id){
+  if (id && id.startsWith("saved:")){ const p = savedById(id.slice(6)); return p && {name:p.name, sub:pageShort(p), page:p, saved:true, look:p.look}; }
+  return STARTERS[id] || null;
+}
+function starterPicture(id, big){
+  const c = choiceOf(id); if (!c) return "";
+  if (c.page) return pagePic(c.page, c.look ? Object.assign(lookVals(curLook()), c.look) : null, "page");
+  if (c.grid) return '<span class="blankpreview" aria-hidden="true">' + c.grid.map(([x,y,w,h]) =>
     '<i style="left:calc(' + x/48*100 + '% + 2px);top:calc(' + y/32*100 + '% + 2px);width:calc(' +
     w/48*100 + '% - 4px);height:calc(' + h/32*100 + '% - 4px)"></i>').join("") + '</span>';
-  return '<img src="/starters/' + id + '.jpg" width="1920" height="1080" alt="' + STARTERS[id].name + ' dashboard layout">';
+  if (c.full) return '<img src="/starters/' + id + '.jpg" width="1600" height="900" alt="' + c.name + ' page">';
+  return '<img src="/starters/' + id + '.jpg" width="1920" height="1080" alt="' + c.name + ' dashboard layout">';
 }
 function starterPreview(id){
-  return '<figure class="starterfigure"><figcaption>' + STARTERS[id].name + '</figcaption>' + starterPicture(id) + '</figure>';
+  const c = choiceOf(id); if (!c) return "";
+  return '<figure class="starterfigure"><figcaption>' + esc(c.name) + '</figcaption>' + starterPicture(id, true) + '</figure>';
 }
-function starterGallery(selected){
-  const cards = grids => '<div class="lcards">' + Object.entries(STARTERS).filter(([,s]) => !!s.grid === grids).map(([id,s]) =>
+// where: "page" (Add page), "main" (Change Main's layout) or "wiz" (first-run setup, for Main)
+function starterGallery(selected, where = "page"){
+  const tabs = GROUPS.filter(([g]) => g !== "full" || where === "page").filter(([g]) => g !== "saved" || savedList().length);
+  if (!tabs.some(([g]) => g === galTab)) galTab = "dash";
+  const list = galTab === "saved" ? savedList().map(p => ["saved:" + p.id, choiceOf("saved:" + p.id)])
+    : Object.entries(STARTERS).filter(([, s]) => starterGroup(s) === galTab && (!s.needs || schema[s.needs]));
+  return '<span class="seg wide tabs" role="tablist">' + tabs.map(([g, label]) => '<button role="tab" data-act="galtab" data-id="' + g + '" aria-selected="' + (g === galTab) + '"' + (g === galTab ? ' class="on"' : "") + '>' + label + '</button>').join("") + '</span>' +
+    '<div class="lcards">' + list.map(([id, s]) =>
     '<button class="lcard' + (selected === id ? ' now' : '') + '" aria-pressed="' + (selected === id) +
     '" data-act="pickstarter" data-id="' + id + '">' + starterPicture(id) +
-    '<b>' + s.name + '</b><small>' + s.sub + '</small></button>').join("") + '</div>';
-  return cards(false) + '<h2 class="gridheading">Empty grids</h2>' + cards(true) +
-    (selected ? '<div class="compactpreview">' + starterPreview(selected) + '</div>' : '');
+    '<b>' + esc(s.name) + '</b><small>' + esc(s.sub) + '</small></button>').join("") + '</div>' +
+    (selected && choiceOf(selected) ? '<div class="compactpreview">' + starterPreview(selected) + '</div>' : '');
+}
+// does picking this also bring its colors and background? Only dashboards and saved layouts have their own look.
+const hasLook = id => { const c = choiceOf(id); return !!(c && c.look); };
+const useLook = (id, where) => hasLook(id) && (galLook === null ? where !== "page" : galLook);
+function lookSwitch(id, where){
+  if (!hasLook(id)) return "";
+  return sec("", row({t:"Switch to its colors and background", sub: useLook(id, where) ? "Changes the look of every page" : "Off: keeps your current look (" + lookName(curLook()) + ")",
+    post: sw(useLook(id, where), 'data-act="gallook"')}));
 }
 function sameEverydayLayout(){
   const main = gpAll().find(p => p.id === "main");
@@ -387,51 +435,76 @@ function sameEverydayLayout(){
   });
   return JSON.stringify(layout(main, tileList())) === JSON.stringify(layout(everyday.page, everyday.tiles));
 }
-function installStarter(key, onMain){
-  const s = STARTERS[key], pages = gpAll(), main = pages.find(p => p.id === "main");
-  const uid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-  const page = {id:uid, name:s.grid ? "Page " + (cpList().length + 2) : s.name, cols:GC, slots:[], on:true, back:0};
-  if (key === "everyday"){
-    if (onMain && sameEverydayLayout()) return;
-    const ids = {};
-    page.slots = everyday.page.slots.map((slot,i) => {
-      const copy = {...slot, id:uid + "s" + i};
-      const tileId = old => {
-        if (!ids[old]){
-          const tile = everyday.tiles.find(t => t.id === old);
-          ids[old] = uid + "_" + old;
-          tileList().push({...tile, id:ids[old], settings:{...tile.settings}});
-        }
-        return ids[old];
-      };
-      copy.mod = tileId(slot.mod);
-      if (slot.more) copy.more = slot.more.map(tileId);
-      return copy;
-    });
-  } else if (s.grid){
-    page.slots = s.grid.map(([x,y,w,h], i) => ({id:uid + "s" + i,x,y,w,h,mod:null}));
-  } else page.slots = s.boxes.map(({type,x,y,w,h,settings,rotate}, i) => {
+const newUid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const mainDated = () => "Main, " + new Date().toLocaleDateString(undefined, {month:"short", day:"numeric"});
+const lookSnap = () => Object.fromEntries(LOOK_KEYS.filter(k => LS()[k] !== undefined).map(k => [k, LS()[k]]));
+function uniqueName(base){
+  const names = new Set(gpAll().map(p => p.name));
+  let n = base; for (let i = 2; names.has(n); i++) n = base + " (" + i + ")";
+  return n;
+}
+// copy boxes with their own copies of the tiles, so changing one copy never changes the other
+function cloneSlots(slots, uid, tiles = tileList()){
+  const ids = {}; let k = 0;
+  const tid = old => {
+    if (!old) return old;
+    if (!ids[old]){
+      const t = tiles.find(x => x.id === old); if (!t) return null;
+      ids[old] = uid + "_" + (k++);
+      tileList().push(JSON.parse(JSON.stringify({...t, id:ids[old]})));
+    }
+    return ids[old];
+  };
+  return (slots || []).map((slot, i) => {
+    const copy = {...slot, id:uid + "s" + i, mod:tid(slot.mod)};
+    if (slot.more) copy.more = slot.more.map(tid).filter(Boolean);
+    return copy;
+  });
+}
+// keep Main's current boxes as a saved layout (moved, not copied: Main gets new boxes right after)
+function keepMain(why){
+  const main = gpAll().find(p => p.id === "main");
+  if (!main.slots.length) return;
+  gpAll().push({id:newUid(), name:uniqueName(why ? "Main before " + why : mainDated()), cols:GC, slots:main.slots, on:false, saved:true, look:lookSnap(), at:Date.now()});
+}
+function installStarter(key, onMain, withLook = onMain){
+  const c = choiceOf(key); if (!c) return;
+  const pages = gpAll(), main = pages.find(p => p.id === "main"), uid = newUid();
+  const page = {id:uid, name:c.grid ? "Page " + (cpList().length + 2) : c.pageName || c.name, cols:GC, slots:[], on:true, back:c.back || 0};
+  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); };
+  if (c.saved) page.slots = cloneSlots(c.page.slots, uid);
+  else if (key === "everyday"){
+    if (onMain && sameEverydayLayout()){ applyLook(); return; }
+    page.slots = cloneSlots(everyday.page.slots, uid, everyday.tiles);
+  } else if (c.grid){
+    page.slots = c.grid.map(([x,y,w,h], i) => ({id:uid + "s" + i,x,y,w,h,mod:null}));
+  } else page.slots = c.boxes.map(({type,x,y,w,h,settings,rotate,name}, i) => {
     const id = uid + "s" + i;
     const ids = [type, ...rotate].map((type,j) => {
       const tid = id + "t" + j;
       const values = j ? {} : {...settings};
       if (type === "list" && firstList()) values.list = firstList().id;
-      tileList().push({id:tid,type,settings:values});
+      if (type === "photos" && (SRC.albums || [])[0]) values.album = SRC.albums[0].id;
+      const tile = {id:tid,type,settings:values};
+      if (name && !j) tile.name = name;
+      tileList().push(tile);
       return tid;
     });
     const slot = {id,x,y,w,h,mod:ids[0]};
     if (rotate.length){ slot.more = ids.slice(1); slot.every = 45; }
     return slot;
   });
-  if (!onMain){ pages.push(page); return page.id; }
-  if (main.slots.length) pages.push({...main, id:uid, name:"Previous main", on:false});
+  if (!onMain){ applyLook(); pages.push(page); return page.id; }
+  keepMain(c.saved ? "" : c.name);         // before applyLook, so the saved layout keeps the look it had
   main.slots = page.slots;
-  if (s.look) Object.assign(LS(), {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, s.look);
+  applyLook();
 }
 let selectedStarter = "everyday";
 function starterScreen(){
-  return '<div class="big">Premade dashboards</div><p class="intro">Add a swipeable page with your current look, or use a dashboard on Main with its colors and background. Your previous layout is saved as a disabled page.</p>' +
-    starterGallery(selectedStarter) + (selectedStarter ? '<div class="saverow"><button data-act="starterpage">Add as page</button><button class="pri" data-act="startermain">Use on Main</button></div>' : '');
+  const c = choiceOf(selectedStarter);
+  return '<div class="big">Change Main\'s layout</div><p class="intro">Pick a dashboard or an empty grid for Main. Its current layout is kept in Saved layouts.</p>' +
+    starterGallery(selectedStarter, "main") + lookSwitch(selectedStarter, "main") +
+    (c ? '<div class="saverow"><button class="pri" data-act="startermain">Use ' + esc(c.name) + ' on Main</button></div>' : '');
 }
 
 function displayScreen(){
@@ -445,6 +518,19 @@ function pageSummary(p){
   if (!p) return "Empty";
   const t = [].concat(...(p.slots || []).map(smods)).map(tileName);
   return t.length ? t.join(", ") : "No tiles yet";
+}
+function pageShort(p){
+  const t = p ? [].concat(...(p.slots || []).map(smods)).map(tileName) : [];
+  if (!t.length) return p && (p.slots || []).length ? "Empty boxes" : "No tiles yet";
+  return t.length + (t.length === 1 ? " tile · " : " tiles · ") + t.slice(0, 3).join(", ") + (t.length > 3 ? "…" : "");
+}
+// a small picture of a page: its real boxes, drawn in the current look (or the look given)
+const NIGHT_LOOK = {bg:"Color", bgColor:"#030405", tiles:"Clear", accent:"#8a939e"};
+function pagePic(p, v, cls){
+  const c = lookColors(v || lookVals(curLook()));
+  return '<div class="lpic ' + (cls || "") + '" aria-hidden="true" style="background:' + c.bg + '">' + ((p && p.slots) || []).map(sl =>
+    '<i class="slot" style="left:calc(' + sl.x / GC * 100 + '% + .5em);top:calc(' + sl.y / 32 * 100 + '% + .5em);width:calc(' + sl.w / GC * 100 + '% - 1em);height:calc(' + sl.h / 32 * 100 + '% - 1em);background:' + c.card + ';border-color:' + (c.light ? "rgba(0,0,0,.14)" : "rgba(255,255,255,.2)") + '">' +
+    (smods(sl).length ? '<s style="background:' + c.acc + '"></s><u style="background:' + c.dim + ';width:70%;height:.6em"></u><u style="background:' + c.dim + ';width:50%;height:.6em"></u>' : "") + '</i>').join("") + '</div>';
 }
 function field(mid, key, s, val){
   const a = 'data-m="' + mid + '" data-k="' + key + '" data-t="' + s.type + '"';
@@ -556,10 +642,33 @@ function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Ech
   return false;
 }
 function newPageScreen(){
-  return '<div class="big">Add page</div><p class="intro">Choose a dashboard or an empty grid. New pages use your current look.</p>' +
-    starterGallery(selectedStarter) + '<div class="saverow"><button class="pri" data-act="starterpage">Add page</button></div>';
+  const c = choiceOf(selectedStarter);
+  return '<div class="big">Add page</div><p class="intro">A new page to swipe to. Every page shares the same look.</p>' +
+    starterGallery(selectedStarter, "page") + lookSwitch(selectedStarter, "page") +
+    (c ? '<div class="saverow"><button class="pri" data-act="starterpage">Add ' + esc(c.name) + '</button></div>' : '');
+}
+function mainScreen(){
+  const main = gpAll().find(p => p.id === "main");
+  let h = '<div class="big">Main</div><p class="intro">The page the screen starts on, and comes back to from other pages.</p>';
+    const nt = [].concat(...main.slots.map(smods)).length, nb = main.slots.length;
+  h += sec("Layout", '<div class="row">' + pagePic(main, null, "pthumb") + '<div class="t"><b>' + nt + (nt === 1 ? " tile" : " tiles") + " in " + nb + (nb === 1 ? " box" : " boxes") + '</b><small>' + esc(pageSummary(main)) + '</small></div></div>' +
+    (ECHO ? "" : '<button class="btnrow blue" data-act="edit" data-id="main">Edit Main on screen</button>') +
+    row({t:"Change layout", sub:"Use a premade dashboard, an empty grid or a saved layout", chev:true, attrs:'data-go="starters"'}) +
+    row({t:"Save a copy", sub:"Keep this layout in Saved layouts, and carry on editing Main", chev:true, attrs:'data-act="savemain"'}),
+    ECHO ? "To change tiles, press Done and hold any tile on the screen." : "");
+  return h;
+}
+function savedScreen(){
+  const L = savedList();
+  let h = '<div class="big">Saved layouts</div><p class="intro">Earlier versions of Main. Put one back on Main, add it as its own page, or delete it.</p>';
+  if (!L.length) return h + sec("", '<div class="row"><div class="t"><small>Nothing saved yet. Changing Main\'s layout, or Save a copy on Main, keeps the old layout here.</small></div></div>');
+  return h + L.map(p => sec("", '<div class="row col">' + pagePic(p, p.look ? Object.assign(lookVals(curLook()), p.look) : null, "page") + '</div>' +
+    row({t:p.name, sub:pageShort(p)}) +
+    '<div class="saverow" style="padding:0 12px 12px"><button data-act="savedpage" data-id="' + p.id + '">Add as page</button><button class="pri" data-act="savedmain" data-id="' + p.id + '">Use on Main</button></div>' +
+    '<button class="btnrow red" data-act="saveddel" data-id="' + p.id + '">Delete</button>')).join("");
 }
 function pageScreen(id){
+  if (id === "main") return mainScreen();
   const p = cpById(id); if (!p) return '<div class="big">Page not found</div>';
   let h = '<div class="big">' + esc(p.name) + '</div>';
   h += sec("", row({t:"Show this page", post: sw(p.on !== false, 'data-act="toggle" data-id="' + id + '"')}));
@@ -572,7 +681,7 @@ function pageScreen(id){
   return h;
 }
 function pvGoPage(id){
-  const tryGo = () => { try{ const w = pvWin(); if (!w.dashGoPage || w.dashEditing()) return; if (w.dashGoPage("c:" + id) >= 0) pvTabs(); }catch(e){} };
+  const tryGo = () => { try{ const w = pvWin(); if (!w.dashGoPage || w.dashEditing()) return; if (w.dashGoPage(id === "main" ? "main" : "c:" + id) >= 0) pvTabs(); }catch(e){} };
   tryGo(); setTimeout(tryGo, 1500);
 }
 function act(a, id){
@@ -587,16 +696,36 @@ function act(a, id){
     if (preview && preview.offsetWidth) preview.scrollIntoView({block:"nearest"});
     return;
   }
+  if (a === "galtab"){ galTab = id; show(); return; }
+  if (a === "gallook"){ const where = stack[stack.length - 1] === "starters" ? "main" : "page"; galLook = !useLook(selectedStarter, where); show(); return; }
   if (a === "starterpage" || a === "startermain"){
-    const starter = STARTERS[selectedStarter];
+    const starter = choiceOf(selectedStarter);
     if (!starter) return;
-    const pid = installStarter(selectedStarter, a === "startermain");
-    selectedStarter = "everyday"; stack.pop(); save();
+    const onMain = a === "startermain";
+    const pid = installStarter(selectedStarter, onMain, useLook(selectedStarter, onMain ? "main" : "page"));
+    selectedStarter = "everyday"; galTab = "dash"; galLook = null; stack.pop(); save();
     if (pid){
       go("page:" + pid);
       if (!ECHO && starter.grid) PV.editPage = pid;
-    } else show();
+    } else { if (onMain) toast("Main's old layout is in Saved layouts", "ok"); show(); }
     return;
+  }
+  if (a === "savemain"){
+    const main = gpAll().find(x => x.id === "main"), uid = newUid();
+    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), at:Date.now()});
+    save(); toast("Saved a copy in Saved layouts", "ok"); show(); return;
+  }
+  if (a === "savedmain" || a === "savedpage"){
+    const pid = installStarter("saved:" + id, a === "savedmain", a === "savedmain");
+    save();
+    if (pid) go("page:" + pid); else { toast("Main's old layout is in Saved layouts", "ok"); show(); }
+    return;
+  }
+  if (a === "saveddel"){
+    const sp = savedById(id); if (!sp || !confirmDel({one:"saved layout"}, id)) return;
+    const gone = new Set([].concat(...(sp.slots || []).map(smods)));
+    if (mods.tiles) mods.tiles.settings.items = tileList().filter(t => !gone.has(t.id));
+    mods.pages.settings.items = gpAll().filter(x => x !== sp); save(); show(); return;
   }
   if (/^(wiz|st)/.test(a)) return wizAct(a, id);
   if (a === "toggle"){ p.on = p.on === false; save(); show(); return; }
@@ -635,9 +764,10 @@ function show(){
   else if (cur === "display"){ h = displayScreen(); title = "Screen orientation"; }
   else if (cur === "status"){ h = statusScreen(); title = "Status"; }
   else if (cur === "wiz"){ h = wizScreen(); title = "Set up"; }
-  else if (cur === "starters"){ h = starterScreen(); title = "Premade dashboards"; }
+  else if (cur === "starters"){ h = starterScreen(); title = "Change layout"; }
+  else if (cur === "saved"){ h = savedScreen(); title = "Saved layouts"; }
   else if (cur === "newpage"){ h = newPageScreen(); title = "Add page"; }
-  else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = p ? p.name : "Page"; }
+  else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = cur === "page:main" ? "Main" : p ? p.name : "Page"; }
   else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
   else if (cur.startsWith("srci:")){ const [, k, id] = cur.split(":"); h = srcItemScreen(k, id); title = KINDS[k] ? KINDS[k].title : ""; }
   else if (cur === "looks"){ h = looksScreen(); title = "Looks"; }
@@ -653,21 +783,21 @@ function show(){
   $("screen").innerHTML = h;
   const choice = cur === "newpage" || cur === "starters" ? selectedStarter :
     cur === "wiz" && WIZ.step === 4 ? WIZ.starter || (sameEverydayLayout() ? "everyday" : "") : "";
-  $("starterpv").innerHTML = choice ? starterPreview(choice) : "";
-  document.body.classList.toggle("showstarter", !!choice);
+  $("starterpv").innerHTML = choice && choiceOf(choice) ? starterPreview(choice) : "";
+  document.body.classList.toggle("showstarter", !!(choice && choiceOf(choice)));
   if (!choice && !ECHO) pvFit();
   $("title").textContent = title;
   $("back").hidden = stack.length < 2;
   const prev = stack[stack.length - 2];
   const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Looks", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New look"};
   $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? lookName(prev.slice(5)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
-    prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "newpage" ? "Add page" : "Back";
+    prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "newpage" ? "Add page" : prev === "saved" ? "Saved layouts" : "Back";
   const want = cur.startsWith("look:") ? cur.slice(5) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
   if (!ECHO && (want !== PV.theme || night !== !!PV.night)){ PV.theme = want; PV.night = night; pvLoad(); }
   fxPreviews();
   if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
 }
-function go(to){ stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
+function go(to){ if (to === "newpage" || to === "starters"){ galTab = "dash"; galLook = null; } stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
 /* ---------- Status: is everything working, is there a new version, and a diagnostics file for bug reports ---------- */
 let STATUS = null;
 async function statusLoad(check){
@@ -782,7 +912,7 @@ function wizScreen(){
     if (extra) h += sec("", extra);
     h += nav(["Next", "wizlist"]);
   } else if (st === 4){
-    h += '<div class="big">Choose your dashboard</div><p class="intro">Pick a layout and look for your main screen. You can edit every tile later. Your previous layout is saved as a disabled page.</p>' + starterGallery(WIZ.starter || (sameEverydayLayout() ? "everyday" : ""));
+    h += '<div class="big">Choose your dashboard</div><p class="intro">Pick a layout and look for your main screen. You can edit every tile later. Your previous layout is kept in Saved layouts.</p>' + starterGallery(WIZ.starter || (sameEverydayLayout() ? "everyday" : ""), "wiz");
     h += '<div class="saverow"><button data-act="wizback">Back</button>' +
       (sameEverydayLayout() ? '' : '<button data-act="wizkeep">Keep current layout</button>') +
       (WIZ.starter || sameEverydayLayout() ? '<button class="pri" data-act="wiznext">Next</button>' : '') + '</div>';
@@ -841,7 +971,35 @@ async function wizAct(a, id){
 $("back").addEventListener("click", () => { stack.pop(); show(); });
 
 /* ---------- edits ---------- */
+// drag ⋮⋮ to change the order of pages
+let dragged = 0;
+document.addEventListener("pointerdown", e => {
+  const g = e.target.closest("[data-grip]"); if (!g) return;
+  e.preventDefault();
+  const r0 = g.closest(".row"), rows = [...r0.parentElement.querySelectorAll("[data-pid]")], from = rows.indexOf(r0), y0 = e.clientY, hgt = r0.offsetHeight;
+  let to = from;
+  r0.classList.add("drag"); g.setPointerCapture(e.pointerId);
+  const move = ev => {
+    const dy = Math.max(-from * hgt, Math.min((rows.length - 1 - from) * hgt, ev.clientY - y0));
+    to = from + Math.round(dy / hgt);
+    r0.style.transform = "translateY(" + dy + "px)";
+    rows.forEach((r, i) => { if (r !== r0) r.style.transform = i > from && i <= to ? "translateY(-" + hgt + "px)" : i < from && i >= to ? "translateY(" + hgt + "px)" : ""; });
+  };
+  const up = () => {
+    g.removeEventListener("pointermove", move); g.removeEventListener("pointerup", up); g.removeEventListener("pointercancel", up);
+    dragged = performance.now();
+    if (to !== from){
+      const L = gpAll(), ids = rows.map(r => r.dataset.pid), [m] = ids.splice(from, 1); ids.splice(to, 0, m);
+      const inList = new Set(cpList()), order = ids.map(id => L.find(p => p.id === id)); let k = 0;
+      mods.pages.settings.items = L.map(p => inList.has(p) ? order[k++] : p);
+      save();
+    }
+    show();
+  };
+  g.addEventListener("pointermove", move); g.addEventListener("pointerup", up); g.addEventListener("pointercancel", up);
+});
 document.addEventListener("click", e => {
+  if (e.target.closest("[data-grip]") || (dragged && performance.now() - dragged < 300)) return;
   const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-go]"); if (!t) return;
   if (lookClick(t)) return;
   if (t.dataset.act){ act(t.dataset.act, t.dataset.id); return; }
@@ -1322,13 +1480,16 @@ const SWATCHES = ["#7cb7ff", "#5fd3c4", "#7fd18a", "#ffd36e", "#ff9f5a", "#ff7a8
 const SIZES = [["Smaller", 90], ["Normal", 100], ["Bigger", 115], ["Biggest", 130]];
 
 /* ----- a small drawing of the dashboard in a look ----- */
-function lookPic(v, cls){
-  const light = v.mode === "Light", ts = (v.textScale || 100) / 100;
+function lookColors(v){
+  const light = v.mode === "Light";
   const bg = v.bg === "Color" ? esc(v.bgColor || "#0a0c0f") : v.bg === "Photos" ? "linear-gradient(165deg,#88a6c2 0%,#d7b08a 52%,#4d5e43 53%,#2a3624 100%)"
     : "linear-gradient(180deg,#2f6aa3 0%,#1c4370 45%,#0d1a2b 100%)";
   const op = v.tiles === "Clear" ? 0 : v.tiles === "See-through" ? (v.opacity || 60) / 100 : light ? .92 : .86;
-  const card = (light ? "rgba(250,251,253," : "rgba(18,22,28,") + op + ")", fg = light ? "#1a1f26" : "#e9ecf1", dim = light ? "#5a6470" : "#8a939e";
-  const bd = v.tiles === "Clear" ? "transparent" : light ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.07)", acc = esc(v.accent || "#7cb7ff");
+  return {light, bg, card:(light ? "rgba(250,251,253," : "rgba(18,22,28,") + op + ")", fg:light ? "#1a1f26" : "#e9ecf1", dim:light ? "#5a6470" : "#8a939e",
+    bd:v.tiles === "Clear" ? "transparent" : light ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.07)", acc:esc(v.accent || "#7cb7ff")};
+}
+function lookPic(v, cls){
+  const ts = (v.textScale || 100) / 100, {bg, card, fg, dim, bd, acc} = lookColors(v);
   const box = (x, y, w, h, inner) => '<i style="left:' + x + '%;top:' + y + '%;width:' + w + '%;height:' + h + '%;background:' + card + ';border-color:' + bd + '">' +
     (v.titles !== false ? '<s style="background:' + dim + '"></s>' : "") + inner + '</i>';
   const lines = (n, w) => [...Array(n)].map((_, i) => '<u style="background:' + (i ? dim : fg) + ';width:' + (w - i * 9) + '%;height:' + (.55 * ts) + 'em"></u>').join("");

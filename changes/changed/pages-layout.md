@@ -1,0 +1,1 @@
+- **Tidier Pages in Controls.** Every page, Main included, opens from one list with a small picture of its layout, and you can drag pages into a new order. Add page is now the single place to find dashboards and empty grids. Tap Main to change its layout. New installs start with just Main and the night page, and Month is one tap away under Add page → Full-screen.
