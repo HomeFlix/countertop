@@ -68,6 +68,7 @@
   .emb.none{font-size:14px;color:var(--dim)}
   .row.swp .arr{color:var(--dim);font-size:18px}
   .embig{font-size:26px;vertical-align:middle}
+  html.echo body{zoom:1.3}
   .intro{color:var(--dim);font-size:15px;margin:0 4px 6px}
   .help{color:var(--faint);font-size:13px;line-height:1.4}
   .dot{flex:none;width:12px;height:12px;border-radius:50%}
@@ -165,7 +166,9 @@ const ECHO = /[?&]echo=1/.test(location.search);
 let schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
 const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams"];
 
+window.shellBusy = () => true;       // on the Echo, the shell must not reload the dashboard over Controls when a save changes the settings
 if (ECHO){
+  document.documentElement.classList.add("echo");
   $("done").textContent = "Done"; $("done").removeAttribute("target"); $("done").href = "/dash/content";
   document.addEventListener("pointerdown", () => { try{ window.top.shellTap && window.top.shellTap(); }catch(e){} });
   setInterval(() => { try{ window.top.contentTick && window.top.contentTick(); }catch(e){} }, 20e3);
@@ -231,9 +234,9 @@ const titlesLoad = fetch("/tiles.js").then(r => r.text()).then(t => { for (const
 /* ---------- screens ---------- */
 function rootScreen(){
   let h = '<div class="big">Dashboard</div>';
-  h += sec("", ECHO ? row({t:"Change what's on the screen", sub:"Press Done, then hold any tile for a second. You can add tiles, move and resize them, and change each one's settings right there."})
+  h += sec("", ECHO ? '<button class="btnrow pri" data-act="echoedit">Edit the screen</button>'
     : '<button class="btnrow pri" data-act="edit" data-id="main">Edit dashboard on screen</button>',
-    ECHO ? "" : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
+    ECHO ? "Add tiles, move and resize them, and change each tile's settings. You can also hold any tile on the screen for a second." : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
   const g = mods.general ? mods.general.settings : {};
   h += sec("Setup",
     row({t:"Location & units", sub: g.place || (g.lat ? g.lat + ", " + g.lon : "Not set: needed for weather"), chev:true, attrs:'data-go="mod:general"'}) +
@@ -380,6 +383,7 @@ function pvGoPage(id){
 }
 function act(a, id){
   const L = cpList(), p = cpById(id);
+  if (a === "echoedit"){ location.href = "/dash/content?edit=1"; return; }
   if (a === "new"){
     const t = PAGE_TPL[+id], pid = "p" + Date.now().toString(36);
     gpAll().push({id:pid, name:"Page " + (L.length + 2), on:true, back:0, cols:GC, slots:t.boxes.map((r, j) => ({id:"s" + j + pid, x:r[0] * U, y:r[1] * U, w:r[2] * U, h:r[3] * U, mod:null}))});

@@ -190,8 +190,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"sources": sources_apply(body), "kinds": SOURCE_KINDS})
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p == "/lists/push":
+            code, out = list_push(body)
+            self._json(out, code)
         elif p == "/notes":
-            if reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
+            if pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
+                self._json(notes_view())          # the list is kept in another app: read-only here
+            elif reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(reminders_apply(body))
             else:
                 notes_apply(body)
@@ -263,6 +268,7 @@ class Handler(BaseHTTPRequestHandler):
 # the browser never gets them back, only that one is set.
 SOURCES_FILE = HERE.parent / "work" / "sources.json"
 SOURCES_LOCK = threading.Lock()
+PUSHED = "Sent from another app"
 SOURCE_KINDS = {
     "calendars": {"title": "Calendars", "one": "calendar",
         "desc": "Calendars your tiles can show: Google, iCloud, Outlook or any calendar with a private iCal link.",
@@ -275,9 +281,11 @@ SOURCE_KINDS = {
         "desc": "Shopping or to-do lists for the List tile.",
         "fields": {
             "name": {"label": "Name", "type": "text"},
-            "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders"],
-                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac)."},
-            "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}}}},
+            "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders", PUSHED],
+                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. the Countertop List Sync helper on a Mac (Reminders, updates within seconds) or an iPhone Shortcut. See docs/list-sync.md."},
+            "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}},
+            "pushKey": {"label": "Sync key", "type": "text", "when": {"kind": PUSHED},
+                        "help": "Made for you when you save. Paste it into the List Sync helper or your Shortcut; anyone on your network with this key can replace the list."}}},
     "teams": {"title": "Sports teams", "one": "team",
         "desc": "Teams whose matches show on the Team, Week ahead and Month tiles. Soccer only for now.",
         "fields": {
@@ -389,6 +397,10 @@ def sources_apply(body):
                 if fields[f].get("secret") and not v:
                     continue           # blank = keep the link already saved
                 cur[f] = v
+    if kind == "lists":
+        for x in L:
+            if x.get("kind") == PUSHED and not (x.get("pushKey") or "").strip():
+                x["pushKey"] = uuid.uuid4().hex[:16]
     sources_write(d)
     ICS_CACHE.clear()
     return sources_public()
@@ -502,8 +514,82 @@ def reminders_loop():
         time.sleep(120)
 
 
+# ---------- a list another app sends here (List Sync helper on a Mac, an iPhone Shortcut, a script) ----------
+PUSHED_FILE = HERE.parent / "work" / "pushed_lists.json"
+PUSHED_LOCK = threading.Lock()
+
+
+def pushed_list():
+    """The first list in Setup kept as 'Sent from another app', if it comes before any Reminders list."""
+    try:
+        for L in sources_load().get("lists") or []:
+            if L.get("kind") == PUSHED:
+                return L
+            if L.get("kind") == "Apple Reminders" and (L.get("remName") or "").strip():
+                return None
+    except Exception:
+        pass
+    return None
+
+
+def pushed_load():
+    try:
+        d = json.loads(PUSHED_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def list_push(body):
+    """POST /lists/push {key, items:[text | {id,text}] or text:"one per line", via?}. Replaces the whole list."""
+    key = str(body.get("key") or "").strip()
+    target = None
+    for L in sources_load().get("lists") or []:
+        if L.get("kind") == PUSHED and key and L.get("pushKey") == key:
+            target = L
+    if not target:
+        return 403, {"error": "unknown sync key. Copy it from Controls > Setup > Lists"}
+    raw = body.get("items")
+    if raw is None:
+        raw = body.get("text") if body.get("text") is not None else body.get("raw", "")
+    if isinstance(raw, str):
+        raw = raw.splitlines()
+    if not isinstance(raw, list):
+        return 400, {"error": "send items as a list, or text with one item per line"}
+    with PUSHED_LOCK:
+        all_ = pushed_load()
+        prev = {i["text"].lower(): i["id"] for i in (all_.get(target["id"]) or {}).get("items", [])}
+        items, seen = [], set()
+        for x in raw[:300]:
+            rid = ""
+            if isinstance(x, dict):
+                rid, x = str(x.get("id") or "")[:120], x.get("text") or x.get("title") or ""
+            t = " ".join(str(x).split())[:80]
+            if not t or t.lower() in seen:
+                continue
+            seen.add(t.lower())
+            items.append({"id": rid or prev.get(t.lower()) or uuid.uuid4().hex[:10], "text": t, "done": False})
+        all_[target["id"]] = {"items": items, "at": time.time(), "via": str(body.get("via") or "")[:40]}
+        PUSHED_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PUSHED_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(all_, ensure_ascii=False, indent=1))
+        tmp.chmod(0o600)
+        tmp.replace(PUSHED_FILE)
+    try:
+        purchases_log_list(items)
+    except Exception:
+        pass
+    return 200, {"ok": True, "list": target.get("name"), "count": len(items)}
+
+
 def notes_view():
     d = notes_load()
+    pl = pushed_list()
+    if pl:
+        got = pushed_load().get(pl["id"]) or {}
+        return dict(d, items=got.get("items", []), source="pushed", list=pl.get("name") or "List", via=got.get("via") or "",
+                    pushedAt=got.get("at") or 0, readonly=True,
+                    error=None if got else "Nothing sent yet. Set up the List Sync helper or a Shortcut with this list's sync key.")
     name = reminders_list_name()
     if not name:
         return d

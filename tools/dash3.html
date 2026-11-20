@@ -375,6 +375,8 @@
   .hd.e,.hd.w{top:50%;margin-top:-8px;cursor:ew-resize} .hd.e{right:-10px} .hd.w{left:-10px}
   .hd.ne{right:-10px;top:-10px;cursor:nesw-resize} .hd.sw{left:-10px;bottom:-10px;cursor:nesw-resize}
   .hd.nw{left:-10px;top:-10px;cursor:nwse-resize} .hd.se{right:-10px;bottom:-10px;cursor:nwse-resize}
+  .eslot .hd::after{content:"";position:absolute;inset:-18px;border-radius:50%}        /* a finger-sized target around each dot */
+  @media (pointer:coarse){ .eslot .hd{transform:scale(1.35)} #edfocus .fr{width:34px;height:34px;right:-18px;bottom:-18px} #edfocus .fr::after{content:"";position:absolute;inset:-14px;border-radius:50%} }
   .eslot .tb{position:absolute;right:6px;top:-44px;display:flex;gap:6px;align-items:center;background:#0d1014;border:1px solid #2b323b;border-radius:10px;padding:4px 6px;white-space:nowrap}
   .eslot .tb b{font-size:13px;color:#9aa3ad;font-weight:600;padding:0 4px}
   .eslot .tb button{font:600 13px inherit;font-family:inherit;color:#e9ecf1;background:#2a313b;border:0;border-radius:7px;padding:5px 9px;cursor:pointer}
@@ -478,7 +480,7 @@
   #edfocus .fst > *{width:100%;height:100%;position:relative}
   #edfocus .fh{position:fixed;border:2px dashed transparent;border-radius:8px;cursor:move;touch-action:none}
   #edfocus .fh:hover{border-color:rgba(255,255,255,.35)}
-  #edfocus .fh.sel{border-color:#ffc850;background:rgba(255,200,80,.06)}
+  #edfocus .fh.sel{border-color:#ffc850;background:rgba(255,200,80,.06);z-index:2}
   #edfocus .fr{position:absolute;right:-13px;bottom:-13px;width:24px;height:24px;border-radius:50%;background:#ffc850;border:3px solid #1a1f26;cursor:nwse-resize}
   #edfocus .ftip{position:absolute;left:0;right:0;bottom:22px;text-align:center;color:#9aa3ad;font-size:17px}
   #edpanel .dzrow .dzpick{flex:1;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer;display:flex;flex-direction:column}
@@ -1666,6 +1668,7 @@ function tick(){
 /* ---------- touch: fullscreen + keep-alive live in the shell page ---------- */
 document.addEventListener("pointerdown", () => {
   if (PREVIEW) return;
+  if (EDIT.on) return;          // asking for fullscreen mid-gesture cancels the touch, which breaks drags and scrolling in the editor
   if (FRAMED){ try{ window.top.shellTap(); }catch(e){} }
   else { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
   $("hint").classList.add("gone");
@@ -1698,6 +1701,8 @@ async function boot(){
     document.documentElement.classList.add("still");
   }, 3500);
   FEEDS.forEach(([f, every]) => setInterval(f, every * 1000));
+  // ?edit=1 (Controls' "Edit the screen" on the Echo): open the editor once the tiles have drawn
+  if (/[?&]edit=1/.test(location.search) && !PREVIEW){ history.replaceState(null, "", location.pathname); setTimeout(() => editEnter(null), 900); }
 }
 /* ---------- pages: every page is boxes on a 48x32 grid; a box holds one tile, or several that take turns ---------- */
 const U = 2, GC = 24 * U, GR = 16 * U, GAP = 16;     // sizes below are written in 24x16 units and scaled by U
@@ -1913,11 +1918,14 @@ function editUI(){
   d.innerHTML = '<div id="edcanvas"></div><div id="edgrid"></div><div id="edboxes"></div><div id="edph" hidden><span></span></div>' +
     '<div id="edbar"><span id="edtabs"></span><span id="edhint"></span>' +
     '<button id="edundo" title="Undo (Ctrl+Z)">↶</button><button id="edredo" title="Redo (Shift+Ctrl+Z)">↷</button>' +
-    '<button id="edcancel">Cancel</button><button id="edsave" class="pri">Save</button></div>' +
+    '<button id="edcancel">Cancel</button><button id="edsave" class="pri">Save</button>' +
+    (PREVIEW ? "" : '<button id="edmore" title="Location, calendars, looks, effects, pages">⚙ Settings</button>') + '</div>' +
     '<aside id="edpanel"></aside><div id="edghost" hidden></div><textarea id="edclip" aria-hidden="true"></textarea>';
   document.body.appendChild(d);
   let cells = ""; for (let i = 0; i < GC * GR; i++) cells += "<i></i>"; $("edgrid").innerHTML = cells;
   $("edcancel").onclick = () => editExit(false);
+  // on the Echo: everything else (setup, looks, effects, pages) is in Controls
+  if ($("edmore")) $("edmore").onclick = () => { if (JSON.stringify(CFG) !== EDIT.orig) return flash("Save or Cancel your changes first, then open Settings"); location.href = "/control?echo=1"; };
   $("edsave").onclick = () => editExit(true);
   $("edundo").onclick = () => undo(1);
   $("edredo").onclick = () => undo(-1);
@@ -2439,6 +2447,14 @@ function edUp(){
 addEventListener("pointermove", e => { if (EDIT.on) edMove(e); });
 addEventListener("pointerup", e => { if (EDIT.on) edUp(e); });
 addEventListener("pointercancel", e => { if (EDIT.on) edUp(e); });
+// on a touch screen the browser may take a drag for a scroll and cancel it; while something is being dragged, keep the gesture ours
+document.addEventListener("touchmove", e => { if ((EDIT.drag || (EDIT.focus && EDIT.focus.drag)) && e.cancelable) e.preventDefault(); }, {passive:false, capture:true});
+// a long press would open the browser's menu (and cancel the touch) instead of picking up a tile
+document.addEventListener("contextmenu", e => e.preventDefault());
+// the screen's shell reloads the dashboard when its files change; not while you're in the middle of editing
+window.shellBusy = () => !!EDIT.on;
+// an older shell page can't wait like that: reload it once to get the new one
+if (FRAMED){ try{ if (!(window.top.SHELL_V >= 2) && !sessionStorage.getItem("shellUp")){ sessionStorage.setItem("shellUp", "1"); window.top.location.reload(); } }catch(e){} }
 addEventListener("keydown", e => {
   if (!EDIT.on) return;
   if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
@@ -2650,10 +2666,10 @@ function designDown(e){
     }
     designPaint();
   };
-  const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); const d = EDIT.focus && EDIT.focus.drag; if (EDIT.focus) EDIT.focus.drag = null;
+  const up = () => { removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up); const d = EDIT.focus && EDIT.focus.drag; if (EDIT.focus) EDIT.focus.drag = null;
     if (d && !d.moved) EDIT.hist.pop(); render(m.id); edPaint(true); designPaint();
     const sec = newSel && $("dzsec"); if (sec) sec.scrollIntoView({block:"start"}); };
-  addEventListener("pointermove", move); addEventListener("pointerup", up);
+  addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", up);
 }
 const DZ_SW = ["#ffffff", "#d5dbe3", "#8a939e", "accent", "#ffd36e", "#ff9f5a", "#7fd18a", "#ff7a8a"];
 function panelDesign(){
