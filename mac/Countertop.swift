@@ -266,6 +266,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: updates
 
+    /// Asks the server to look for a new release now, instead of waiting for its twice-a-day check.
+    @objc func checkForUpdates() {
+        busy = "Checking for updates…"
+        updateIcon()
+        fetchJSON("/status?check=1", timeout: 20) { j in
+            DispatchQueue.main.async {
+                self.busy = nil
+                self.refresh()
+                guard let j = j else { return self.sync.showAlert("Couldn't check for updates", "The server didn't answer. Try again in a moment.") }
+                let latest = j["latest"] as? [String: Any] ?? [:]
+                if let err = latest["error"] as? String, !err.isEmpty {
+                    self.sync.showAlert("Couldn't reach GitHub", "Check this Mac's internet connection and try again.")
+                } else if (j["update"] as? Bool) == true {
+                    self.health.update = true
+                    self.health.latestTag = latest["tag"] as? String ?? ""
+                    self.health.latestURL = latest["url"] as? String ?? ""
+                    self.installUpdate()
+                } else {
+                    self.sync.showAlert("You're up to date", "Countertop v\(j["version"] as? String ?? "") is the newest version.")
+                }
+            }
+        }
+    }
+
     @objc func installUpdate() {
         let tag = health.latestTag
         NSApp.activate(ignoringOtherApps: true)
@@ -442,6 +466,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         if h.update {
             m.addItem(action("Install Countertop \(h.latestTag)…", #selector(installUpdate)))
+        } else if h.answering {
+            m.addItem(action("Check for Updates", #selector(checkForUpdates)))
         }
 
         if runServer {
@@ -527,10 +553,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             .split(separator: "\n").compactMap { Int32($0.trimmingCharacters(in: .whitespaces)) }
     }
 
-    func fetchJSON(_ path: String, _ done: @escaping ([String: Any]?) -> Void) {
+    func fetchJSON(_ path: String, timeout: TimeInterval = 4, _ done: @escaping ([String: Any]?) -> Void) {
         guard let url = URL(string: "http://127.0.0.1:\(PORT)\(path)") else { return done(nil) }
         var req = URLRequest(url: url)
-        req.timeoutInterval = 4
+        req.timeoutInterval = timeout
         URLSession.shared.dataTask(with: req) { data, resp, _ in
             guard let data = data, (resp as? HTTPURLResponse)?.statusCode == 200,
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return done(nil) }
