@@ -12,6 +12,4 @@
 **/*.pyc
 **/*.log
 **/.DS_Store
-tools/menubar/
 tools/tiles-off/
-tools/listsync/
