@@ -45,7 +45,10 @@ jobs:
           APP="$RUNNER_TEMP/try/Countertop.app"
           # its own Python can reach HTTPS sites
           SSL_CERT_FILE="$APP/Contents/Resources/python/cacert.pem" "$APP/Contents/Resources/python/bin/python3" -I -c \
-            "import urllib.request; urllib.request.urlopen('https://api.github.com', timeout=20); import dateutil; print('python ok')"
+            "import urllib.request, urllib.error, dateutil
+          try: urllib.request.urlopen('https://www.apple.com', timeout=20)
+          except urllib.error.HTTPError: pass   # an HTTP answer still means the certificate checked out
+          print('python ok')"
           open "$APP"
           for i in $(seq 1 30); do
             if curl -fs http://127.0.0.1:8090/status > status.json; then break; fi
