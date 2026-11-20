@@ -82,6 +82,10 @@
   window.shellTap = onTap;                       // called by the dashboard iframe on pointerdown
   window.shellState = function(){ return {fs:isFull(), audio:audioOk()}; };
   document.addEventListener("pointerdown", onTap);
+  // "Alexa, select" on an Echo Show arrives as a real Enter key press (the dashboard handles it when it has focus)
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Enter" && !e.repeat && e.isTrusted) onTap();
+  });
 
   // keep-alive script; the dashboard used to load this itself
   var ks = document.createElement("script");
