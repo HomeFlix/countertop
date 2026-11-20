@@ -37,9 +37,15 @@
   var STALL_MS = 120e3;          // reload the iframe if it stops ticking this long
 
   // Rotate the iframe so dashboard layout and input both use portrait coordinates.
+  // /dash?orientation=auto|left|right pins this display, whatever Controls says for the others.
+  var MODES = ["auto", "left", "right"];
+  var pinned = new URLSearchParams(location.search).get("orientation");
+  if (MODES.indexOf(pinned) < 0) pinned = null;
   window.shellSetOrientation = function(mode){
+    if (pinned) mode = pinned;
     document.documentElement.dataset.orientation = mode === "left" || mode === "right" ? mode : "auto";
   };
+  window.shellSetOrientation("auto");
 
   function report(task, ok, result, error){
     try{

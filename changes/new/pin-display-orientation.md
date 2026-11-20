@@ -1,0 +1,1 @@
+- **One display, its own orientation.** Open a display at `/dash?orientation=auto` (or `left` or `right`) to keep it out of the shared **Screen orientation** setting, for example a landscape tablet next to a vertical Echo Show.

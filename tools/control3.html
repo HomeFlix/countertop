@@ -188,6 +188,8 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;
 const ECHO = /[?&]echo=1/.test(location.search);
 const MOUNTS = {auto:"Automatic", left:"Portrait · left edge up", right:"Portrait · right edge up"};
 const SHELL = ECHO && window.parent !== window;
+// this screen's own address can pin its orientation (/dash?orientation=left)
+const PINNED = (() => { try{ const m = SHELL && new URLSearchParams(window.parent.location.search).get("orientation"); return MOUNTS[m] ? m : null; }catch(e){ return null; } })();
 let displayMode = "auto";
 let everyday, schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
 const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams", "homeassistant"];
@@ -438,8 +440,9 @@ function displayScreen(){
   const options = Object.entries(MOUNTS).map(([mode, label]) =>
     '<option value="' + mode + '"' + (mode === displayMode ? " selected" : "") + '>' + label + '</option>').join("");
   return '<p class="intro">If the dashboard appears sideways, choose which edge of the landscape screen is now at the top.</p>' +
+    (PINNED ? '<p class="intro">This screen ignores the setting: its address sets it to ' + esc(MOUNTS[PINNED]) + '. Open <b>/dash</b> without <b>?orientation=</b> to follow it.</p>' : '') +
     sec("", '<div class="row col"><label class="t" for="display-orientation">Orientation</label><select id="display-orientation">' + options + '</select></div>',
-      "Applies to every display using this dashboard.");
+      "Applies to every display using this dashboard, except one opened at an address like /dash?orientation=auto.");
 }
 function pageSummary(p){
   if (!p) return "Empty";
