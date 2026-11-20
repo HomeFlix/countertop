@@ -139,6 +139,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
         elif p == "/config":
             cfg = config_load()
+            if self.path == "/config?starters=1":
+                defaults = migrate_v3({})
+                main = next(p for p in defaults["pages"]["settings"]["items"] if p["id"] == "main")
+                cfg["everyday"] = {"page": main, "tiles": defaults["tiles"]["settings"]["items"]}
             cfg["schema"] = SCHEMA
             cfg["sources"] = sources_public()
             self._json(cfg)
@@ -211,6 +215,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(notes_view())
         elif p == "/list":
             self._send(200, (HERE / "list.html").read_bytes(), "text/html; charset=utf-8")
+        elif re.fullmatch(r"/starters/[a-z]+\.jpg", p) and (HERE / p[1:]).is_file():
+            self._send(200, (HERE / p[1:]).read_bytes(), "image/jpeg")
         elif p == "/keep.js":
             self._send(200, (HERE / "keep.js").read_bytes(), "application/javascript")
         elif p == "/media.mp3":
