@@ -450,6 +450,17 @@
   #edpanel input.sw:checked{background:#34c759}
   #edpanel input.sw:checked::after{left:21px}
   #edpanel .chks{display:flex;flex-direction:column;gap:6px}
+  #edpanel .ents,#edpanel .entres{display:flex;flex-direction:column;gap:4px}
+  #edpanel .entres{max-height:320px;overflow-y:auto;margin-top:6px}
+  #edpanel .ent{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#0d1014;cursor:pointer}
+  #edpanel .ent.on{background:#1d2a38;cursor:default}
+  #edpanel .ent > span{flex:1;display:flex;flex-direction:column;min-width:0}
+  #edpanel .ent b{font-weight:500;color:#e9ecf1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #edpanel .ent small{font-size:12px;color:#7b8591;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #edpanel .ent i{font-style:normal;font-size:13px;color:#9aa3ad;white-space:nowrap;max-width:40%;overflow:hidden;text-overflow:ellipsis}
+  #edpanel .ent button{background:none;border:0;color:#9aa3ad;font-size:16px;padding:4px 6px;cursor:pointer}
+  #edpanel .ent button:disabled{opacity:.3}
+  #edpanel input[type=search]{width:100%;box-sizing:border-box;text-align:left;margin-top:8px;font:15px inherit;font-family:inherit;color:#fff;background:#0d1014;border:1px solid #2b323b;border-radius:8px;padding:8px 10px}
   #edpanel .chk{display:flex;align-items:center;gap:8px;color:#e9ecf1;cursor:pointer}
   #edpanel .chk input{width:18px;height:18px;margin:0}
   #edpanel .cdot{width:10px;height:10px;border-radius:50%;flex:none}
@@ -1283,7 +1294,7 @@ function funDue(el, s){ if (el._funAt && Date.now() - el._funAt < Math.max(15, s
 // A TILE is one placed copy of a type with its own settings: CFG.tiles.settings.items = [{id, type, name, settings}].
 // Boxes on pages hold tile ids; a box with several tiles shows them in turn.
 const TYPES = {}, MODULES = {};
-const CATS = ["Time", "Weather", "Calendar", "Lists & food", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
+const CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
 function Tile(type, def){
   TYPES[type] = Object.assign({type, cat:"Fun", size:[12, 8, 8, 6], card:true, feeds:[], settings:{}}, def);
   if (def.css){ const st = document.createElement("style"); st.dataset.tile = type; st.textContent = def.css; document.head.appendChild(st); }     // a tile's own look
@@ -2053,7 +2064,8 @@ function edPaint(force){
 const px = r => ({left:r.left + "px", top:r.top + "px", width:r.width + "px", height:r.height + "px"});
 const firstLine = t => { const m = String(t || "").match(/^.*?[.!?](\s|$)/); return m ? m[0].trim() : String(t || ""); };
 // what each kind of source is called (they are set up once in Controls → Setup and any tile can use them)
-const SRCK = {calendars:["calendar", "Calendars"], lists:["list", "Lists"], teams:["team", "Sports teams"], albums:["album", "Photo albums"], cams:["camera", "Live cams"]};
+const srcLc = t => t === "Home Assistant" ? t : t.toLowerCase();      // a product name keeps its capitals
+const SRCK = {calendars:["calendar", "Calendars"], lists:["list", "Lists"], teams:["team", "Sports teams"], albums:["album", "Photo albums"], cams:["camera", "Live cams"], homeassistant:["Home Assistant", "Home Assistant"]};
 
 function edPanel(force){
   const P = $("edpanel"), pg = curPg(), s = EDIT.sel && (pg.slots || []).find(v => v.id === EDIT.sel);
@@ -2102,7 +2114,7 @@ function panelAdd(){
     const L = Object.values(TYPES).filter(T => T.cat === cat && !T.hidden);
     if (!L.length) continue;
     h += '<div class="sh">' + esc(cat) + '</div>' + L.map(T => '<div class="tc" data-type="' + T.type + '"><b>' + esc(T.title) + '</b><small>' + esc(firstLine(T.desc)) +
-      ((T.needs && !(SOURCES[T.needs] || []).length) ? ' <u>Needs ' + esc(SRCK[T.needs][1].toLowerCase()) + ' in Setup</u>' : "") + '</small></div>').join("");
+      ((T.needs && !(SOURCES[T.needs] || []).length) ? ' <u>Needs ' + esc(srcLc(SRCK[T.needs][1])) + ' in Setup</u>' : "") + '</small></div>').join("");
   }
   return h;
 }
@@ -2173,12 +2185,13 @@ function field(m, k, d){
     case "code": return '<label class="kv col">' + lab() + '<textarea class="code" rows="9" spellcheck="false" ' + a + '>' + esc(v || "") + '</textarea></label>' +
       '<div class="kv col"><button class="wide" data-act="ai">Copy instructions for ChatGPT</button><small>Paste them into ChatGPT (or any AI chat) with a sentence about what you want, then paste the code it gives you above.</small></div>';
     case "source": return srcField(m, k, d, v, lab);
+    case "entity": return entField(m, k, d, v, lab);
   }
   return "";
 }
 function srcField(m, k, d, v, lab){
-  const L = SOURCES[d.kind] || [], N = SRCK[d.kind] || [d.kind, d.kind], setup = '<button class="lnk" data-act="setup" data-kind="' + d.kind + '">' + (L.length ? "Manage " : "Set up ") + esc(N[1].toLowerCase()) + ' ›</button>';
-  if (!L.length) return '<div class="kv col">' + lab() + '<em class="none">No ' + esc(N[1].toLowerCase()) + ' set up yet.</em>' + setup + '</div>';
+  const L = SOURCES[d.kind] || [], N = SRCK[d.kind] || [d.kind, d.kind], setup = '<button class="lnk" data-act="setup" data-kind="' + d.kind + '">' + (L.length ? "Manage " : "Set up ") + esc(srcLc(N[1])) + ' ›</button>';
+  if (!L.length) return '<div class="kv col">' + lab() + '<em class="none">No ' + esc(srcLc(N[1])) + ' set up yet.</em>' + setup + '</div>';
   const dot = x => x.color ? '<i class="cdot" style="background:' + esc(x.color) + '"></i>' : "";
   if (d.multi){
     const sel = Array.isArray(v) ? v : [];
@@ -2189,12 +2202,66 @@ function srcField(m, k, d, v, lab){
   return '<label class="kv col">' + lab() + '<select ' + a2(k) + '>' + L.map(x => '<option value="' + esc(x.id) + '"' + (x.id === cur ? " selected" : "") + '>' + esc(x.name) + '</option>').join("") + '</select>' + setup + '</label>';
 }
 const a2 = k => 'data-ts="' + k + '"';
+// Home Assistant entities: the chosen ones (in order), then a search over everything the server can see
+const ENTS = {};             // source id -> {at, list, error, busy}
+function entList(src){
+  const c = ENTS[src] = ENTS[src] || {};
+  if (!c.busy && Date.now() - (c.at || 0) > 60e3){
+    c.busy = true;
+    getJSON("/ha/entities?src=" + encodeURIComponent(src)).then(j => { c.list = j.entities || []; c.error = j.error || ""; }, e => { c.error = String(e.message || e); })
+      .finally(() => { c.busy = false; c.at = Date.now(); if (EDIT.on) edPanel(true); });
+  }
+  return c;
+}
+function entField(m, k, d, v, lab){
+  if (!(SOURCES.homeassistant || []).length) return '<div class="kv col">' + lab() + '<em class="none">Set up Home Assistant first.</em><button class="lnk" data-act="setup" data-kind="homeassistant">Set up Home Assistant ›</button></div>';
+  const src = m.s[d.src || "src"] || "", c = entList(src), sel = d.multi ? (Array.isArray(v) ? v : []) : (v ? [v] : []);
+  const byId = {}; (c.list || []).forEach(x => byId[x.id] = x);
+  const q = ((EDIT.entq || {})[m.id + k] || "").toLowerCase();
+  let h = '<div class="kv col">' + lab() + '<div class="ents">' + sel.map((id, i) => '<div class="ent on"><span><b>' + esc((byId[id] || {}).name || id) + '</b><small>' + esc(id) + '</small></span>' +
+    (d.multi ? '<button data-act="entmv" data-k="' + k + '" data-i="' + i + '" data-d="-1"' + (i ? "" : " disabled") + ' title="Earlier">↑</button>' : "") +
+    '<button data-act="entrm" data-k="' + k + '" data-e="' + esc(id) + '" title="Remove">✕</button></div>').join("") +
+    (sel.length ? "" : '<em class="none">' + (d.multi ? "Nothing picked yet. Search below and tap to add." : "Search below and tap one.") + '</em>') + '</div>';
+  h += '<input type="search" data-entq="' + k + '" placeholder="Search: kitchen, door, temperature…" value="' + esc((EDIT.entq || {})[m.id + k] || "") + '" autocomplete="off" spellcheck="false">';
+  h += '<div class="entres" data-entres="' + k + '">' + entResults(m, k, d, sel, c, q) + '</div></div>';
+  return h;
+}
+function entResults(m, k, d, sel, c, q){
+  if (c.error && !(c.list || []).length) return '<em class="none">' + esc(c.error) + '</em>';
+  if (!c.list) return '<em class="none">Loading from Home Assistant…</em>';
+  const words = q.split(/\s+/).filter(Boolean);
+  const L = c.list.filter(x => !sel.includes(x.id) && (!d.domains || d.domains.includes(x.domain)) && words.every(w => (x.name + " " + x.id).toLowerCase().includes(w)));
+  if (!L.length) return '<em class="none">Nothing matches.</em>';
+  return L.slice(0, 40).map(x => '<div class="ent" data-act="entadd" data-k="' + k + '" data-e="' + esc(x.id) + '"><span><b>' + esc(x.name) + '</b><small>' + esc(x.id) + '</small></span><i>' +
+    esc(String(x.state) + (x.unit ? " " + x.unit : "")) + '</i></div>').join("") + (L.length > 40 ? '<em class="none">' + (L.length - 40) + ' more: type to narrow it down</em>' : "");
+}
+function entAct(a, el){
+  const m = MODULES[EDIT.tile]; if (!m) return;
+  const k = el.dataset.k, d = tileDefs(m)[k] || {}; remember();
+  if (d.multi){
+    const L = Array.isArray(m.s[k]) ? m.s[k].slice() : [];
+    if (a === "entadd" && !L.includes(el.dataset.e)) L.push(el.dataset.e);
+    if (a === "entrm") L.splice(L.indexOf(el.dataset.e), 1);
+    if (a === "entmv"){ const i = +el.dataset.i, j = i + +el.dataset.d; if (j >= 0 && j < L.length) [L[i], L[j]] = [L[j], L[i]]; }
+    m.s[k] = L;
+  } else m.s[k] = a === "entadd" ? el.dataset.e : "";
+  if (m._fd) m._fd.at = 0;              // fetch the new set right away
+  relayout();
+}
 function tplPic(boxes){
   return '<svg viewBox="0 0 240 160"><rect width="240" height="160" rx="10" fill="#1c2430"/>' +
     boxes.map(b => '<rect x="' + (b[0] * 10 / U + 3) + '" y="' + (b[1] * 10 / U + 3) + '" width="' + (b[2] * 10 / U - 6) + '" height="' + (b[3] * 10 / U - 6) + '" rx="6" fill="none" stroke="#5aa9ff" stroke-width="3" stroke-dasharray="8 5"/>').join("") + '</svg>';
 }
 function edPanelInput(e){
   const t = e.target, pg = curPg(); if (!pg) return;
+  if (t.dataset.entq){                       // entity search: narrow the results as you type
+    const m = MODULES[EDIT.tile]; if (!m) return;
+    const k = t.dataset.entq, d = tileDefs(m)[k] || {}, v = m.s[k], sel = d.multi ? (Array.isArray(v) ? v : []) : (v ? [v] : []);
+    (EDIT.entq = EDIT.entq || {})[m.id + k] = t.value;
+    const box = $("edpanel").querySelector('[data-entres="' + k + '"]');
+    if (box) box.innerHTML = entResults(m, k, d, sel, entList(m.s[d.src || "src"] || ""), t.value.toLowerCase());
+    return;
+  }
   if (e.type === "input") return;            // act once the value is final (change)
   if (t.dataset.dz) return designInput(t);
   if (t.dataset.ts || t.dataset.tn) return tileInput(t);
@@ -2359,6 +2426,7 @@ function boxAct(a, el){
   else if (a === "back"){ EDIT.panel = null; EDIT.addTo = null; edPaint(true); }
   else if (a === "add"){ EDIT.panel = "add"; EDIT.addTo = s ? s.id : null; edPaint(true); }
   else if (a === "setup") openSetup(el.dataset.kind);
+  else if (a.startsWith("ent")) entAct(a, el);
   else if (a === "ai"){ const m = MODULES[EDIT.tile]; copyText(aiPrompt(m && m.s.ask)); }
   else if (a === "fit" && s){ const pg = curPg(), [dw, dh] = tsize(EDIT.tile || s.mod), R = {x:Math.min(s.x, GC - dw), y:Math.min(s.y, GR - dh), w:dw, h:dh};
     if (blocked(pg, R, s)){ flash("Not enough room here for its usual size"); return; } remember(); Object.assign(s, R); relayout(); }

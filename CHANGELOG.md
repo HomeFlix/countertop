@@ -2,6 +2,14 @@
 
 Each version gets a section here. The newest is on top. Install a version from the [releases page](https://github.com/kizit/countertop/releases); Docker and Unraid use the `ghcr.io/kizit/countertop` image with the same tag.
 
+## Unreleased
+
+### New
+- **Home Assistant tiles.** Connect Home Assistant in Controls → Setup with its address and an access token, then add a **Home** tile (lights, switches, doors and sensors, with on/off switches and Run buttons for scenes) or a **Sensor** tile (one reading in big type). Locks, garage doors and alarms are shown but can't be changed from the screen. See [Home Assistant](docs/home-assistant.md).
+
+### Changed
+- The diagnostics file now removes every private field from Setup, including Home Assistant tokens, and anything else that looks like a token.
+
 ## v0.3.1 (2026-11-20)
 
 ### Fixed

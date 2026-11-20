@@ -27,6 +27,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Test Home Assistant support
+        run: python3 tests/test_home_assistant.py
       - name: Build container
         run: docker build -f docker/Dockerfile -t countertop:smoke .
       - name: Test clean install and container replacement

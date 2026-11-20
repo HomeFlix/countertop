@@ -108,6 +108,7 @@ You can also schedule whole looks by time of day, day of the week, or date, for 
 - **You need a computer that stays on.** Countertop runs on a Mac, a Linux computer, or a Docker or Unraid server on your home network.
 - **Designed for the Echo Show 15.** Layouts are made for its 1920×1080 screen in the Silk browser. A tablet or monitor with a modern browser works too.
 - **Your grocery list can live where you like.** Use the built-in list from any phone, send an Apple Reminders list with an iPhone Shortcut or the Countertop Mac app, or point Countertop at a list that's online. See [list sync](docs/list-sync.md).
+- **Works with Home Assistant.** Show lights, doors and sensors, and switch lights or run scenes from the screen. See [Home Assistant](docs/home-assistant.md).
 - **Some features are limited.** Store deals use US weekly ads by ZIP code. Sports cover soccer leagues such as MLS, NWSL, the Premier League, and the Champions League. Photos come from shared iCloud albums.
 - **Keep it on your home network.** Anyone who can reach the dashboard can open Controls.
 
