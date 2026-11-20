@@ -8,7 +8,7 @@
 <style>
   html,body{touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}
   :root{--fg:#e9ecf1;--dim:#a9b1bb;--faint:#6b737e;--bg:#0a0c0f;--card:rgba(18,22,28,.84);--line:rgba(255,255,255,.08);
-    --accent:#7cb7ff;--team:#e8344e;--teamb:#0b1f3f;--teamy:#f6c443}
+    --accent:#7cb7ff;--team:#e8344e;--teamb:#0b1f3f;--teamy:#f6c443;--page-w:100vw;--page-h:100vh}
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);overflow:hidden;cursor:none;
     font-family:-apple-system,system-ui,"Segoe UI",Roboto,sans-serif;-webkit-user-select:none;user-select:none}
@@ -16,9 +16,9 @@
   #sky div{position:absolute;inset:0;transition:opacity 60s}
   #fx{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
   #fun2{position:fixed;inset:0;width:100%;height:100%;z-index:4;pointer-events:none}
-  #pages{position:relative;z-index:1;display:flex;width:300vw;height:100vh;transition:transform .6s cubic-bezier(.2,.8,.2,1)}
+  #pages{position:relative;z-index:1;display:flex;width:var(--page-w);height:var(--page-h);transition:transform .6s cubic-bezier(.2,.8,.2,1)}
   .page[hidden]{display:none}
-  .page{position:relative;width:100vw;height:100vh;padding:22px 36px 26px;display:grid;gap:16px;min-height:0}
+  .page{position:relative;width:var(--page-w);height:var(--page-h);padding:22px 36px 26px;display:grid;gap:16px;min-height:0}
   header{display:flex;justify-content:space-between;align-items:flex-start;text-shadow:0 2px 12px rgba(0,0,0,.45)}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px 20px;min-height:0;overflow:hidden;position:relative}
   .card[hidden]{display:none}
@@ -336,7 +336,7 @@
   .cpage{display:block}
   #p1.gpage{display:block}
   .cgrid{position:absolute;inset:22px 36px 26px;display:grid;grid-template-columns:repeat(48,1fr);grid-template-rows:repeat(32,1fr);gap:16px}
-  .slot{min-width:0;min-height:0;display:flex;flex-direction:column}
+  .slot{min-width:0;min-height:0;display:flex;flex-direction:column;grid-column:var(--slot-col);grid-row:var(--slot-row)}
   .slot > *{flex:1 1 auto;min-height:0}
   .slot > .m-week{grid-auto-flow:column}
   .slot > [hidden]{display:none}
@@ -348,12 +348,34 @@
   .stkdots:active{background:rgba(255,255,255,.08)}
   .stkdots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3)}
   .stkdots i.on{background:rgba(255,255,255,.85)}
+  @media (orientation:portrait){
+    body:not(.editing) .cgrid{inset:clamp(12px,2.4vw,26px) clamp(12px,2.4vw,26px) 36px;
+      grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:var(--portrait-rows,none);gap:clamp(8px,1.5vw,16px)}
+    body:not(.editing) .cgrid > .slot{grid-column:var(--portrait-col);grid-row:var(--portrait-row);overflow:hidden}
+    body:not(.editing) .cgrid > .slot.empty{display:none}
+    body:not(.editing) .m-week{grid-auto-flow:row;gap:clamp(6px,1.1vw,12px);min-width:0}
+    body:not(.editing) .m-week .day{min-width:0;min-height:0;padding:clamp(6px,1.15vw,14px)}
+    body:not(.editing) .day .w{gap:clamp(2px,.7vw,8px);font-size:clamp(16px,2.4vw,26px)}
+    body:not(.editing) .day .w span{font-size:1.1em}
+    body:not(.editing) .day .w small{font-size:.68em}
+    body:not(.editing) .day .ev{font-size:clamp(13px,1.75vw,19px)}
+    body:not(.editing) .m-month .grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+    body:not(.editing) .m-month .cell{padding:6px clamp(2px,.75vw,10px)}
+    body:not(.editing) .m-month .cell .e{font-size:clamp(12px,1.5vw,16px);flex:none;
+      white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    body:not(.editing) .m-groc.narrow.two .gl{column-gap:10px}
+    body:not(.editing) .m-groc.narrow.two .gi{gap:7px;flex-wrap:wrap;font-size:clamp(15px,2.25vw,20px)}
+    body:not(.editing) .m-groc.narrow.two .gi span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    body:not(.editing) .m-groc.narrow.two .gi u{margin-left:0;padding-inline:4px}
+    body:not(.editing) .m-sales.cards .sgrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,350px),1fr))}
+  }
   /* the editor: the page shrinks into a frame on the left, the panel sits on the right */
   body.editing #gear,body.editing #dots,body.editing #hint{display:none}
   body.editing #pages{transition:none}
   body.editing #fx,body.editing #fun2,body.editing #dimmer{display:none}
   body.editing.night #pages{opacity:1!important;filter:none!important}
   #edl{position:fixed;inset:0;z-index:40;pointer-events:none;font:16px -apple-system,system-ui,"Segoe UI",sans-serif;color:#e9ecf1;cursor:default}
+  #edl:focus{outline:none}
   #edl [hidden]{display:none!important}
   #edcanvas{position:absolute;pointer-events:auto;border-radius:12px;box-shadow:0 0 0 2px rgba(255,255,255,.18),0 24px 70px rgba(0,0,0,.55)}
   #edgrid{position:absolute;display:grid;grid-template-rows:repeat(32,1fr);opacity:0;transition:opacity .15s;pointer-events:none}
@@ -494,6 +516,14 @@
   #edfocus .fh.sel{border-color:#ffc850;background:rgba(255,200,80,.06);z-index:2}
   #edfocus .fr{position:absolute;right:-13px;bottom:-13px;width:24px;height:24px;border-radius:50%;background:#ffc850;border:3px solid #1a1f26;cursor:nwse-resize}
   #edfocus .ftip{position:absolute;left:0;right:0;bottom:22px;text-align:center;color:#9aa3ad;font-size:17px}
+  body.ed-stacked{--page-w:1920px;--page-h:1080px}
+  .ed-stacked #edbar{right:16px;left:16px;height:auto;flex-wrap:wrap}
+  .ed-stacked #edtabs{flex:1 0 100%;max-width:none;height:38px}
+  .ed-stacked #edhint{min-width:0;overflow:hidden}
+  .ed-stacked #edbar > button{padding-left:10px;padding-right:10px}
+  .ed-stacked #edpanel{top:var(--ed-split);left:0;width:auto;border-left:none;border-top:1px solid #252b33}
+  .ed-stacked #edfocus{right:0;bottom:auto;height:var(--ed-split)}
+  .ed-stacked #edfocus .ftip{bottom:8px;font-size:13px}
   #edpanel .dzrow .dzpick{flex:1;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer;display:flex;flex-direction:column}
   #edpanel .dzrow .dzpick small{color:#7b8591;font-size:12px}
   #edpanel .dzrow.on .dzpick{color:#ffc850;font-weight:600}
@@ -1525,17 +1555,18 @@ function pageList(){ return ["main"].concat(SOLO ? [] : cpages().filter(p => p.o
 const dayCount = () => pageList().filter(n => n !== "night").length;
 function buildPages(){
   const L = pageList(), n = dayCount();
-  $("pages").style.width = (L.length * 100) + "vw";
+  $("pages").style.width = "calc(var(--page-w) * " + L.length + ")";
   $("dots").innerHTML = L.slice(0, n).map((_, i) => '<i' + (i === PAGE ? ' class="on"' : "") + '></i>').join("");
   $("dots").hidden = n < 2;
 }
-function pagesXform(){       // in edit mode the page shrinks into a frame beside the editor panel
+function pagesXform(){       // in edit mode the page shrinks into the editor canvas
   const P = $("pages"), n = pageList().length;
+  const offset = "translateX(calc(var(--page-w) * " + -PAGE + "))";
   if (EDIT.on && EDIT.k){
     P.style.transformOrigin = "0 0";
-    P.style.transform = "translate(" + EDIT.ox + "px," + EDIT.oy + "px) scale(" + EDIT.k + ") translateX(" + (-PAGE * 100) + "vw)";
-    P.style.clipPath = "inset(0 " + ((n - PAGE - 1) * 100) + "vw 0 " + (PAGE * 100) + "vw round 10px)";
-  } else { P.style.transform = "translateX(" + (-PAGE * 100) + "vw)"; P.style.clipPath = ""; P.style.transformOrigin = ""; }
+    P.style.transform = "translate(" + EDIT.ox + "px," + EDIT.oy + "px) scale(" + EDIT.k + ") " + offset;
+    P.style.clipPath = "inset(0 calc(var(--page-w) * " + (n - PAGE - 1) + ") 0 calc(var(--page-w) * " + PAGE + ") round 10px)";
+  } else { P.style.transform = offset; P.style.clipPath = ""; P.style.transformOrigin = ""; }
 }
 function showPage(n){
   const L = pageList();
@@ -1835,22 +1866,47 @@ function cardFit(el){
 }
 const FITOBS = typeof ResizeObserver === "function" ? new ResizeObserver(E => E.forEach(e => { for (const el of e.target.children) if (el.classList.contains("card") && !el.hidden && !(MODULES[el.dataset.mod] || {}).noFit) cardFit(el); })) : null;
 const NARROW = 7 * U;    // a box this narrow (or narrower) gets the compact look
-function placeSlot(d, s){ d.style.gridColumn = (s.x + 1) + " / span " + s.w; d.style.gridRow = (s.y + 1) + " / span " + s.h;
+function placeSlot(d, s){ d.style.setProperty("--slot-col", (s.x + 1) + " / span " + s.w); d.style.setProperty("--slot-row", (s.y + 1) + " / span " + s.h);
   const n = s.w <= NARROW;
   if (d.classList.contains("narrow") !== n){ d.classList.toggle("narrow", n); if (d.isConnected) live(s).forEach(id => render(id)); } }
+function portraitRows(slots){
+  const boxes = slots.filter(s => live(s).length).sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows = [];
+  for (const box of boxes){
+    const types = live(box).map(id => MODULES[id].type);
+    const week = types.includes("week");
+    const wide = box.w > GC / 2 || week || types.includes("month");
+    const height = week ? 12 : Math.max(5, Math.min(box.h, 12));
+    const last = rows[rows.length - 1], first = last && last.boxes[0];
+    // Pair neighboring boxes from the same band. A wide box starts its own row.
+    if (!wide && last && !last.wide && last.boxes.length === 1 && box.y < first.y + first.h){
+      last.boxes.push(box);
+      last.height = Math.max(last.height, height);
+    } else rows.push({boxes:[box], wide, height});
+  }
+  return rows;
+}
 function gridEl(sec, pg){
   const g = document.createElement("div"); g.className = "cgrid"; sec.appendChild(g);
-  const SLOT = {};
-  for (const sl of pg.slots || []){
+  const SLOT = {}, boxes = new Map(), slots = pg.slots || [];
+  for (const sl of slots){
     const d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sl.id;
     if (FITOBS) FITOBS.observe(d);
     placeSlot(d, sl); g.appendChild(d);
+    boxes.set(sl, d);
     const L = live(sl);
     L.forEach(id => { SLOT[id] = d; });
     if (!L.length) d.classList.add("empty");
     if (L.length > 1){ d.classList.add("stack"); const dots = document.createElement("div"); dots.className = "stkdots"; dots.innerHTML = L.map(() => "<i></i>").join(""); d.appendChild(dots);
       dots.addEventListener("click", e => { if (EDIT.on) return; e.stopPropagation(); stackNext(d); }); }
   }
+  const rows = portraitRows(slots);
+  g.style.setProperty("--portrait-rows", rows.map(r => "minmax(0," + r.height + "fr)").join(" "));
+  rows.forEach(({boxes: row}, y) => row.forEach((box, x) => {
+    const style = boxes.get(box).style;
+    style.setProperty("--portrait-col", row.length === 1 ? "1 / -1" : String(x + 1));
+    style.setProperty("--portrait-row", y + 1);
+  }));
   return SLOT;
 }
 function slotById(id){ for (const p of pgItems()) for (const s of p.slots || []) if (s.id === id) return s; return null; }
@@ -1891,6 +1947,7 @@ function stackNext(d){
 // called from layout(): build the pages; returns tile id -> the box it lives in
 function cpagesBuild(){
   let SLOT = {};
+  if (FITOBS) FITOBS.disconnect();
   document.querySelectorAll(".cpage").forEach(s => s.remove());
   document.querySelectorAll("#p1 > .cgrid").forEach(s => s.remove());
   const mg = mainGrid();
@@ -1941,7 +1998,7 @@ function refeed(id){ const m = MODULES[id]; (m && m.feeds || []).forEach(f => { 
 
 function editUI(){
   if ($("edl")) return;
-  const d = document.createElement("div"); d.id = "edl";
+  const d = document.createElement("div"); d.id = "edl"; d.tabIndex = -1;
   d.innerHTML = '<div id="edcanvas"></div><div id="edgrid"></div><div id="edboxes"></div><div id="edph" hidden><span></span></div>' +
     '<div id="edbar"><span id="edtabs"></span><span id="edhint"></span>' +
     '<button id="edundo" title="Undo (Ctrl+Z)">↶</button><button id="edredo" title="Redo (Shift+Ctrl+Z)">↷</button>' +
@@ -1970,10 +2027,20 @@ function undo(dir){
   if (EDIT.tile && !MODULES[EDIT.tile]) EDIT.tile = null;
   relayout(); goEditPage(EDIT.page);
 }
-function edFrame(){       // size the shrunken page so it fits beside the panel
-  const W = innerWidth, H = innerHeight, top = 68, pad = 24;
-  EDIT.k = Math.min((W - PANEL_W - pad * 3) / W, (H - top - pad) / H);
-  EDIT.ox = pad; EDIT.oy = top;
+function edFrame(){
+  const W = innerWidth, H = innerHeight, pad = 24;
+  const stacked = matchMedia("(orientation:portrait)").matches || W < 840;
+  document.body.classList.toggle("ed-stacked", stacked);
+  const top = stacked ? $("edbar").getBoundingClientRect().bottom + 12 : 68;
+  if (stacked){
+    EDIT.k = Math.max(.01, Math.min((W - pad * 2) / 1920, (H * .58 - top - pad) / 1080));
+    EDIT.ox = (W - 1920 * EDIT.k) / 2;
+    document.body.style.setProperty("--ed-split", (top + 1080 * EDIT.k + pad) + "px");
+  } else {
+    EDIT.k = Math.min((W - PANEL_W - pad * 3) / W, (H - top - pad) / H);
+    EDIT.ox = pad;
+  }
+  EDIT.oy = top;
   pagesXform();
 }
 function goEditPage(name){
@@ -1993,9 +2060,9 @@ function editEnter(sel){
   EDIT.on = true; EDIT.focus = null; EDIT.orig = JSON.stringify(CFG); EDIT.hist = []; EDIT.fut = []; EDIT.panel = null; EDIT.sel = null; EDIT.tile = null;
   EDIT.page = gridOf(cur) ? cur : "main";
   editUI(); document.body.classList.add("editing");
+  edFrame();
   clearTimeout(pageTimer);
   layout(); render(); stackTick(); if (LOOK.ready) lookApply(document.body);
-  edFrame();
   goEditPage(EDIT.page);
   if (sel) selectTile(sel);
 }
@@ -2031,7 +2098,15 @@ window.dashApply = mods => {
   relayout();
   if (EDIT.on && !gridOf(EDIT.page)) goEditPage("main");
 };
-addEventListener("resize", () => { if (EDIT.on){ edFrame(); edPaint(true); } });
+let resizeFrame;
+addEventListener("resize", () => {
+  cancelAnimationFrame(resizeFrame);
+  resizeFrame = requestAnimationFrame(() => {
+    if (EDIT.on) edFrame();
+    render();
+    if (EDIT.on) edPaint(true);
+  });
+});
 document.addEventListener("transitionend", e => { if (e.target.id === "pages" && EDIT.on) edPaint(true); });
 
 /* ----- drawing ----- */
@@ -2090,6 +2165,7 @@ function panelNew(){
 function panelPage(pg){
   const isMain = pg.id === "main" || pg.id === "night";
   let h = '<div class="ph"><b>' + esc(pageName(pg)) + ' page</b></div>';
+  if (matchMedia("(orientation:portrait)").matches) h += '<p class="pd">Edit the shared layout here. Portrait displays arrange these boxes automatically.</p>';
   if (pg.id === "night") h += '<p class="pd">' + (ON("night") ? "Takes over the screen from " + hr12(S("night").start) + " to " + hr12(S("night").end) + ", dimmed. A touch shows the main page for a minute."
     : "The night page is off. Turn it on and set its hours in Controls → Night page.") + '</p>';
   h += '<button class="wide pri" data-act="add">＋ Add a tile</button>';
@@ -2403,6 +2479,7 @@ function edDown(e){
   }
   if (t.closest("#edpanel")) return panelDown(e);
   e.preventDefault();
+  $("edl").focus({preventScroll:true});
   const act = t.closest("[data-act]");
   if (act){ boxAct(act.dataset.act, act); return; }
   const box = t.closest(".eslot"), pg = curPg(), s = box && pg.slots.find(v => v.id === box.dataset.slot);
@@ -2538,7 +2615,7 @@ document.addEventListener("contextmenu", e => e.preventDefault());
 // the screen's shell reloads the dashboard when its files change; not while you're in the middle of editing
 window.shellBusy = () => !!EDIT.on;
 // an older shell page can't wait like that: reload it once to get the new one
-if (FRAMED){ try{ if (!(window.top.SHELL_V >= 2) && !sessionStorage.getItem("shellUp")){ sessionStorage.setItem("shellUp", "1"); window.top.location.reload(); } }catch(e){} }
+if (FRAMED){ try{ if (!(window.top.SHELL_V >= 4) && !sessionStorage.getItem("shellV4")){ sessionStorage.setItem("shellV4", "1"); window.top.location.reload(); } }catch(e){} }
 addEventListener("keydown", e => {
   if (!EDIT.on) return;
   if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
@@ -2634,7 +2711,7 @@ function designDraw(el, m, D, H){
   el._k = null; el._key = null;
   let box = el.querySelector(":scope > .dz");
   if (!box){ el.innerHTML = '<div class="dz"></div>'; box = el.firstChild; el.classList.add("dzhost"); }
-  const P = m.parts(), seen = new Set(), fitOff = !!el.closest("#edfocus");
+  const P = m.parts(), seen = new Set(), fitOff = !!el.closest("#edfocus"), W = el.clientWidth;
   for (const p of P){
     const o = D.parts[p.id] || {}; seen.add(p.id);
     let n = box.querySelector(':scope > [data-part="' + p.id + '"]');
@@ -2645,10 +2722,10 @@ function designDraw(el, m, D, H){
     const css = "left:" + o.x + "%;top:" + (o.y * H / 100).toFixed(1) + "px;font-size:" + ((o.s || 8) * H / 100 * ts).toFixed(1) + "px;font-weight:" + (o.w || 400) +
       ";transform:translateX(" + (o.a === "r" ? "-100%" : o.a === "c" ? "-50%" : "0") + ")" + (o.c ? ";color:" + o.c : "") +
       ";font-family:" + (FONTS[o.f] || o.ff || "inherit") + (o.tt ? ";text-transform:" + o.tt : "") + (o.ls ? ";letter-spacing:" + o.ls + "em" : "") + (o.it ? ";font-style:italic" : "");
-    if (n._css !== css || n._fit !== html){
-      n._css = css; n._fit = html; n.style.cssText = css;
+    if (n._css !== css || n._fit !== html || n._fitWidth !== W){
+      n._css = css; n._fit = html; n._fitWidth = W; n.style.cssText = css;
       // on the screen (not while designing), text that came out longer than planned shrinks to stay inside the tile
-      if (!fitOff){ const W = el.clientWidth, xp = o.x / 100 * W, w = n.offsetWidth, room = o.a === "r" ? xp : o.a === "c" ? 2 * Math.min(xp, W - xp) : W - xp;
+      if (!fitOff){ const xp = o.x / 100 * W, w = n.offsetWidth, room = o.a === "r" ? xp : o.a === "c" ? 2 * Math.min(xp, W - xp) : W - xp;
         if (W && w > room && room > 20) n.style.fontSize = (parseFloat(n.style.fontSize) * room / w * .97).toFixed(1) + "px"; }
     }
   }
@@ -2736,13 +2813,15 @@ function designPaint(){
   }
   F.classList.toggle("night", EDIT.page === "night");
   const el = MOUNTED[m.id], W0 = (el && el.offsetWidth) || 600, H0 = (el && el.offsetHeight) || 300;
-  const aw = innerWidth - PANEL_W - 80, ah = innerHeight - 150, k = Math.min(aw / W0, ah / H0, 3);
+  const {width, height} = F.getBoundingClientRect();
+  const top = $("edbar").getBoundingClientRect().bottom + 34;
+  const aw = Math.max(1, width - 80), ah = Math.max(1, height - top - 60), k = Math.min(aw / W0, ah / H0, 3);
   const st = F.querySelector(".fst");
   if (!st.firstChild || st._for !== m.id + W0 + "x" + H0){
     st._for = m.id + W0 + "x" + H0;
     st.innerHTML = ""; const t = document.createElement(m.card ? "section" : "div"); t.className = (m.card ? "card " : "") + (m.cls || "") + " ftile"; st.appendChild(t);
   }
-  Object.assign(st.style, {width:W0 + "px", height:H0 + "px", left:(40 + (aw - W0 * k) / 2) + "px", top:(90 + (ah - H0 * k) / 2) + "px", transform:"scale(" + k + ")"});
+  Object.assign(st.style, {width:W0 + "px", height:H0 + "px", left:(40 + (aw - W0 * k) / 2) + "px", top:(top + (ah - H0 * k) / 2) + "px", transform:"scale(" + k + ")"});
   designRender(st.firstChild, m);
   EDIT.focus.k = k; EDIT.focus.W0 = W0; EDIT.focus.H0 = H0;
   // a handle over every visible part

@@ -1,6 +1,6 @@
 // Capture the personalization gallery and feature GIFs without replacing the overview.
 // Needs Node, Playwright with Chromium, Python 3, and ffmpeg on PATH (or FFMPEG).
-// Run from any directory: node demo/capture-readme.js [stills|designer|radar|phone|daynight|weather]
+// Run from any directory: node demo/capture-readme.js [stills|designer|radar|phone|daynight|weather|portrait|manual-portrait]
 const assert = require("node:assert/strict");
 const { spawn, execFileSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -26,7 +26,7 @@ function tile(mod, x, y, w, h) {
 
 function configFor(scene) {
   const config = structuredClone(baseline);
-  const { general, look, effects, tiles, pages } = config.modules;
+  const { general, look, effects, tiles, pages, night } = config.modules;
   const main = pages.settings.items.find(page => page.id === "main");
   const set = (id, values) => Object.assign(tiles.settings.items.find(item => item.id === id).settings, values);
 
@@ -110,11 +110,12 @@ function configFor(scene) {
   }
 
   if (scene === "designer" || scene === "radar") look.settings.fx = "Off";
+  if (scene === "portrait") night.settings.drift = false;
   return config;
 }
 
-function setup({ demoOrigin, scene, time, wx, label, labelX }) {
-  window.__DEMO_SAVE_CONFIG = scene === "designer";
+function setup({ demoOrigin, scene, mockRadar, time, wx, label, labelX }) {
+  window.__DEMO_SAVE_CONFIG = scene === "designer" || scene === "portrait";
   window.__DEMO_REAL_NOTES = scene === "phone";
   if (wx) window.__DEMO_WX = wx;
   if (label) window.addEventListener("DOMContentLoaded", () => {
@@ -126,7 +127,7 @@ function setup({ demoOrigin, scene, time, wx, label, labelX }) {
       "box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none";
     document.body.append(tag);
   });
-  if (scene === "radar") {
+  if (mockRadar) {
     const seconds = new Date(time).getTime() / 1000;
     const frames = Array.from({ length: 8 }, (_, i) => ({
       time: seconds + (i - 5) * 600,
@@ -137,7 +138,7 @@ function setup({ demoOrigin, scene, time, wx, label, labelX }) {
   window.addEventListener("DOMContentLoaded", () => {
     const style = document.createElement("style");
     style.textContent = "#hint{display:none!important}";
-    if (scene === "radar") style.textContent +=
+    if (mockRadar) style.textContent +=
       '.v-radar .osmc{font-size:0}.v-radar .osmc::after{content:"Fictional demo map";font-size:13px}';
     document.head.append(style);
     if (scene !== "designer") return;
@@ -159,6 +160,7 @@ function setup({ demoOrigin, scene, time, wx, label, labelX }) {
 async function prepare(browser, base, scratch, scene, time, video = false, opts = {}) {
   fs.writeFileSync(path.join(scratch, "work", "dashboard.json"), JSON.stringify(configFor(scene)));
   const view = opts.viewport || size;
+  const mockRadar = scene === "radar" || scene === "portrait";
   const context = await browser.newContext({
     viewport: view,
     ...(opts.mobile ? { isMobile: true, hasTouch: true } : {}),
@@ -168,11 +170,11 @@ async function prepare(browser, base, scratch, scene, time, video = false, opts 
   });
   await context.addInitScript({
     content: "window.__DEMO_TIME = " + JSON.stringify(time) + ";\n" +
-      "(" + setup + ")(" + JSON.stringify({ demoOrigin, scene, time, wx: opts.wx, label: opts.label, labelX: opts.labelX }) + ");\n" + fixtures,
+      "(" + setup + ")(" + JSON.stringify({ demoOrigin, scene, mockRadar, time, wx: opts.wx, label: opts.label, labelX: opts.labelX }) + ");\n" + fixtures,
   });
   await context.route("**/*", async route => {
     const url = new URL(route.request().url());
-    if (scene === "radar") {
+    if (mockRadar) {
       const map = url.pathname.match(/^\/(\d+)\/(\d+)\/(\d+)\.png$/);
       const radar = url.pathname.match(/^\/demo-radar\/(\d+)\/256\/(\d+)\/(\d+)\/(\d+)\/2\/1_1\.png$/);
       if (url.host === "tile.openstreetmap.org" && map) {
@@ -191,10 +193,222 @@ async function prepare(browser, base, scratch, scene, time, video = false, opts 
   const start = performance.now();
   await page.clock.setFixedTime(new Date(time));
   await page.goto(demoOrigin + (opts.path || "/dash/content"));
-  await page.locator(opts.ready || '[data-mod="weather"] [data-part="temp"]').first().waitFor();
-  await page.evaluate(() => document.fonts.ready);
+  const screen = opts.frame ? page.frameLocator(opts.frame) : page;
+  const ready = screen.locator(opts.ready || '[data-mod="weather"] [data-part="temp"]').first();
+  await ready.waitFor();
+  await ready.evaluate(el => el.ownerDocument.fonts.ready.then(() => {}));
   await page.waitForTimeout(1250);
   return { page, context, start, offset: (performance.now() - start) / 1000 };
+}
+
+async function capturePortrait(browser, base, scratch) {
+  const tall = { width: 1080, height: 1920 }, tablet = { width: 800, height: 1280 };
+  const take = (page, name) => page.screenshot({ path: path.join(output, "portrait-" + name + ".png") });
+  const { page, context } = await prepare(browser, base, scratch, "portrait", morning, false, { path: "/dash", frame: "#f" });
+  const screen = page.frames().find(f => new URL(f.url()).pathname === "/dash/content");
+  const bounds = () => screen.locator("#p1 .slot:not(.empty)").evaluateAll(slots => slots.map(slot => {
+    const { x, y, width, height } = slot.getBoundingClientRect();
+    return { x, y, width, height };
+  }));
+  const original = await bounds();
+  await take(page, "landscape-reference");
+  for (const [viewport, name] of [[tall, "wall"], [tablet, "tablet"]]) {
+    await page.setViewportSize(viewport);
+    await screen.waitForFunction(width => innerWidth === width && document.querySelector(".m-week").style.gridTemplateRows !== "", viewport.width);
+    const boxes = await bounds();
+    assert.equal(boxes.length, original.length);
+    boxes.forEach((a, i) => {
+      assert.ok(a.x >= 0 && a.y >= 0 && a.x + a.width <= viewport.width && a.y + a.height <= viewport.height, "Box stays on screen");
+      for (const b of boxes.slice(i + 1)) {
+        assert.ok(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y, "Boxes do not overlap");
+      }
+    });
+    await screen.waitForFunction(() => {
+      const canvas = document.querySelector('[data-mod="hours"] canvas');
+      return canvas && canvas.width === canvas.parentElement.clientWidth && canvas.height === canvas.parentElement.clientHeight;
+    });
+    await take(page, name);
+  }
+  const stack = screen.locator("#p1 .slot.stack").last();
+  const active = async () => stack.locator("[data-mod]:not(.stk-off)").getAttribute("data-mod");
+  const previous = await active();
+  await stack.locator(".stkdots").evaluate(dots => dots.click());
+  assert.notEqual(await active(), previous, "Tile stacks still advance");
+  await screen.locator(".m-dinner .tapme").evaluate(button => button.click());
+  assert.equal(await screen.locator("#recipe").evaluate(el => getComputedStyle(el).flexDirection), "column");
+  await screen.locator("#recipe [data-r=close]").evaluate(button => button.click());
+  await page.setViewportSize(tall);
+  await screen.locator("#dots").evaluate(dots => dots.click());
+  await screen.waitForFunction(() => Math.abs(document.querySelector(".m-month").getBoundingClientRect().left - 26) < 1);
+  await take(page, "month");
+  await screen.evaluate(() => dashGoPage("main"));
+  await page.setViewportSize(size);
+  await screen.waitForFunction(() => document.querySelector(".m-week").style.gridTemplateRows === "");
+  await screen.waitForFunction(() => document.querySelector("#p1 .cgrid").getBoundingClientRect().left === 36);
+  assert.deepEqual(await bounds(), original, "Rotation restores the landscape layout");
+
+  await screen.evaluate(() => { window.__DEMO_RAIN = true; return loadWeather(); });
+  const radarFrames = screen.locator('[data-mod="radar"]:not(.stk-off) .frames img');
+  await radarFrames.first().waitFor();
+  await page.setViewportSize(tall);
+  await screen.waitForFunction(width => {
+    const radar = document.querySelector('[data-mod="radar"]')._v;
+    return innerWidth === width && radar.box.clientHeight === radar.height && radar.box.clientWidth === radar.width &&
+      [...radar.box.querySelectorAll(".frames img")].some(img => img.complete && img.naturalWidth > 0);
+  }, tall.width);
+  await context.close();
+
+  const night = await prepare(browser, base, scratch, "portrait", "2026-11-19T23:14:00-07:00", false,
+    { path: "/dash", frame: "#f", viewport: tall, ready: "body.night [data-mod=nightclock] [data-part=time]" });
+  await take(night.page, "night");
+  await night.context.close();
+
+  const controls = await prepare(browser, base, scratch, "portrait", morning, false,
+    { path: "/control", frame: "#pvf", viewport: { width: 1600, height: 1000 } });
+  const controlPage = controls.page, preview = controlPage.frameLocator("#pvf");
+  const portrait = controlPage.getByRole("button", { name: "Portrait", exact: true });
+  const landscape = controlPage.getByRole("button", { name: "Full screen", exact: true });
+  await portrait.click();
+  await preview.locator(".m-week[style*='grid-template-rows']").waitFor();
+  assert.equal(await portrait.getAttribute("aria-pressed"), "true");
+  await take(controlPage, "controls");
+
+  await controlPage.locator("#pvedit").click();
+  await preview.locator("body.ed-stacked #edpanel").waitFor();
+  const clock = preview.locator("#edboxes .eslot").first();
+  await clock.click();
+  await clock.locator(".hd.e").waitFor();
+  await controlPage.keyboard.press("ArrowRight");
+  await preview.locator("#edhint").filter({ hasText: "Unsaved changes" }).waitFor();
+  await landscape.click();
+  await preview.locator("body.editing:not(.ed-stacked) #edpanel").waitFor();
+  await preview.locator("#edhint").filter({ hasText: "Unsaved changes" }).waitFor();
+  await portrait.click();
+  await preview.locator("body.ed-stacked #edpanel").waitFor();
+  const saved = controlPage.waitForResponse(response => response.url().endsWith("/config") &&
+    response.request().method() === "POST" && response.ok());
+  await preview.locator("#edsave").click();
+  const config = (await saved).request().postDataJSON();
+  assert.equal(config.modules.pages.settings.items.find(p => p.id === "main").slots.find(s => s.mod === "clock").x, 1);
+  await preview.locator("body:not(.editing) .m-week[style*='grid-template-rows']").waitFor();
+  assert.equal(await preview.locator('[data-mod="clock"]').evaluate(el => el.parentElement.style.getPropertyValue("--slot-col")), "2 / span 20");
+  await controls.context.close();
+}
+
+async function captureManualPortrait(browser, base, scratch) {
+  const { page, context } = await prepare(browser, base, scratch, "portrait", morning, false,
+    { path: "/dash", frame: "#f", mobile: true });
+  const frame = () => page.frames().find(f => f.url().includes("/dash/content"));
+  const display = page.frameLocator("#f");
+  const orientation = display.getByLabel("Orientation", { exact: true });
+  const openSettings = async () => {
+    await display.locator("#gear").tap();
+    await display.getByText("Screen orientation", { exact: true }).tap();
+    await orientation.waitFor();
+  };
+  const check = async (mode, viewport = size) => {
+    const rotated = mode !== "auto" && viewport.width > viewport.height;
+    const angle = rotated ? (mode === "left" ? -1 : 1) : 0;
+    await page.waitForFunction(expected => {
+      const f = document.querySelector("iframe"), rect = f.getBoundingClientRect();
+      const transform = getComputedStyle(f).transform;
+      const b = transform === "none" ? 0 : new DOMMatrix(transform).b;
+      return document.documentElement.dataset.orientation === expected.mode && b === expected.angle &&
+        rect.x === 0 && rect.y === 0 && rect.width === expected.viewport.width && rect.height === expected.viewport.height &&
+        f.contentWindow.innerWidth === (expected.rotated ? expected.viewport.height : expected.viewport.width) &&
+        f.contentWindow.innerHeight === (expected.rotated ? expected.viewport.width : expected.viewport.height) &&
+        f.contentWindow.location.pathname === "/dash/content" &&
+        f.contentDocument.querySelector(".m-week .day");
+    }, { mode, angle, viewport, rotated }, { timeout: 45000 });
+  };
+  const swipe = async mode => {
+    const input = await context.newCDPSession(page);
+    try {
+      // Screen pixels for a leftward swipe in the rotated dashboard.
+      const point = x => mode === "left" ? { x: 1100, y: size.height - x } : { x: size.width - 1100, y: x };
+      await input.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point(850)] });
+      for (const x of [750, 650, 550, 450, 350, 250]) {
+        await input.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [point(x)] });
+      }
+      await input.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    } finally {
+      await input.detach();
+    }
+    await frame().waitForFunction(() => dashPage() === 1);
+  };
+  const take = (p, name) => p.screenshot({ path: path.join(output, "portrait-manual-" + name + ".png") });
+  const takeDisplay = async name => {
+    await frame().locator('[data-mod="hours"] canvas').waitFor();
+    await frame().waitForFunction(() =>
+      [...document.querySelectorAll("#p1 .stack > [data-mod]:not(.stk-off)")].every(el => getComputedStyle(el).opacity === "1"));
+    await take(page, name);
+  };
+
+  await check("auto");
+  // A separate browser edits the same server while the wall display stays on /dash.
+  const controls = await prepare(browser, base, scratch, "portrait", morning, false,
+    { path: "/control", frame: "#pvf", viewport: { width: 1600, height: 1000 } });
+  await controls.page.getByText("Screen orientation", { exact: true }).click();
+  const remoteMode = controls.page.getByLabel("Orientation", { exact: true });
+  const setRemote = async mode => {
+    const saved = controls.page.waitForResponse(r => r.url().endsWith("/config") && r.request().method() === "POST" && r.ok());
+    await remoteMode.selectOption(mode);
+    assert.equal((await (await saved).json()).orientation, mode);
+  };
+  await setRemote("left");
+  await check("left");
+  assert.equal(page.url(), demoOrigin + "/dash");
+  await page.reload();
+  await check("left");
+  await takeDisplay("left-framebuffer");
+  await swipe("left");
+
+  await setRemote("right");
+  await page.reload();
+  await check("right");
+  await takeDisplay("right-framebuffer");
+  await swipe("right");
+  await page.evaluate(async () => { if (document.fullscreenElement) await document.exitFullscreen(); });
+  const tall = { width: 1080, height: 1920 };
+  await page.setViewportSize(tall);
+  await check("right", tall);
+  await page.setViewportSize(size);
+  await check("right");
+  await page.evaluate(() => shellRefresh("orientation simulation"));
+  await page.waitForFunction(() => document.querySelectorAll("iframe").length === 1 && document.querySelector("iframe").src.includes("?r="));
+  await check("right");
+  await page.reload();
+  await openSettings();
+  assert.equal(await orientation.inputValue(), "right");
+  const reset = page.waitForResponse(r => r.url().endsWith("/config") && r.request().method() === "POST" && r.ok());
+  await orientation.selectOption("auto");
+  await reset;
+  await display.getByRole("link", { name: "Done" }).tap();
+  await check("auto");
+  assert.equal(new URL(page.url()).searchParams.get("orientation"), null);
+  await page.reload();
+  await check("auto");
+
+  await page.goto(demoOrigin + "/control?echo=1");
+  await page.getByText("Screen orientation", { exact: true }).tap();
+  await page.getByLabel("Orientation", { exact: true }).selectOption("right");
+  await page.locator("#back").tap();
+  await page.getByRole("button", { name: "Edit the screen" }).tap();
+  await check("right");
+  await display.locator("body.ed-stacked #edpanel").waitFor();
+  await display.getByRole("button", { name: "Cancel", exact: true }).tap();
+  await display.locator("body:not(.editing) .m-week[style*='grid-template-rows']").waitFor();
+  await context.close();
+
+  await controls.page.reload();
+  await controls.page.getByText("Screen orientation", { exact: true }).click();
+  assert.equal(await remoteMode.inputValue(), "right");
+  assert.equal(await controls.page.getByRole("button", { name: "Portrait", exact: true }).getAttribute("aria-pressed"), "true");
+  await controls.page.frameLocator("#pvf").locator(".m-week[style*='grid-template-rows']").waitFor();
+  await controls.page.waitForFunction(() => getComputedStyle(document.querySelector("#toast")).opacity === "0");
+  await controls.page.locator("#pvpage button").first().waitFor();
+  await take(controls.page, "controls");
+  await controls.context.close();
 }
 
 async function captureStills(browser, base, scratch) {
@@ -416,7 +630,7 @@ async function phoneList(browser, base, scratch) {
 
 async function main() {
   const which = process.argv[2];
-  const scenes = ["stills", "designer", "radar", "phone", "daynight", "weather"];
+  const scenes = ["stills", "designer", "radar", "phone", "daynight", "weather", "portrait", "manual-portrait"];
   assert.ok(!which || scenes.includes(which), "Use one of: " + scenes.join(", "));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "countertop-demo-"));
   fs.mkdirSync(output, { recursive: true });
@@ -427,7 +641,8 @@ async function main() {
     'server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)',
     "print(server.server_port)",
     "server.serve_forever()",
-  ].join("\n")], { cwd: scratch, stdio: ["ignore", "pipe", "inherit"] });
+  ].join("\n")], { cwd: scratch, env: { ...process.env, COUNTERTOP_DATA: path.join(scratch, "work"), COUNTERTOP_NO_UPDATE_CHECK: "1" },
+    stdio: ["ignore", "pipe", "inherit"] });
   let browser;
   try {
     const port = await new Promise((resolve, reject) => {
@@ -443,6 +658,8 @@ async function main() {
     if (!which || which === "phone") await phoneList(browser, base, scratch);
     if (!which || which === "daynight") await dayNight(browser, base, scratch);
     if (!which || which === "weather") await weatherReel(browser, base, scratch);
+    if (!which || which === "portrait") await capturePortrait(browser, base, scratch);
+    if (!which || which === "manual-portrait") await captureManualPortrait(browser, base, scratch);
   } finally {
     if (browser) await browser.close();
     server.kill();

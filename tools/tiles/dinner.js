@@ -22,7 +22,17 @@ Tile("dinner", {
     #recipe ol li{break-inside:avoid;margin-bottom:.5em}
     #recipe .btns{display:flex;gap:12px;margin-top:auto}
     #recipe button{font:inherit;font-size:22px;padding:12px 22px;border-radius:14px;border:0;background:#232a33;color:#e9ecf1}
-    #recipe button.pri{background:var(--accent);color:#06121f;font-weight:600}`,
+    #recipe button.pri{background:var(--accent);color:#06121f;font-weight:600}
+    @media (orientation:portrait){
+      #recipe{flex-direction:column;gap:24px;padding:clamp(16px,4vw,40px)}
+      #recipe .l{flex:none;display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);grid-template-rows:auto auto 1fr;gap:12px 20px}
+      #recipe .img{grid-row:1/4;width:100%;height:clamp(120px,28vw,340px)}
+      #recipe h2{font-size:clamp(24px,4vw,40px)}
+      #recipe .btns{flex-wrap:wrap}
+      #recipe button{font-size:clamp(16px,2.3vw,22px)}
+      #recipe .ing{columns:2}
+      #recipe ol{columns:1}
+    }`,
 
   render(el){
     const s = this.s, D = STATE.dinner && STATE.dinner.ideas && STATE.dinner.ideas.length ? STATE.dinner.ideas : null;

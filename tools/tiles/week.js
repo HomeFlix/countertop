@@ -15,7 +15,10 @@ Tile("week", {
     const s = this.s, j = STATE.wx, n = Math.max(3, Math.min(7, s.days || 7)), per = s.perDay == null ? 2 : s.perDay;
     const today = startOfDay(new Date());
     el.className = "m-week";
-    el.style.gridTemplateColumns = "2.1fr repeat(" + (n - 1) + ",1fr)";
+    const wrap = !EDIT.on && matchMedia("(orientation:portrait)").matches;
+    const columns = Math.ceil((n + 1) / 2);
+    el.style.gridTemplateColumns = wrap ? "repeat(" + columns + ",minmax(0,1fr))" : "2.1fr repeat(" + (n - 1) + ",1fr)";
+    el.style.gridTemplateRows = wrap ? "repeat(2,minmax(0,1fr))" : "";
     let html = "";
     for (let i = 0; i < n; i++){
       const day = new Date(today.getTime() + i * 86400e3 + 3600e3 * 2); day.setHours(0,0,0,0);
@@ -51,6 +54,10 @@ Tile("week", {
         '<div class="w">' + w + '</div>' + (i ? '<div class="pp">' + (pp || "&nbsp;") + '</div>' : "") + chips.join("") + '</div>';
     }
     el.innerHTML = html;
+    if (wrap){
+      el.firstElementChild.style.gridColumn = "span 2";
+      el.lastElementChild.style.gridColumn = "span " + (columns * 2 - n);
+    }
     weekFit(el); requestAnimationFrame(() => weekFit(el));
   }
 });
