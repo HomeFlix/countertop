@@ -139,6 +139,10 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
         elif p == "/config":
             cfg = config_load()
+            if self.path == "/config?starters=1":
+                defaults = migrate_v3({})
+                main = next(p for p in defaults["pages"]["settings"]["items"] if p["id"] == "main")
+                cfg["everyday"] = {"page": main, "tiles": defaults["tiles"]["settings"]["items"]}
             cfg["schema"] = SCHEMA
             cfg["sources"] = sources_public()
             self._json(cfg)

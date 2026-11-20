@@ -57,7 +57,7 @@ Use the IP address printed by the server in place of `SERVER-IP`.
 
 On an Echo Show, open Silk, bookmark the dashboard, and tap the page once to start the full-screen keep-alive. Alexa still works. If Amazon returns to its home screen after an update or power outage, reopen Silk.
 
-The first time you open Controls, a short setup guide asks for your location, a calendar, your grocery list and a dashboard layout. You can skip it and come back from **Controls → Status → Run the setup guide again**. Find the layouts again in **Controls → Pages → Premade dashboards**. **Add as page** uses your current look. **Use on Main** changes the everyday look across pages and saves the old main layout as a disabled page called **Previous main**. Scheduled looks still take effect at their usual times.
+The first time you open Controls, a short setup guide asks for your location, a calendar, your grocery list and a dashboard layout. You can skip it and come back from **Controls → Status → Run the setup guide again**. Everyday uses the fresh-install layout. Selecting a template shows a larger example using sample data. Choose **Start from scratch** for an empty page. Find these options again in **Controls → Pages → Add page** or **Premade dashboards**. **Add as page** uses your current look. **Use on Main** changes the everyday look across pages and saves the old main layout as a disabled page called **Previous main**. Scheduled looks still take effect at their usual times.
 
 Your data sources live in **Controls → Setup**:
 
