@@ -320,8 +320,7 @@
       "id": "dinner",
       "type": "dinner",
       "settings": {
-       "every": 30,
-       "season": true
+       "every": 30
       }
      },
      {

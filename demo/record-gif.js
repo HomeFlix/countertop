@@ -13,6 +13,7 @@ const FIX = fs.readFileSync(path.join(__dirname, 'fixtures', 'demo-data.js'), 'u
   await ctx.addInitScript(FIX);
   const host = new URL(BASE).host;
   await ctx.route(u => new URL(u).host !== host, r => r.abort());
+  await ctx.route(u => /^\/demo-food\/[a-z-]+\.jpg$/.test(new URL(u).pathname), r => r.fulfill({contentType: 'image/jpeg', body: fs.readFileSync(path.join(__dirname, 'fixtures', 'food', new URL(r.request().url()).pathname.slice(11)))}));
   const p = await ctx.newPage();
   await p.clock.setFixedTime(new Date('2026-11-19T09:24:00-07:00'));
   const t0 = Date.now();
