@@ -15,7 +15,7 @@ assets=$(gh api "repos/astral-sh/python-build-standalone/releases/latest" --jq '
 url=""
 for v in 3.13 3.12; do
   for kind in install_only_stripped install_only; do
-    url=$(grep -E "/cpython-${v//./\\.}\.[0-9]+\+[0-9]+-$TRIPLE-$kind\.tar\.gz$" <<<"$assets" | head -1 || true)
+    url=$(grep -E "/cpython-${v//./\\.}\.[0-9]+(\+|%2B)[0-9]+-$TRIPLE-$kind\.tar\.gz$" <<<"$assets" | head -1 || true)
     [ -n "$url" ] && break 2
   done
 done
