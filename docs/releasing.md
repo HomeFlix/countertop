@@ -1,18 +1,38 @@
 # Releasing a new version
 
-Countertop uses version numbers like `v0.2.0`. Bump the last number for fixes, the middle one for new features.
+Countertop uses version numbers like `v0.3.1`. A **fix** release bumps the last number (0.3.1 to 0.3.2), and a **feature** release bumps the middle one (0.3.1 to 0.4.0).
 
-1. Move the notes under **Unreleased** in [CHANGELOG.md](../CHANGELOG.md) into a new section, `## vX.Y.Z (date)`, written for the people who use Countertop.
-2. Set `VERSION = "X.Y.Z"` near the top of [tools/countertop.py](../tools/countertop.py). Controls shows it, and it's how installs know an update is out.
-3. Commit both to `main` and wait for the container check to pass.
-4. Publish the release (from the repository folder, with the GitHub CLI):
+## While you work
 
-   ```sh
-   git pull
-   gh release create vX.Y.Z --target main --title "Countertop vX.Y.Z" \
-     --notes "$(python3 .github/release-notes.py vX.Y.Z)"
-   ```
+Every pull request that changes something people will notice adds a line under **## Unreleased** at the top of [CHANGELOG.md](../CHANGELOG.md), written for the people who use Countertop. Those lines become the release notes.
 
-   `release-notes.py` stops with an error if `VERSION` and the changelog don't match the tag.
+## Publish
 
-Publishing the release starts the **Countertop container** workflow. It checks the version again, runs the smoke test on amd64 and arm64, and pushes `ghcr.io/kizit/countertop:vX.Y.Z` and `:latest`. Unraid's **Check for Updates** and `docker compose pull` pick up `:latest`, and within 12 hours every install's Controls shows the update notice with a link to the release notes.
+1. On GitHub, open **Actions → Release → Run workflow**.
+2. Leave the branch on `main`, and type `fix`, `feature`, or an exact version such as `1.0.0`.
+3. Press **Run workflow**.
+
+The workflow:
+
+- sets `VERSION` in `tools/countertop.py` and moves the Unreleased notes into a new section of the changelog, then commits that to `main`,
+- publishes the GitHub release with those notes,
+- builds and tests the Docker image and pushes `ghcr.io/kizit/countertop:vX.Y.Z` and `:latest`,
+- builds and tests the Mac app for Apple Silicon and Intel, and attaches both zips to the release.
+
+It takes about 15 minutes. It stops before changing anything if there are no notes under Unreleased.
+
+Unraid's **Check for Updates** and `docker compose pull` pick up `:latest`. Within 12 hours, every install's Controls shows the update notice with a link to the release notes, and the Mac app shows **Install Countertop vX.Y.Z** in its menu.
+
+## By hand
+
+The same steps from a clone, with the GitHub CLI:
+
+```sh
+git switch main && git pull
+python3 .github/prepare-release.py fix      # or feature, or 1.0.0; prints the new tag
+git commit -am "Release vX.Y.Z" && git push
+gh release create vX.Y.Z --target main --title "Countertop vX.Y.Z" \
+  --notes "$(python3 .github/release-notes.py vX.Y.Z)"
+```
+
+A release created this way starts the Docker and Mac app builds by itself.
