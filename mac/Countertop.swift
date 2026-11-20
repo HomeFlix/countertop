@@ -79,6 +79,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         item.menu = menu
         setIcon(.systemGray)
         cleanUpOldVersions()
+        if Bundle.main.bundlePath.contains("/AppTranslocation/") { askToMoveToApplications() }
         let s = ServerSetup.current()
         if let py = s.python {          // a downloaded app: let its own Python run without a Gatekeeper prompt per file
             _ = run("/usr/bin/xattr", ["-dr", "com.apple.quarantine", py.deletingLastPathComponent().deletingLastPathComponent().path])
@@ -506,7 +507,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         p.arguments = args
         let pipe = Pipe()
         p.standardOutput = pipe
-        p.standardError = Pipe()
+        p.standardError = FileHandle.nullDevice     // an unread pipe fills up and blocks the command (and the app) forever
         do { try p.run() } catch { return "" }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
         p.waitUntilExit()
@@ -538,9 +539,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             try? SMAppService.mainApp.register()
         }
         let old = UserDefaults(suiteName: "local.kitchen-dashboard.menubar")
-        if defaults.string(forKey: "folder") == nil, let f = old?.string(forKey: "projectDir"), !f.isEmpty,
-           FileManager.default.fileExists(atPath: f + "/tools/countertop.py") {
+        guard let f = old?.string(forKey: "projectDir"), !f.isEmpty,
+              FileManager.default.fileExists(atPath: f + "/tools/countertop.py") else { return }
+        old?.removeObject(forKey: "projectDir")     // only take over once
+        if hasBundledServer {
+            // a downloaded app keeps its own copy of the server: bring the old settings over instead of running the old folder
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Countertop")
+            let work = URL(fileURLWithPath: f).appendingPathComponent("work")
+            if !FileManager.default.fileExists(atPath: support.path), FileManager.default.fileExists(atPath: work.path) {
+                try? FileManager.default.copyItem(at: work, to: support)
+            }
+        } else if defaults.string(forKey: "folder") == nil {
             defaults.set(f, forKey: "folder")
+        }
+    }
+
+    var hasBundledServer: Bool {
+        Bundle.main.resourceURL.map { FileManager.default.fileExists(atPath: $0.appendingPathComponent("server").path) } ?? false
+    }
+
+    /// macOS runs a downloaded app that was never moved from a read-only temporary copy, which can't be updated in place.
+    func askToMoveToApplications() {
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "Move Countertop to Applications"
+        a.informativeText = "Countertop is running from the folder it was downloaded to. Quit it, drag Countertop into your Applications folder in Finder, then open it from there. That lets it start at login and install updates."
+        a.addButton(withTitle: "Quit and Show in Finder")
+        a.addButton(withTitle: "Keep Running")
+        if a.runModal() == .alertFirstButtonReturn {
+            NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Downloads"))
+            NSApp.terminate(nil)
         }
     }
 }

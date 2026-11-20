@@ -2,6 +2,12 @@
 
 Each version gets a section here. The newest is on top. Install a version from the [releases page](https://github.com/kizit/countertop/releases); Docker and Unraid use the `ghcr.io/kizit/countertop` image with the same tag.
 
+## Unreleased
+
+### Fixed
+- **The Mac app no longer freezes on its first start** when it opens from the folder it was downloaded to. It now asks you to move it to Applications.
+- **Moving from the old Kitchen Dashboard app keeps your settings.** The downloaded app copies them in and runs its own server, instead of running the old folder.
+
 ## v0.3.0 (2026-11-20)
 
 ### New
