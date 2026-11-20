@@ -422,11 +422,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             m.addItem(info(b, dot: .systemBlue))
         } else if !runServer {
             m.addItem(info("Not running a server on this Mac", dot: .systemGray))
+            if !sync.error.isEmpty { m.addItem(info("Reminders Sync: " + sync.error, dot: .systemOrange)) }
         } else if h.answering {
             let colors: [String: NSColor] = ["ok": .systemGreen, "warn": .systemOrange, "bad": .systemRed]
             m.addItem(info(h.problems.first ?? "Everything's working", dot: colors[h.level] ?? .systemGreen))
             if h.problems.count > 1 { m.addItem(info("   and \(h.problems.count - 1) more in Controls > Status", dim: true)) }
             if let a = h.screenAgo { m.addItem(info("   Screen checked in " + ago(a), dim: true)) }
+            if !sync.error.isEmpty { m.addItem(info("Reminders Sync: " + sync.error, dot: .systemOrange)) }
         } else if h.portTaken {
             m.addItem(info("Port \(PORT) is used by another app", dot: .systemRed))
         } else if !setup.available {
@@ -465,8 +467,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             sm.addItem(action("Change…", #selector(setUpSync)))
             sm.addItem(action("Turn Off", #selector(syncOff)))
         } else {
-            sm.addItem(info("Show an Apple Reminders list on the dashboard,", dim: true))
-            sm.addItem(info("on this Mac's server or one on Docker or Unraid.", dim: true))
+            if runServer {
+                sm.addItem(info("Your server runs on this Mac, so you don't need this:", dim: true))
+                sm.addItem(info("choose Apple Reminders in Controls > Setup > Lists.", dim: true))
+                sm.addItem(info("Use Reminders Sync for a server on Docker or Unraid.", dim: true))
+            } else {
+                sm.addItem(info("Show an Apple Reminders list on a Countertop", dim: true))
+                sm.addItem(info("server that runs on Docker or Unraid.", dim: true))
+            }
             sm.addItem(action("Set Up…", #selector(setUpSync)))
         }
         let si = NSMenuItem(title: "Reminders Sync" + (sync.isOn ? ": On" : ""), action: nil, keyEquivalent: "")
@@ -730,7 +738,11 @@ final class ReminderSync {
         guard a.runModal() == .alertFirstButtonReturn else { return }
         let k = keyF.stringValue.trimmingCharacters(in: .whitespaces)
         guard !k.isEmpty else { return showAlert("Paste the sync key", "Controls > Setup > Lists shows it once the list is set to “Sent from another app”.") }
-        defaults.set(serverF.stringValue.trimmingCharacters(in: .whitespaces), forKey: "syncServer")
+        let addr = serverF.stringValue.trimmingCharacters(in: .whitespaces)
+        guard let u = URL(string: addr), ["http", "https"].contains(u.scheme ?? ""), u.host != nil, (u.port ?? 80) <= 65535 else {
+            return showAlert("Check the server address", "It should look like http://192.168.1.50:8090, the address you open Controls at.")
+        }
+        defaults.set(addr, forKey: "syncServer")
         defaults.set(k, forKey: "syncKey")
         defaults.set(pop.titleOfSelectedItem ?? listName, forKey: "syncList")
         defaults.set(true, forKey: "syncOn")
