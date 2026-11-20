@@ -33,7 +33,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
-VERSION = "0.2.0"                 # bump with each release; CHANGELOG.md says what changed
+VERSION = "0.3.0"                 # bump with each release; CHANGELOG.md says what changed
 REPO = "kizit/countertop"
 HERE = Path(__file__).resolve().parent
 # Everything the server saves lives here: tools/../work by default, or COUNTERTOP_DATA (the Mac app keeps it in
