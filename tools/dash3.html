@@ -528,7 +528,7 @@
 <canvas id="fun2"></canvas>
 <div id="dots"><i class="on"></i></div>
 <div id="gear" hidden>⚙</div>
-<div id="hint">Touch once to arm keep-alive</div>
+<div id="hint">Touch once or say “Alexa, select” to arm keep-alive</div>
 
 <script>
 /* separate block on purpose: if the main script below has a syntax error, this one still reports it */
@@ -1666,13 +1666,20 @@ function tick(){
   if (FRAMED){ try{ window.top.contentTick(); document.body.classList.toggle("fs", !!window.top.shellState().fs); }catch(e){} }
 }
 
-/* ---------- touch: fullscreen + keep-alive live in the shell page ---------- */
-document.addEventListener("pointerdown", () => {
+/* ---------- touch or "Alexa, select": fullscreen + keep-alive live in the shell page ---------- */
+function armScreen(){
   if (PREVIEW) return;
   if (EDIT.on) return;          // asking for fullscreen mid-gesture cancels the touch, which breaks drags and scrolling in the editor
   if (FRAMED){ try{ window.top.shellTap(); }catch(e){} }
   else { const el = document.documentElement; if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => {}); }
   $("hint").classList.add("gone");
+}
+document.addEventListener("pointerdown", armScreen);
+// On an Echo Show, "Alexa, select" reaches the page as a real Enter key press, which counts as a tap
+document.addEventListener("keydown", e => {
+  if (e.key !== "Enter" || e.repeat || !e.isTrusted) return;
+  if (e.target && e.target.closest && e.target.closest("input,textarea,select,button,a[href],[contenteditable]")) return;
+  armScreen();
 });
 $("gear").addEventListener("click", () => { location.href = "/control?echo=1"; });
 if (!FRAMED && !PREVIEW){

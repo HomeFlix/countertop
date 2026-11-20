@@ -55,7 +55,7 @@ Use the IP address printed by the server in place of `SERVER-IP`.
 | Computer | `http://SERVER-IP:8090/control` | Setup and a live preview |
 | Phone | `http://SERVER-IP:8090/list` | The shared grocery list |
 
-On an Echo Show, open Silk, bookmark the dashboard, and tap the page once to start the full-screen keep-alive. Alexa still works. If Amazon returns to its home screen after an update or power outage, reopen Silk.
+On an Echo Show, open Silk, bookmark the dashboard, and tap the page once to start the full-screen keep-alive. Saying **“Alexa, select”** works instead of the tap. If Silk opens its bookmarks instead, close them and say it again. Alexa still works. If Amazon returns to its home screen after an update or power outage, reopen Silk.
 
 The first time you open Controls, a short setup guide asks for your location, a calendar and your grocery list. You can skip it and come back from **Controls → Status → Run the setup guide again**. Everything it sets also lives in **Controls → Setup**:
 
