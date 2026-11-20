@@ -4,6 +4,8 @@ Each version gets a section here. The newest is on top. Install a version from t
 
 ## Unreleased
 
+## v0.4.0 (2026-11-20)
+
 ### New
 - **Home Assistant tiles.** Connect Home Assistant in Controls → Setup with its address and an access token, then add a **Home** tile (lights, switches, doors and sensors, with on/off switches and Run buttons for scenes) or a **Sensor** tile (one reading in big type). Locks, garage doors and alarms are shown but can't be changed from the screen. See [Home Assistant](docs/home-assistant.md).
 
