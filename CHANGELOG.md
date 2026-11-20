@@ -4,6 +4,8 @@ Each version gets a section here. The newest is on top. Install a version from t
 
 ## Unreleased
 
+- Choose from six editable dashboards during setup or revisit them in Controls → Pages → Premade dashboards.
+
 ## v0.4.0 (2026-11-20)
 
 ### New

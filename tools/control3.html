@@ -257,6 +257,7 @@ function rootScreen(){
   h += sec("Pages", row({t:"Main", sub:pageSummary(gpAll().find(p => p.id === "main")), v:"Always on"}) +
     cpList().map(p => row({t:p.name, sub:pageSummary(p), chev:true, attrs:'data-go="page:' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : ""})).join("") +
     row({t:"Night page", sub:nightText() + " · " + pageSummary(gpAll().find(p => p.id === "night")), chev:true, attrs:'data-go="night"'}) +
+    row({t:"Premade dashboards", sub:"Choose a layout with tiles already arranged", chev:true, attrs:'data-go="starters"'}) +
     row({t:"Add page", chev:true, cls:"add", attrs:'data-go="newpage"'}),
     "Swipe left and right on the screen to move between pages.");
   h += sec("Look", row({t:"Looks", sub:"Colors, background, tiles, text size · now: " + lookName(curLook()), chev:true, attrs:'data-go="looks"'}) +
@@ -265,6 +266,84 @@ function rootScreen(){
     row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}));
   return h;
 }
+/* Each box uses the editor's 48 by 32 grid. Extra tile types rotate in the same box. */
+function starterBox(type, x, y, w, h, settings = {}, rotate = []){
+  return {type, x, y, w, h, settings, rotate};
+}
+const STARTERS = {
+  everyday: {
+    name:"Everyday", sub:"A week strip above the hourly outlook, groceries and dinner.",
+    look:{bg:"Sky", accent:"#7cb7ff"},
+    boxes:[starterBox("clock",0,0,20,8), starterBox("weather",34,0,14,8), starterBox("week",0,8,48,7),
+      starterBox("nexthours",0,15,26,17), starterBox("list",26,15,11,17), starterBox("dinner",37,15,11,11), starterBox("tip",37,26,11,6,{},["joke"])]
+  },
+  atmospheric: {
+    name:"Atmospheric", sub:"A serif clock over the changing sky, with dinner plans and moon phases.",
+    look:{bg:"Sky", tiles:"See-through", opacity:38, accent:"#ffcc91"},
+    boxes:[starterBox("clock",0,0,48,9,{style:"Serif",align:"Center",greeting:false,countdowns:false}),
+      starterBox("agenda",1,10,14,19,{count:7}), starterBox("dinner",15,10,18,19,{season:true}),
+      starterBox("weather",33,10,14,7,{style:"Compact",align:"Left",sun:false,air:false}), starterBox("sunmoon",33,17,14,12)]
+  },
+  minimal: {
+    name:"Minimal", sub:"An oversized clock, a quiet forecast and the next few plans on warm paper.",
+    look:{mode:"Light", bg:"Color", bgColor:"#f4f0e8", tiles:"Clear", accent:"#376a63", fx:"Off"},
+    boxes:[starterBox("clock",1,7,23,14,{style:"Serif",align:"Center",ampm:false,greeting:false,countdowns:false,
+        design:{on:true,name:"Minimal clock",parts:{time:{x:50,y:8,s:48,a:"c",f:"DM Serif Display",c:"var(--accent)",w:400},date:{x:50,y:70,s:8,a:"c",c:"var(--accent)",w:500}}}}),
+      starterBox("weather",2,22,21,5,{style:"Minimal",align:"Center",air:false,sun:false}), starterBox("agenda",25,6,21,21,{count:6})]
+  },
+  kitchen: {
+    name:"Kitchen table", sub:"Dinner ideas beside the shopping list, with seasonal produce and kitchen tips taking turns.",
+    look:{mode:"Light", bg:"Color", bgColor:"#dce4cf", accent:"#56703b", fx:"Off"},
+    boxes:[starterBox("clock",0,0,24,7,{style:"Rounded",greeting:false,countdowns:false}), starterBox("nextevent",24,0,24,7),
+      starterBox("dinner",0,7,28,25,{season:true}), starterBox("list",28,7,20,16), starterBox("inseason",28,23,20,9,{},["tip"])]
+  },
+  weather: {
+    name:"Weather station", sub:"A wide hourly chart, a ten-day forecast and the rising and setting sun.",
+    look:{bg:"Color", bgColor:"#132d38", accent:"#69daca", tiles:"See-through", opacity:55},
+    boxes:[starterBox("weather",0,0,24,9,{style:"Big temperature",align:"Left"}), starterBox("clock",24,0,24,9,{style:"Digital",align:"Right",countdowns:false}),
+      starterBox("nexthours",0,9,30,16), starterBox("sunmoon",0,25,30,7), starterBox("forecast",30,9,18,23)]
+  },
+  planner: {
+    name:"Family planner", sub:"A full month beside the family agenda, with the next event up top.",
+    look:{mode:"Light", bg:"Color", bgColor:"#e4dfed", accent:"#76508a", fx:"Off"},
+    boxes:[starterBox("clock",0,0,19,7,{style:"Bold",countdowns:false,greeting:false}), starterBox("nextevent",19,0,29,7),
+      starterBox("month",0,7,32,25), starterBox("agenda",32,7,16,25,{count:10})]
+  }
+};
+function starterGallery(selected){
+  return '<div class="lcards">' + Object.entries(STARTERS).map(([id,s]) =>
+    '<button class="lcard' + (selected === id ? ' now' : '') + '" aria-pressed="' + (selected === id) +
+    '" data-act="pickstarter" data-id="' + id + '"><img width="320" height="180" style="width:100%;height:auto;border-radius:6px" src="/starters/' +
+    id + '.jpg" alt=""><b>' + s.name + '</b><small>' + s.sub + '</small></button>').join("") + '</div>';
+}
+function installStarter(key, onMain){
+  const s = STARTERS[key], pages = gpAll(), main = pages.find(p => p.id === "main");
+  const uid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+  const page = {id:uid, name:s.name, cols:GC, slots:[], on:true, back:0};
+  page.slots = s.boxes.map(({type,x,y,w,h,settings,rotate}, i) => {
+    const id = uid + "s" + i;
+    const ids = [type, ...rotate].map((type,j) => {
+      const tid = id + "t" + j;
+      const values = j ? {} : {...settings};
+      if (type === "list" && firstList()) values.list = firstList().id;
+      tileList().push({id:tid,type,settings:values});
+      return tid;
+    });
+    const slot = {id,x,y,w,h,mod:ids[0]};
+    if (rotate.length){ slot.more = ids.slice(1); slot.every = 45; }
+    return slot;
+  });
+  if (!onMain){ pages.push(page); return page.id; }
+  if (main.slots.length) pages.push({...main, id:uid, name:"Previous main", on:false});
+  main.slots = page.slots;
+  Object.assign(LS(), {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, s.look);
+}
+let selectedStarter = "";
+function starterScreen(){
+  return '<div class="big">Premade dashboards</div><p class="intro">Add a swipeable page with your current look, or use a dashboard on Main with its colors and background. Your previous layout is saved as a disabled page.</p>' +
+    starterGallery(selectedStarter) + (selectedStarter ? '<div class="saverow"><button data-act="starterpage">Add as page</button><button class="pri" data-act="startermain">Use on Main</button></div>' : '');
+}
+
 function pageSummary(p){
   if (!p) return "Empty";
   const t = [].concat(...(p.slots || []).map(smods)).map(tileName);
@@ -411,6 +490,20 @@ function pvGoPage(id){
 function act(a, id){
   const L = cpList(), p = cpById(id);
   if (a === "echoedit"){ location.href = "/dash/content?edit=1"; return; }
+  if (a === "pickstarter"){
+    if (stack[stack.length - 1] === "wiz") WIZ.starter = id;
+    else selectedStarter = id;
+    show();
+    document.querySelector('[data-act="pickstarter"][aria-pressed="true"]').focus();
+    return;
+  }
+  if (a === "starterpage" || a === "startermain"){
+    if (!STARTERS[selectedStarter]) return;
+    const pid = installStarter(selectedStarter, a === "startermain");
+    selectedStarter = ""; stack.pop(); save();
+    if (pid) go("page:" + pid); else show();
+    return;
+  }
   if (/^(wiz|st)/.test(a)) return wizAct(a, id);
   if (a === "new"){
     const t = PAGE_TPL[+id], pid = "p" + Date.now().toString(36);
@@ -454,6 +547,7 @@ function show(){
   if (cur === "root"){ h = rootScreen(); title = ""; }
   else if (cur === "status"){ h = statusScreen(); title = "Status"; }
   else if (cur === "wiz"){ h = wizScreen(); title = "Set up"; }
+  else if (cur === "starters"){ h = starterScreen(); title = "Premade dashboards"; }
   else if (cur === "newpage"){ h = newPageScreen(); title = "Add page"; }
   else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = p ? p.name : "Page"; }
   else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
@@ -552,8 +646,8 @@ function statusScreen(){
 }
 
 /* ---------- First-run setup guide: location, a calendar and the grocery list, then where to open the screen ---------- */
-const WIZ = {step:0, kind:"", calName:"Family"};
-const WIZ_STEPS = ["Welcome", "Location", "Calendar", "Grocery list", "All set"];
+const WIZ = {step:0, kind:"", starter:"", calName:"Family"};
+const WIZ_STEPS = ["Welcome", "Location", "Calendar", "Grocery list", "Dashboard", "All set"];
 const needsSetup = () => mods.general && !mods.general.settings.setupDone && !mods.general.settings.lat && !mods.general.settings.lon;
 const firstList = () => (SRC.lists || [])[0] || null;
 function wizScreen(){
@@ -562,7 +656,7 @@ function wizScreen(){
   const nav = (next, skip) => '<div class="saverow">' + (st > 0 ? '<button data-act="wizback">Back</button>' : "") +
     (skip ? '<button data-act="wiznext">' + skip + '</button>' : "") + '<button class="pri" data-act="' + (next[1] || "wiznext") + '">' + next[0] + '</button></div>';
   if (st === 0){
-    h += '<div class="big">Welcome to Countertop</div><p class="intro">Three quick steps get your screen going: where you live (for the weather), your calendar and your grocery list. You can change all of it later in Controls.</p>';
+    h += '<div class="big">Welcome to Countertop</div><p class="intro">Choose your location, calendar, grocery list and a layout for your screen. You can change all of it later in Controls.</p>';
     h += '<div class="saverow"><button data-act="wizskip">Skip for now</button><button class="pri" data-act="wiznext">Start</button></div>';
   } else if (st === 1){
     h += '<div class="big">Where are you?</div><p class="intro">For the weather, the radar, sunrise and sunset. Only the name you type is sent, to Open-Meteo\'s free place search.</p>';
@@ -594,6 +688,10 @@ function wizScreen(){
       : row({t:"A sync key is made when you press Next", sub:"Come back to Controls > Lists to copy it. The steps for the iPhone Shortcut and the Mac helper are in docs/list-sync.md on GitHub."});
     if (extra) h += sec("", extra);
     h += nav(["Next", "wizlist"]);
+  } else if (st === 4){
+    h += '<div class="big">Choose your dashboard</div><p class="intro">Pick a layout and look for your main screen. You can edit every tile later. Your previous layout is saved as a disabled page.</p>' + starterGallery(WIZ.starter);
+    h += '<div class="saverow"><button data-act="wizback">Back</button><button data-act="wizkeep">Keep current layout</button>' +
+      (WIZ.starter ? '<button class="pri" data-act="wiznext">Next</button>' : '') + '</div>';
   } else {
     h += '<div class="big">You\'re all set</div><p class="intro">Open these addresses on your devices. Bookmark them, since they don\'t change.</p>';
     h += sec("", row({t:"On the Echo Show or the kitchen screen", sub:"Open Silk and go to this address, then tap the screen once so it stays full screen.", v:host + "/dash"}) +
@@ -610,11 +708,13 @@ async function wizSource(kind, op, item){
   SRC = j.sources; return j;
 }
 async function wizAct(a, id){
-  if (a === "wizstart"){ WIZ.step = 0; WIZ.kind = ""; stack = ["root", "wiz"]; show(); scrollTo(0, 0); return; }
+  if (a === "wizstart"){ WIZ.step = 0; WIZ.kind = ""; WIZ.starter = ""; stack = ["root", "wiz"]; show(); scrollTo(0, 0); return; }
   if (a === "wizback"){ WIZ.step = Math.max(0, WIZ.step - 1); show(); scrollTo(0, 0); return; }
+  if (a === "wizkeep"){ WIZ.starter = ""; a = "wiznext"; }
   if (a === "wiznext"){ WIZ.step++; show(); scrollTo(0, 0); return; }
   if (a === "wizkind"){ WIZ.kind = id; show(); return; }
   if (a === "wizskip" || a === "wizdone"){
+    if (a === "wizdone" && WIZ.starter) installStarter(WIZ.starter, true);
     mods.general.settings.setupDone = true; save(); stack = ["root"]; show(); scrollTo(0, 0);
     if (a === "wizdone") toast("Setup saved", "ok");
     setTimeout(statusLoad, 1200);

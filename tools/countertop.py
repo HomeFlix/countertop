@@ -211,6 +211,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(notes_view())
         elif p == "/list":
             self._send(200, (HERE / "list.html").read_bytes(), "text/html; charset=utf-8")
+        elif re.fullmatch(r"/starters/[a-z]+\.jpg", p) and (HERE / p[1:]).is_file():
+            self._send(200, (HERE / p[1:]).read_bytes(), "image/jpeg")
         elif p == "/keep.js":
             self._send(200, (HERE / "keep.js").read_bytes(), "application/javascript")
         elif p == "/media.mp3":
