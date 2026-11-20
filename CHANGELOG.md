@@ -12,6 +12,9 @@ Each version gets a section here. The newest is on top. Install a version from t
 - The menu bar app is now called Countertop (it was Kitchen Dashboard) and its menu is shorter. Building it from the source is now `zsh mac/build.sh`. It takes over from the old app, its login item and the old List Sync helper.
 - The server only starts HTTPS when a certificate exists, instead of failing to start.
 
+### Fixed
+- **Shorter clock and weather boxes keep their text size.** Making a Clock or Weather now box shorter takes away its empty space first; the text only gets smaller once it no longer fits. Before, a tile made with the designer shrank all its text with the box, and the plain styles often shrank more than they needed to.
+
 ## v0.2.0 (2026-11-20)
 
 ### New

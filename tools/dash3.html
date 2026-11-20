@@ -1756,12 +1756,27 @@ function newPage(tpl){
   items.push(pg);
   return pg;
 }
-// tiles without a card (clock, weather now) keep their big type and shrink as a whole to fit their box
+// tiles without a card (clock, weather now) keep their big type, and shrink as a whole only when they don't fit
+// their box: a box can lose its empty space without the text changing. The zoom is the largest that fits; it is
+// searched for, not worked out from one measurement, because text that wraps at full size unwraps when zoomed out.
+// The answer is kept until the box, the text or the fonts change (the clock redraws every second).
+let FITGEN = 0;
+if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", () => { FITGEN++; });
 function slotFit(el, m){
   if (m.card) return;
-  el.style.zoom = "";
-  const box = el.parentNode, z = Math.min(1, box.clientHeight / el.scrollHeight, box.clientWidth / el.scrollWidth);
-  if (z < 0.98) el.style.zoom = Math.max(0.3, z - 0.01).toFixed(3);
+  if (el.querySelector(":scope > .dz")){ el.style.zoom = ""; el._fit = null; return; }      // a design fits itself (designRender)
+  const box = el.parentNode, bw = box.clientWidth, bh = box.clientHeight;
+  const sig = bw + "x" + bh + "|" + FITGEN + "|" + el.textContent + "|" + el.firstElementChild?.className + "|" + el.firstElementChild?.style.cssText;
+  if (el._fit && el._fit.sig === sig){ el.style.zoom = el._fit.z; return; }
+  const fits = z => { el.style.zoom = z === 1 ? "" : z.toFixed(3); return el.scrollHeight <= el.clientHeight + 1 && el.scrollWidth <= el.clientWidth + 1; };      // same units, zoomed or not
+  let z = 1;
+  if (!fits(1)){
+    let lo = 0.3, hi = 1;
+    if (fits(lo)) for (let i = 0; i < 7; i++){ const mid = (lo + hi) / 2; if (fits(mid)) lo = mid; else hi = mid; }
+    z = lo;
+  }
+  el.style.zoom = z === 1 ? "" : z.toFixed(3);
+  el._fit = {sig, z:el.style.zoom};
 }
 // card tiles never show a half-cut line or row: whatever doesn't fit is dropped whole, and a paragraph is cut at its
 // last full line with "…" (no scrolling on a wall display). Runs after each render and whenever the box changes size.
@@ -2525,8 +2540,29 @@ function wxSymbol(code, night){
   if (/Storm/.test(t)) return "ϟ"; if (/Snow/.test(t)) return "❄︎"; if (/Rain|Drizzle|Showers/.test(t)) return "☂︎";
   if (/Fog/.test(t)) return "≋"; if (/Overcast|cloudy/i.test(t) && !/Mostly clear/.test(t)) return "☁︎"; return night ? "☾" : "☀︎";
 }
+// A design is drawn on a canvas the height of the box it was made in (D.rows grid rows): sizes and the distance from
+// the top are a share of that height. In a shorter box the text keeps its size and the empty space at the bottom
+// goes first; only when the parts no longer fit does everything shrink together. A taller box scales it up.
+function designSlot(m){ const h = MOUNTED[m.id], b = h && h.parentNode; return b && b.dataset && b.dataset.slot ? slotById(b.dataset.slot) : null; }
+function designBasis(el, m, D){
+  const H = el.clientHeight || 100, sl = el.closest("#edfocus") ? null : designSlot(m);
+  if (sl && !D.rows) D.rows = sl.h;               // older designs: the box they are in now is the one they were made for
+  return sl && D.rows > sl.h ? H * D.rows / sl.h : H;
+}
 function designRender(el, m){
-  const D = designOf(m), H = el.clientHeight || 100, ts = (THEMEV.textScale || 100) / 100;
+  const D = designOf(m), H = el.clientHeight || 100;
+  const Hb = designBasis(el, m, D);
+  designDraw(el, m, D, Hb);
+  let hb = Hb;
+  for (let i = 0; i < 3 && hb > H; i++){          // shorter than its canvas: shrink only while the parts run past the bottom
+    let B = 0; el.querySelectorAll(":scope > .dz > .dzp:not([hidden])").forEach(n => { B = Math.max(B, n.offsetTop + n.offsetHeight); });
+    if (B <= H + 1) break;
+    hb = Math.max(H, hb * H / B * .99); designDraw(el, m, D, hb);
+  }
+  el._hb = hb;
+}
+function designDraw(el, m, D, H){
+  const ts = (THEMEV.textScale || 100) / 100;
   el._k = null; el._key = null;
   let box = el.querySelector(":scope > .dz");
   if (!box){ el.innerHTML = '<div class="dz"></div>'; box = el.firstChild; el.classList.add("dzhost"); }
@@ -2538,7 +2574,7 @@ function designRender(el, m){
     const html = o.noemoji ? stripEmoji(p.html) : LOOK.plain || LOOK.swaps.length ? lookText(p.html) : p.html, hide = !!o.hide || !html || o.x == null;
     n.hidden = hide; if (hide) continue;
     if (n._h !== html){ n._h = html; n.innerHTML = html; }
-    const css = "left:" + o.x + "%;top:" + o.y + "%;font-size:" + ((o.s || 8) * H / 100 * ts).toFixed(1) + "px;font-weight:" + (o.w || 400) +
+    const css = "left:" + o.x + "%;top:" + (o.y * H / 100).toFixed(1) + "px;font-size:" + ((o.s || 8) * H / 100 * ts).toFixed(1) + "px;font-weight:" + (o.w || 400) +
       ";transform:translateX(" + (o.a === "r" ? "-100%" : o.a === "c" ? "-50%" : "0") + ")" + (o.c ? ";color:" + o.c : "") +
       ";font-family:" + (FONTS[o.f] || o.ff || "inherit") + (o.tt ? ";text-transform:" + o.tt : "") + (o.ls ? ";letter-spacing:" + o.ls + "em" : "") + (o.it ? ";font-style:italic" : "");
     if (n._css !== css || n._fit !== html){
@@ -2592,15 +2628,20 @@ const dzP = id => { const x = dzX(); return x && (x.parts[id] = x.parts[id] || {
 function designStart(id, fresh){
   const m = MODULES[id]; if (!m || !m.parts) return;
   const before = JSON.stringify(CFG), hist = EDIT.hist.length;
+  // the designer's canvas is this box: redraw the design for its height first, so it looks just as it does on the screen
+  const el = MOUNTED[id], sl = designSlot(m), cur0 = designOf(m);
+  const rebase = parts => { const k = el && el._hb && el.clientHeight ? el._hb / el.clientHeight : 1;
+    if (Math.abs(k - 1) > .005) for (const o of Object.values(parts)) if (o){ if (o.y != null) o.y = +(o.y * k).toFixed(1); if (o.s != null) o.s = +(o.s * k).toFixed(2); }
+    return parts; };
   if (fresh || !designed(m)){
-    const cur = designOf(m), ref = "d" + Date.now().toString(36);
+    const cur = cur0, ref = "d" + Date.now().toString(36);
     const name = designName(m.type, cur ? cur.name + " copy" : "My " + TYPES[m.type].title.toLowerCase());
     remember();
-    const parts = cur ? clone(cur.parts) : designFromPreset(m).parts;
-    designLib(m.type).push({id:ref, name, parts});
+    const parts = cur ? rebase(clone(cur.parts)) : designFromPreset(m).parts;
+    designLib(m.type).push(Object.assign({id:ref, name, parts}, sl ? {rows:sl.h} : {}));
     m.s.design = {on:true, ref, name, parts:clone(parts)};
     fresh = true;
-  }
+  } else if (cur0 && sl && cur0.rows !== sl.h){ remember(); rebase(cur0.parts); cur0.rows = sl.h; }
   EDIT.focus = {id, sel:null, before, hist, fresh:!!fresh}; EDIT.panel = null;
   document.body.classList.add("dzmode");
   render(id); edPaint(true); designPaint();
