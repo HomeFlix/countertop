@@ -1,1 +1,0 @@
-- Preview six editable dashboards or start from scratch during setup and when adding a page. Everyday is the default layout.
