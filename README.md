@@ -29,7 +29,7 @@ Press and hold a tile to start editing right on the screen. Drag tiles where you
 
 <img src="docs/screenshots/clock-designer.gif" alt="The visual designer opens from the dashboard. The clock numbers move to the right, grow, and turn gold. Saving returns to the dashboard with the new clock." width="100%" />
 
-### Three ways to set up the same screen
+### Many ways to set up the same screen
 
 <table>
   <tr>
@@ -63,12 +63,13 @@ Open any of the three layouts to see it full size. They all use the same fiction
       <strong>See the whole family’s plans.</strong> Put several calendars together, then switch between a quick look at the week and a full month.
     </td>
   </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <a href="docs/screenshots/recipe.png"><img src="docs/screenshots/recipe.png" alt="A dinner idea opened full screen with large ingredients and numbered steps" width="100%" /></a>
-      <strong>Answer “What’s for dinner?”</strong> Tap a dinner idea for ingredients and steps big enough to read while you cook. In the US, it can also show which things on your list are on sale this week.
-    </td>
-    <td width="50%" valign="top">
+<tr>
+  <td width="50%" valign="top">
+    <a href="docs/screenshots/home-assistant.png"><img src="docs/screenshots/home-assistant.png" alt="Home Assistant tiles showing light switches, door and lock states, and sensor readings" width="100%" /></a>
+    <strong>Keep an eye on your home.</strong> Connect Home Assistant to see lights, doors, and sensors alongside everything else. Switch lights or run scenes with a tap.
+  </td>
+
+  <td width="50%" valign="top">
       <a href="docs/screenshots/tile-gallery.png"><img src="docs/screenshots/tile-gallery.png" alt="Twelve example tiles: agenda, forecast, countdown, next event, stocks, sun and moon, soccer team, world clocks, planes overhead, space photo, dad joke, and on this day" width="100%" /></a>
       <strong>Make room for the fun stuff.</strong> Choose from more than 30 tiles, such as photos from a shared iCloud album, your soccer team’s next match, countdowns, planes overhead, and a dad joke.
     </td>
@@ -116,7 +117,7 @@ You can also schedule whole looks by time of day, day of the week, or date, for 
 
 1. **Run Countertop** on a computer or home server that stays on. On a Mac, [download the app](docs/setup.md#run-it-on-a-mac) and open it. For Docker, Unraid or Linux, see the [Docker and Unraid guide](docs/install-docker-unraid.md) or the [Linux steps](docs/setup.md#run-it-on-linux).
 2. **Open it on your screen.** Use the dashboard address from setup. On an Echo Show 15, say **“Alexa, open Silk,”** open that address, and tap the page once to start full screen.
-3. **Add your own details.** Open **Controls** from a computer or phone on the same home network. A short setup guide asks for your town, your calendar and where your grocery list lives. Start with a few favorite tiles and arrange the rest whenever you like.
+3. **Add your own details.** Open **Controls** from a computer or phone on the same home network. A short setup guide asks for your town, your calendar and where your grocery list lives. Preview six premade dashboards, keep the Everyday default, or start from scratch. Later, **Controls → Pages → Add page** lets you try another layout as a swipeable page. Use **Premade dashboards** to change Main.
 
 If something isn't working, **Controls → Status** shows what's wrong. Its **Download diagnostics** button saves a file to attach to a [bug report](https://github.com/kizit/countertop/issues/new?template=bug_report.yml), with your private links and location removed. See [what's new](CHANGELOG.md) in each version.
 

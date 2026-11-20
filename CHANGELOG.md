@@ -5,6 +5,7 @@ Each version gets a section here. The newest is on top. Install a version from t
 ## Unreleased
 
 ### New
+- Preview six editable dashboards or start from scratch during setup and when adding a page. Everyday is the default layout.
 - **Check for Updates in the Mac app menu.** Look for a new version right away, instead of waiting for the twice-a-day check.
 
 ## v0.4.0 (2026-11-20)
