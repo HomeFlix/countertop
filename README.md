@@ -136,7 +136,7 @@ No. There’s nothing to sideload and no developer mode. You open a web address 
 <details>
 <summary><strong>What happens after a power cut or an Echo update?</strong></summary>
 
-Countertop starts again with your computer or server. If the Echo Show goes back to its home screen, say **“Alexa, open Silk,”** then tap the page once or say **“Alexa, select.”**
+Countertop starts again with your computer or server. If the Echo Show goes back to its home screen, open Silk again and tap the page once.
 </details>
 
 <details>

@@ -1,2 +1,2 @@
-### New
-- **Say “Alexa, select” instead of tapping the screen.** On an Echo Show, the dashboard now goes full screen and starts its keep-alive when you say “Alexa, select” in Silk, the same as touching it. After Silk reopens, the first “select” sometimes lands on Silk's own toolbar (for example its bookmarks); say it again once the dashboard is showing. The setup guide shows how to make an “Alexa, dashboard” routine that reopens the dashboard hands-free.
+### Changed
+- Pressing Enter on the dashboard now arms full screen and keep-alive, the same as a tap. On an Echo Show, Silk sends “Alexa, select” as an Enter key press, so it can sometimes replace the tap.
