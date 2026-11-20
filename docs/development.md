@@ -35,6 +35,8 @@ The preview in Controls shows the dashboard as the screen will show it. To try a
 
 Select **Portrait** in Controls to preview a 1080×1920 display. To capture the wall display, tablet, calendar, night page and Controls preview with the bundled demo data, run `node demo/capture-readme.js portrait` with Playwright and Chromium installed. Set `OUT` to choose a screenshot folder.
 
+Run `node demo/capture-starters.js` to redraw the premade dashboard pictures in `tools/starters/` that setup and **Add page** show. Pass names (for example `kitchen atmospheric`) to redraw only some of them.
+
 Run `node demo/capture-readme.js manual-portrait` to simulate a browser that keeps reporting 1920×1080 on a vertically mounted display. It saves the setting from a separate Controls browser, checks the open dashboard at its normal address, verifies touch gestures and persistence after a reload, and captures the native landscape framebuffer for each mount.
 
 ## Work on the Mac app

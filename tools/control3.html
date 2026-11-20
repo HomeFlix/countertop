@@ -190,7 +190,7 @@ const MOUNTS = {auto:"Automatic", left:"Portrait · left edge up", right:"Portra
 const SHELL = ECHO && window.parent !== window;
 let displayMode = "auto";
 let everyday, schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
-const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams", "homeassistant"];
+const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams", "homeassistant", "recipes"];
 
 window.shellBusy = () => true;       // on the Echo, the shell must not reload the dashboard over Controls when a save changes the settings
 if (ECHO){
@@ -319,14 +319,14 @@ function starterBox(type, x, y, w, h, settings = {}, rotate = []){
 }
 const STARTERS = {
   everyday: {
-    name:"Everyday", sub:"The default layout, with the week, radar, hourly forecast, groceries and dinner.",
+    name:"Everyday", sub:"The default layout, with the week, radar, hourly forecast, groceries and meal ideas.",
     look:{bg:"Sky", accent:"#7cb7ff"}
   },
   atmospheric: {
-    name:"Atmospheric", sub:"A serif clock over the changing sky, with dinner plans and moon phases.",
+    name:"Atmospheric", sub:"A serif clock over the changing sky, with meal ideas and moon phases.",
     look:{bg:"Sky", tiles:"See-through", opacity:38, accent:"#ffcc91"},
     boxes:[starterBox("clock",0,0,48,9,{style:"Serif",align:"Center",greeting:false,countdowns:false}),
-      starterBox("agenda",1,10,14,19,{count:7}), starterBox("dinner",15,10,18,19,{season:true}),
+      starterBox("agenda",1,10,14,19,{count:7}), starterBox("dinner",15,10,18,19),
       starterBox("weather",33,10,14,7,{style:"Compact",align:"Left",sun:false,air:false}), starterBox("sunmoon",33,17,14,12)]
   },
   minimal: {
@@ -337,10 +337,10 @@ const STARTERS = {
       starterBox("weather",2,22,21,5,{style:"Minimal",align:"Center",air:false,sun:false}), starterBox("agenda",25,6,21,21,{count:6})]
   },
   kitchen: {
-    name:"Kitchen table", sub:"Dinner ideas beside the shopping list, with seasonal produce and kitchen tips taking turns.",
+    name:"Kitchen table", sub:"Meal ideas beside the shopping list, with seasonal produce and kitchen tips taking turns.",
     look:{mode:"Light", bg:"Color", bgColor:"#dce4cf", accent:"#56703b", fx:"Off"},
     boxes:[starterBox("clock",0,0,24,7,{style:"Rounded",greeting:false,countdowns:false}), starterBox("nextevent",24,0,24,7),
-      starterBox("dinner",0,7,28,25,{season:true}), starterBox("list",28,7,20,16), starterBox("inseason",28,23,20,9,{},["tip"])]
+      starterBox("dinner",0,7,28,25), starterBox("list",28,7,20,16), starterBox("inseason",28,23,20,9,{},["tip"])]
   },
   weather: {
     name:"Weather station", sub:"A wide hourly chart, a ten-day forecast and the rising and setting sun.",
@@ -516,6 +516,8 @@ function srcItemScreen(k, id){
   h += sec("", rows);
   if (k === "homeassistant") h += sec("", '<button class="btnrow blue" data-sact="test" data-k="' + k + '" data-id="' + id + '">Test connection</button><div class="row" id="hatest" hidden></div>',
     "Checks the address and token without saving. Leave the token blank to test the one already saved.");
+  if (k === "recipes") h += sec("", '<button class="btnrow blue" data-sact="test" data-k="' + k + '" data-id="' + id + '">Test the key</button><div class="row" id="hatest" hidden></div>',
+    "Asks the service for one small thing without saving. Leave the key blank to test the one already saved.");
   h += '<div class="saverow">' + (id === "new" ? "" : '<button class="red" data-sact="del" data-k="' + k + '" data-id="' + id + '" style="color:var(--bad)">Delete</button>') +
     '<button class="pri" data-sact="save" data-k="' + k + '" data-id="' + id + '">' + (id === "new" ? "Add " + esc(K.one) : "Save") + '</button></div>';
   if (id !== "new"){ const u = usedBy(k, id); if (u.length) h += '<div class="sec"><div class="foot">Used by ' + esc(u.join(", ")) + '.</div></div>'; }
@@ -545,7 +547,7 @@ async function srcTest(k, id){
   try{
     const r = await fetch("/sources/test", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind:k, item})});
     const j = await r.json();
-    out.innerHTML = j.ok ? '<div class="t"><b style="color:var(--ok)">✓ Connected</b><small>' + esc((j.name ? j.name + " · " : "") + "Home Assistant " + (j.version || "") + " · " + j.count + " entities") + '</small></div>'
+    out.innerHTML = j.ok ? '<div class="t"><b style="color:var(--ok)">✓ Connected</b><small>' + esc(j.detail || (j.name ? j.name + " · " : "") + "Home Assistant " + (j.version || "") + " · " + j.count + " entities") + '</small></div>'
       : '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(j.error || "Unknown problem") + '</small></div>';
   }catch(e){ out.innerHTML = '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(e.message) + '</small></div>'; }
 }
@@ -720,6 +722,8 @@ function statusScreen(){
   if ((S.homeassistant || []).length) h += sec("Home Assistant", S.homeassistant.map(c => row({t:c.name, sub: c.ok === false ? c.error : "",
     v: c.ok === false ? "Not answering" : c.ago == null ? "Not used yet" : agoText(c.ago) + (c.count != null ? " · " + c.count + " entities" : "")})).join(""),
     "Countertop reads Home Assistant only while a Home or Sensor tile is showing.");
+  if ((S.recipes || []).length) h += sec("Meal ideas", S.recipes.map(c => row({t:c.name, sub: c.ok === false ? c.error : c.service,
+    v: c.ok === false ? "Not loading" : agoText(c.ago)})).join(""), "Countertop asks for new ideas only while a Meal ideas tile is showing.");
   const L = S.list;
   if (L && L.name){ const SRCN = {dashboard:"This dashboard", reminders:"Apple Reminders", pushed:"Sent from another app", url:"A web address"};
     h += sec("List", row({t:L.name, sub:(SRCN[L.source] || L.source) + (L.error ? " · " + L.error : ""), v:L.count + (L.count === 1 ? " item" : " items")})); }

@@ -11,6 +11,7 @@ async function open(b, url, {w=1920, h=1080, time='2026-11-19T09:24:00', dpr=1, 
   await ctx.addInitScript(FIX);
   const host = new URL(BASE).host;
   await ctx.route(u => new URL(u).host !== host, r => r.abort());
+  await ctx.route(u => /^\/demo-food\/[a-z-]+\.jpg$/.test(new URL(u).pathname), r => r.fulfill({contentType: 'image/jpeg', body: fs.readFileSync(path.join(__dirname, 'fixtures', 'food', new URL(r.request().url()).pathname.slice(11)))}));
   const p = await ctx.newPage();
   await p.clock.setFixedTime(new Date(time + '-07:00'));
   await p.goto(BASE + url);

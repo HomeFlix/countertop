@@ -38,7 +38,6 @@ function configFor(scene) {
     ];
     set("clock", { style: "Serif", align: "Center", color: "#ffead9", greeting: false, countdowns: false });
     set("weather", { style: "Compact", align: "Left", sun: false, air: false });
-    set("dinner", { season: true });
     tiles.settings.items.push(
       { id: "evening-agenda", type: "agenda", name: "From now", settings: { count: 7 } },
       { id: "sunmoon", type: "sunmoon", settings: {} },
@@ -186,6 +185,8 @@ async function prepare(browser, base, scratch, scene, time, video = false, opts 
       }
     }
     if (url.origin !== demoOrigin) return route.abort();
+    const food = url.pathname.match(/^\/demo-food\/([a-z-]+\.jpg)$/);
+    if (food) return route.fulfill({ contentType: "image/jpeg", body: fs.readFileSync(path.join(__dirname, "fixtures", "food", food[1])) });
     const response = await route.fetch({ url: base + url.pathname + url.search });
     return route.fulfill({ response });
   });

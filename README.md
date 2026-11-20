@@ -34,11 +34,11 @@ Press and hold a tile to start editing right on the screen. Drag tiles where you
 <table>
   <tr>
     <td width="33%" valign="top">
-      <a href="docs/screenshots/everyday.png"><img src="docs/screenshots/everyday.png" alt="Blue layout with a week across the middle, a wide forecast, and separate tiles for groceries and dinner" width="100%" /></a>
-      <strong>Everyday</strong><br />The week, weather, and dinner plans all in view.
+      <a href="docs/screenshots/everyday.png"><img src="docs/screenshots/everyday.png" alt="Blue layout with a week across the middle, a wide forecast, and separate tiles for groceries and a breakfast idea" width="100%" /></a>
+      <strong>Everyday</strong><br />The week, weather, and meal ideas all in view.
     </td>
     <td width="33%" valign="top">
-      <a href="docs/screenshots/atmospheric.png"><img src="docs/screenshots/atmospheric.png" alt="Sunset behind a centered serif clock, with see-through cards for the evening agenda, dinner, and sunset time" width="100%" /></a>
+      <a href="docs/screenshots/atmospheric.png"><img src="docs/screenshots/atmospheric.png" alt="Sunset behind a centered serif clock, with see-through cards for the evening agenda, a dinner idea, and sunset time" width="100%" /></a>
       <strong>Atmospheric</strong><br />A sunset sky, glass tiles, and falling leaves.
     </td>
     <td width="33%" valign="top">
@@ -76,7 +76,7 @@ Open any of the three layouts to see it full size. They all use the same fiction
   </tr>
 </table>
 
-A box on the screen can hold several tiles that take turns, so dinner, deals, and a kitchen tip can share one spot without crowding the screen. Birthdays on the calendar set off confetti.
+Meal ideas follow the time of day, from breakfast to dessert, and point out recipes that use something on your list or on sale. Tap one for the whole recipe and add what you need to the list. A box on the screen can hold several tiles that take turns, so meal ideas, deals, and a kitchen tip can share one spot without crowding the screen. Birthdays on the calendar set off confetti.
 
 *All pictures show fictional data.*
 
