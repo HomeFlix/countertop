@@ -7,8 +7,11 @@ The List tile can show a list that lives somewhere else. In **Controls > Setup >
 | **This dashboard** | Add and tick items on the phone page at `/list` | Instantly | Nothing |
 | **Apple Reminders** | The server reads the Reminders app itself | Every 2 minutes | The server runs on a Mac |
 | **Sent from another app** | A helper or Shortcut sends the list to the server | Seconds to minutes | One of the options below |
+| **A web address** | The server reads a list that's published online | Every 5 minutes | A link anyone with it can open |
 
-"Sent from another app" works wherever the server runs (Docker, Unraid, Linux, a Mac). On the dashboard the list is read-only: you tick things off in the app that keeps the list.
+"Sent from another app" and "A web address" work wherever the server runs (Docker, Unraid, Linux, a Mac). On the dashboard these lists are read-only: you tick things off in the app that keeps the list.
+
+The first time you open Controls, the setup guide asks which one you want. You can change it any time in **Controls > Setup > Lists**.
 
 ## 1. Set up the list
 
@@ -61,3 +64,17 @@ curl -X POST http://<server-ip>:8090/lists/push \
 - `items`: a list of names, or objects with an `id` and `text`. Instead of `items` you can send `text` with one item per line.
 - `via`: optional; the tile shows it as "from …".
 - Answers `{"ok": true, "count": 3}`, or a 403 if the key is wrong.
+
+## 3. A list that's online (A web address)
+
+If your list app can publish or export a list at a link, Countertop can read it every five minutes. In **Controls > Setup > Lists**, set **Kept in** to **A web address** and paste the link. The link is stored on the server only and isn't shown again.
+
+It understands:
+
+- **Plain text**, one item per line. Bullets (`-`, `*`, `•`) and numbers are dropped, and lines starting with `#` are skipped.
+- **A Markdown checklist**: `- [ ] Milk` shows, `- [x] Eggs` is skipped.
+- **JSON**: a list of names, or of objects with `text`, `title` or `name`. Items marked `done`, `completed` or `checked` are skipped. A list inside `items`, `tasks` or `todos` works too.
+- **iCal to-dos** (`.ics` with `VTODO`): completed and cancelled to-dos are skipped.
+
+Good fits are a raw text file in a private GitHub Gist, a note published from a notes app, or a Home Assistant or Node-RED endpoint. If the link stops working, the list keeps its last items and Controls > Status says what went wrong.
+

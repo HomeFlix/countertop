@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Setup help
+    url: https://github.com/kizit/countertop/blob/main/docs/setup.md
+    about: Running Countertop on a Mac, Linux, Docker or Unraid, and connecting calendars and lists.

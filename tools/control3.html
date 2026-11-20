@@ -133,6 +133,14 @@
   #toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#232a33;z-index:60;
     border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:15px;color:var(--dim);box-shadow:0 8px 30px rgba(0,0,0,.4);transition:opacity .3s;pointer-events:none}
   #toast.ok{color:var(--ok)} #toast.bad{color:var(--bad)}
+  /* status + setup guide */
+  .row.upd b{color:var(--accent);font-weight:600}
+  a.btnrow{text-decoration:none;color:var(--accent)}
+  .grp > a.btnrow + a.btnrow,.grp > .row + a.btnrow,.grp > .row + .btnrow{border-top:1px solid var(--line)}
+  .wizdots{display:flex;gap:6px;margin:14px 4px 4px}
+  .wizdots i{flex:1;height:4px;border-radius:2px;background:#2a313a}
+  .wizdots i.done{background:#3d6a99} .wizdots i.on{background:var(--accent)}
+  .saverow button[data-act="wizback"],.saverow button[data-act="wizskip"]{flex:.6}
 </style>
 </head>
 <body>
@@ -182,7 +190,8 @@ async function load(){
   try{
     const [j, s] = await Promise.all([fetch("/config", {cache:"no-store"}).then(r => r.json()), fetch("/sources", {cache:"no-store"}).then(r => r.json())]);
     schema = j.schema; mods = j.modules; SRC = s.sources || {}; KINDS = s.kinds || {};
-    await titlesLoad; show();
+    if (needsSetup() && stack.length === 1) stack = ["root", "wiz"];       // a new install: walk through the basics first
+    await titlesLoad; show(); statusLoad();
   }catch(e){ toast("Can't reach the dashboard server", "bad"); }
 }
 function pvRefresh(){
@@ -234,6 +243,7 @@ const titlesLoad = fetch("/tiles.js").then(r => r.text()).then(t => { for (const
 /* ---------- screens ---------- */
 function rootScreen(){
   let h = '<div class="big">Dashboard</div>';
+  h += statusRows();
   h += sec("", ECHO ? '<button class="btnrow pri" data-act="echoedit">Edit the screen</button>'
     : '<button class="btnrow pri" data-act="edit" data-id="main">Edit dashboard on screen</button>',
     ECHO ? "Add tiles, move and resize them, and change each tile's settings. You can also hold any tile on the screen for a second." : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
@@ -338,7 +348,8 @@ async function srcAction(act, k, id){
   if (act === "save"){
     document.querySelectorAll("[data-sf]").forEach(el => { const v = el.value.trim(); if (!(K.fields[el.dataset.sf].secret && !v)) item[el.dataset.sf] = v; });
     if (!item.name){ toast("Give it a name first", "bad"); return; }
-    if (id === "new" && K.fields.url && K.fields.url.secret && !item.url){ toast("Paste the link first", "bad"); return; }
+    const uw = document.querySelector('[data-fw="url"]');
+    if (id === "new" && K.fields.url && K.fields.url.secret && !item.url && uw && !uw.hidden){ toast("Paste the link first", "bad"); return; }
   } else if (!confirmDel(K, id)) return;
   try{
     const r = await fetch("/sources", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind:k, op: act === "del" ? "delete" : id === "new" ? "add" : "update", item})});
@@ -384,6 +395,7 @@ function pvGoPage(id){
 function act(a, id){
   const L = cpList(), p = cpById(id);
   if (a === "echoedit"){ location.href = "/dash/content?edit=1"; return; }
+  if (/^(wiz|st)/.test(a)) return wizAct(a, id);
   if (a === "new"){
     const t = PAGE_TPL[+id], pid = "p" + Date.now().toString(36);
     gpAll().push({id:pid, name:"Page " + (L.length + 2), on:true, back:0, cols:GC, slots:t.boxes.map((r, j) => ({id:"s" + j + pid, x:r[0] * U, y:r[1] * U, w:r[2] * U, h:r[3] * U, mod:null}))});
@@ -424,6 +436,8 @@ function show(){
   const cur = stack[stack.length - 1];
   let h, title;
   if (cur === "root"){ h = rootScreen(); title = ""; }
+  else if (cur === "status"){ h = statusScreen(); title = "Status"; }
+  else if (cur === "wiz"){ h = wizScreen(); title = "Set up"; }
   else if (cur === "newpage"){ h = newPageScreen(); title = "Add page"; }
   else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = p ? p.name : "Page"; }
   else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
@@ -450,7 +464,164 @@ function show(){
   fxPreviews();
   if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
 }
-function go(to){ stack.push(to); show(); scrollTo(0, 0); }
+function go(to){ stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
+/* ---------- Status: is everything working, is there a new version, and a diagnostics file for bug reports ---------- */
+let STATUS = null;
+async function statusLoad(check){
+  try{ STATUS = await (await fetch("/status" + (check ? "?check=1" : ""), {cache:"no-store"})).json(); }catch(e){ STATUS = null; }
+  const cur = stack[stack.length - 1];
+  if (cur === "root" || cur === "status") show();
+}
+setInterval(() => { if (!document.hidden) statusLoad(); }, 60e3);
+const LVL = {ok:["#4cd27a", "Everything's working"], warn:["#ffc850", "Needs a look"], bad:["#ff6b6b", "Something isn't working"]};
+const ISSUES = "https://github.com/kizit/countertop/issues/new?template=bug_report.yml";
+function agoText(s){
+  if (s == null) return "Not yet";
+  if (s < 90) return "Just now";
+  if (s < 5400) return Math.round(s / 60) + " min ago";
+  if (s < 172800) return Math.round(s / 3600) + " hours ago";
+  return Math.round(s / 86400) + " days ago";
+}
+function statusRows(){       // the root screen: one line, plus a notice when there's a new version
+  if (!STATUS) return "";
+  const S = STATUS, [col, word] = LVL[S.level] || LVL.ok;
+  let h = "";
+  if (S.update) h += row({t:"Countertop " + S.latest.tag + " is out", sub:"You have v" + S.version + ". See what's new and how to update.", chev:true, cls:"upd", attrs:'data-go="status"',
+    pre:'<span class="dot" style="background:var(--accent)"></span>'});
+  h += row({t:"Status", sub: S.problems.length ? S.problems[0] + (S.problems.length > 1 ? " (+" + (S.problems.length - 1) + " more)" : "") : word, v:"v" + S.version, chev:true, attrs:'data-go="status"',
+    pre:'<span class="dot" style="background:' + col + '"></span>'});
+  return sec("", h);
+}
+function howToUpdate(where){
+  if (where === "Docker") return "Unraid: open the Docker tab, click Check for Updates, then Apply Update. Docker Compose: run docker compose pull, then docker compose up -d. Your settings stay in the data folder.";
+  return "Download the new version from GitHub and replace the tools folder, then restart the server. Your settings stay in the work folder.";
+}
+function statusScreen(){
+  const S = STATUS;
+  let h = '<div class="big">Status</div>';
+  if (!S) return h + '<p class="intro">Checking…</p>';
+  const [col, word] = LVL[S.level] || LVL.ok;
+  h += sec("", S.problems.length ? S.problems.map(p => row({t:p, pre:'<span class="dot" style="background:' + col + '"></span>'})).join("")
+    : row({t:word, pre:'<span class="dot" style="background:' + col + '"></span>'}));
+  if (S.update) h += sec("New version", row({t:"Countertop " + S.latest.tag + " is out", sub:"You have v" + S.version}) +
+    '<a class="btnrow blue" href="' + esc(S.latest.url) + '" target="_blank" rel="noopener">See what\'s new</a>', howToUpdate(S.server.where));
+  const sc = S.screen || {};
+  h += sec("Screen", row({t:"Last check-in", v:agoText(sc.seenAgo)}) + row({t:"Weather updated", v:agoText(sc.wxAgo)}) +
+    (sc.fullscreen == null ? "" : row({t:"Full screen", v: sc.fullscreen ? "Yes" : "No"})),
+    "The screen checks in every minute while /dash is open.");
+  if ((S.calendars || []).length) h += sec("Calendars", S.calendars.map(c => row({t:c.name, sub: c.ok === false ? c.error : "",
+    v: c.ok === false ? "Not loading" : c.ago == null ? "Not loaded yet" : agoText(c.ago) + (c.count != null ? " · " + c.count + " events" : "")})).join(""));
+  const L = S.list;
+  if (L && L.name){ const SRCN = {dashboard:"This dashboard", reminders:"Apple Reminders", pushed:"Sent from another app", url:"A web address"};
+    h += sec("List", row({t:L.name, sub:(SRCN[L.source] || L.source) + (L.error ? " · " + L.error : ""), v:L.count + (L.count === 1 ? " item" : " items")})); }
+  h += sec("Server", row({t:"Version", v:"v" + S.version}) + row({t:"Running on", v:S.server.where}) + row({t:"Running for", v:agoText(S.server.startedAgo).replace(" ago", "").replace("Just now", "A minute")}) +
+    row({t:"Time zone", v:S.server.tz}));
+  const lt = S.latest || {};
+  h += sec("Updates", row({t:"Check GitHub for new versions", post: sw(mods.general.settings.updates !== false, 'data-m="general" data-k="updates" data-t="bool"')}) +
+    row({t:"Last checked", sub: lt.error ? "Couldn't reach GitHub: " + lt.error : lt.tag ? "Newest release: " + lt.tag : "", v:agoText(lt.checkedAgo)}) +
+    '<button class="btnrow blue" data-act="stcheck">Check now</button>',
+    "Countertop asks GitHub for the newest release twice a day. Nothing about you or your setup is sent.");
+  h += sec("Report a problem", (ECHO ? row({t:"Download diagnostics", sub:"Open Controls on a computer or phone to download the file."})
+      : '<a class="btnrow blue" href="/diagnostics" download>Download diagnostics</a>') +
+    '<a class="btnrow blue" href="' + ISSUES + '" target="_blank" rel="noopener">Open a bug report on GitHub</a>',
+    "The diagnostics file has your settings, version and recent logs. Calendar and list links, sync keys, your location and network addresses are removed, and list items aren't included. Attach it to the bug report.");
+  h += sec("", row({t:"Run the setup guide again", chev:true, attrs:'data-act="wizstart"'}));
+  return h;
+}
+
+/* ---------- First-run setup guide: location, a calendar and the grocery list, then where to open the screen ---------- */
+const WIZ = {step:0, kind:"", calName:"Family"};
+const WIZ_STEPS = ["Welcome", "Location", "Calendar", "Grocery list", "All set"];
+const needsSetup = () => mods.general && !mods.general.settings.setupDone && !mods.general.settings.lat && !mods.general.settings.lon;
+const firstList = () => (SRC.lists || [])[0] || null;
+function wizScreen(){
+  const st = WIZ.step, g = mods.general.settings, host = location.host;
+  let h = '<div class="wizdots">' + WIZ_STEPS.map((s, i) => '<i class="' + (i < st ? "done" : i === st ? "on" : "") + '"></i>').join("") + '</div>';
+  const nav = (next, skip) => '<div class="saverow">' + (st > 0 ? '<button data-act="wizback">Back</button>' : "") +
+    (skip ? '<button data-act="wiznext">' + skip + '</button>' : "") + '<button class="pri" data-act="' + (next[1] || "wiznext") + '">' + next[0] + '</button></div>';
+  if (st === 0){
+    h += '<div class="big">Welcome to Countertop</div><p class="intro">Three quick steps get your screen going: where you live (for the weather), your calendar and your grocery list. You can change all of it later in Controls.</p>';
+    h += '<div class="saverow"><button data-act="wizskip">Skip for now</button><button class="pri" data-act="wiznext">Start</button></div>';
+  } else if (st === 1){
+    h += '<div class="big">Where are you?</div><p class="intro">For the weather, the radar, sunrise and sunset. Only the name you type is sent, to Open-Meteo\'s free place search.</p>';
+    h += sec("", (g.lat || g.lon ? row({t:g.place || g.lat + ", " + g.lon, sub:"Your location", pre:'<span class="dot" style="background:var(--ok)"></span>'}) : "") +
+      '<button class="btnrow blue" data-act="locate">' + (g.lat || g.lon ? "Pick a different place…" : "Find your town…") + '</button>');
+    h += sec("", field("general", "units", schema.general.settings.units, g.units) + field("general", "h24", schema.general.settings.h24, g.h24));
+    h += nav(["Next"], g.lat || g.lon ? "" : "Skip");
+  } else if (st === 2){
+    const F = KINDS.calendars.fields.url, cals = SRC.calendars || [];
+    h += '<div class="big">Add your calendar</div><p class="intro">Countertop reads a calendar from its private iCal link. ' + esc(F.help) + '</p>';
+    if (cals.length) h += sec("Added", cals.map(c => row({t:c.name, pre:'<span class="dot" style="background:' + esc(c.color || "var(--ok)") + '"></span>'})).join(""));
+    h += sec(cals.length ? "Add another" : "", '<div class="row col"><div class="t"><b>Name</b></div><input type="text" id="wcname" value="' + esc(cals.length ? "" : WIZ.calName) + '" placeholder="e.g. Family or Work"></div>' +
+      '<div class="row col"><div class="t"><b>Private iCal link</b></div><input type="text" id="wcurl" placeholder="webcal://… or https://….ics" autocapitalize="off" spellcheck="false"></div>' +
+      '<button class="btnrow blue" data-act="wizcal">Add calendar</button>');
+    h += nav(["Next"], cals.length ? "" : "Skip");
+  } else if (st === 3){
+    const L = firstList() || {}, kind = WIZ.kind || L.kind || "This dashboard", mac = STATUS && STATUS.server.where === "Mac";
+    const OPTS = [["This dashboard", "Right here", "Add and tick items from any phone's browser at " + host + "/list. Nothing to install."],
+      ["Sent from another app", "Apple Reminders or another app", "An iPhone Shortcut, the Mac List Sync helper or a script sends the list. Works with Docker and Unraid."],
+      ["A web address", "A list that's online", "Countertop reads a published list (text, Markdown checklist, JSON or iCal to-dos) every few minutes."]];
+    if (mac) OPTS.splice(1, 0, ["Apple Reminders", "Apple Reminders on this Mac", "The server reads a Reminders list itself, because it runs on a Mac."]);
+    h += '<div class="big">Your grocery list</div><p class="intro">Where should the list on the screen come from?</p>';
+    h += sec("", OPTS.map(([v, t, sub]) => '<label class="emopt"><input type="radio" name="wizkind" data-act="wizkind" data-id="' + esc(v) + '"' + (v === kind ? " checked" : "") + '><span class="t"><b>' + esc(t) + '</b><span class="ex">' + esc(sub) + '</span></span></label>').join(""));
+    let extra = "";
+    if (kind === "Apple Reminders") extra = '<div class="row col"><div class="t"><b>Reminders list name</b></div><input type="text" id="wlrem" value="' + esc(L.remName || "Grocery") + '"></div>';
+    if (kind === "A web address") extra = '<div class="row col"><div class="t"><b>Address of the list</b></div><input type="text" id="wlurl" placeholder="' + (L.kind === "A web address" && L.urlSet ? "Saved and hidden. Paste a new link to replace it." : "https://…") + '" autocapitalize="off" spellcheck="false"><div class="help">' + esc(KINDS.lists.fields.url ? KINDS.lists.fields.url.help : "") + '</div></div>';
+    if (kind === "Sent from another app") extra = L.kind === kind && L.pushKey
+      ? row({t:"Sync key: " + L.pushKey, sub:"Paste it into your Shortcut or the List Sync helper. The steps are in docs/list-sync.md on GitHub."})
+      : row({t:"A sync key is made when you press Next", sub:"Come back to Controls > Lists to copy it. The steps for the iPhone Shortcut and the Mac helper are in docs/list-sync.md on GitHub."});
+    if (extra) h += sec("", extra);
+    h += nav(["Next", "wizlist"]);
+  } else {
+    h += '<div class="big">You\'re all set</div><p class="intro">Open these addresses on your devices. Bookmark them, since they don\'t change.</p>';
+    h += sec("", row({t:"On the Echo Show or the kitchen screen", sub:"Open Silk and go to this address, then tap the screen once so it stays full screen.", v:host + "/dash"}) +
+      row({t:"On your phone", sub:"Add to the grocery list from anywhere in the house.", v:host + "/list"}) +
+      row({t:"Controls (this page)", sub:"Change tiles, looks, effects and pages.", v:host + "/control"}));
+    h += sec("", '<div class="row"><div class="t"><small>Keep Countertop on your home network. Anyone who can reach it can change its settings, so don\'t forward its port to the internet.</small></div></div>');
+    h += '<div class="saverow"><button data-act="wizback">Back</button><button class="pri" data-act="wizdone">Finish</button></div>';
+  }
+  return h;
+}
+async function wizSource(kind, op, item){
+  const r = await fetch("/sources", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind, op, item})});
+  const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+  SRC = j.sources; return j;
+}
+async function wizAct(a, id){
+  if (a === "wizstart"){ WIZ.step = 0; WIZ.kind = ""; stack = ["root", "wiz"]; show(); scrollTo(0, 0); return; }
+  if (a === "wizback"){ WIZ.step = Math.max(0, WIZ.step - 1); show(); scrollTo(0, 0); return; }
+  if (a === "wiznext"){ WIZ.step++; show(); scrollTo(0, 0); return; }
+  if (a === "wizkind"){ WIZ.kind = id; show(); return; }
+  if (a === "wizskip" || a === "wizdone"){
+    mods.general.settings.setupDone = true; save(); stack = ["root"]; show(); scrollTo(0, 0);
+    if (a === "wizdone") toast("Setup saved", "ok");
+    setTimeout(statusLoad, 1200);
+    return;
+  }
+  if (a === "wizcal"){
+    const name = $("wcname").value.trim() || "Calendar", url = $("wcurl").value.trim();
+    if (!/^(webcal|https?):\/\//i.test(url)){ toast("Paste the calendar's link: it starts with webcal:// or https://", "bad"); return; }
+    try{ await wizSource("calendars", "add", {name, url, color:""}); WIZ.calName = ""; toast("Calendar added", "ok"); show(); pvRefresh(); }
+    catch(e){ toast("Didn't save: " + e.message, "bad"); }
+    return;
+  }
+  if (a === "wizlist"){
+    const L = firstList(), kind = WIZ.kind || (L && L.kind) || "This dashboard", item = {kind};
+    if (kind === "Apple Reminders"){ item.remName = $("wlrem").value.trim(); if (!item.remName){ toast("Type the Reminders list name", "bad"); return; } }
+    if (kind === "A web address"){ const u = $("wlurl").value.trim();
+      if (u) item.url = u; else if (!(L && L.kind === kind && L.urlSet)){ toast("Paste the list's address first", "bad"); return; } }
+    try{
+      if (L) await wizSource("lists", "update", Object.assign({id:L.id}, item));
+      else await wizSource("lists", "add", Object.assign({name:"Grocery"}, item));
+      const N = firstList();
+      if (kind === "Sent from another app" && N && N.pushKey && WIZ.shownKey !== N.pushKey){ WIZ.shownKey = N.pushKey; WIZ.kind = kind; show(); toast("Here's your sync key", "ok"); return; }
+      WIZ.step++; show(); scrollTo(0, 0); pvRefresh();
+    }catch(e){ toast("Didn't save: " + e.message, "bad"); }
+    return;
+  }
+  if (a === "stcheck"){ toast("Checking…"); await statusLoad(true); toast(STATUS && STATUS.latest.error ? "Couldn't reach GitHub" : STATUS && STATUS.update ? "A new version is out" : "You're up to date", STATUS && STATUS.latest.error ? "bad" : "ok"); }
+}
+
 $("back").addEventListener("click", () => { stack.pop(); show(); });
 
 /* ---------- edits ---------- */

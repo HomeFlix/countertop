@@ -1,0 +1,60 @@
+name: Something isn't working
+description: Tell us what went wrong, and attach the diagnostics file from Controls.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The quickest way to get it fixed is the diagnostics file:
+        open **Controls → Status**, press **Download diagnostics**, and drag the zip into the box below.
+        It has your settings, version and recent logs. Calendar, album and list links, sync keys, your location
+        and network addresses are removed, and list items aren't included. Feel free to open it and check first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you see instead? A photo or screenshot of the screen helps.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we make it happen?
+      description: The steps that lead to the problem, if you know them.
+      placeholder: |
+        1. Open Controls
+        2. ...
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does the Countertop server run?
+      options:
+        - Unraid (Community Apps)
+        - Docker or Docker Compose
+        - Mac
+        - Linux without Docker
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: screen
+    attributes:
+      label: Which screen shows the dashboard?
+      options:
+        - Echo Show 15 (Silk)
+        - Another Echo Show
+        - A tablet
+        - A computer or monitor
+        - Something else
+  - type: input
+    id: version
+    attributes:
+      label: Countertop version
+      description: Shown in Controls → Status, e.g. v0.2.0
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics file
+      description: Drag the countertop-diagnostics zip from Controls → Status here.
+    validations:
+      required: false

@@ -1,5 +1,6 @@
 """Exercise a Countertop image on a fresh Linux Docker bind mount."""
 
+import io
 import json
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ from tempfile import TemporaryDirectory
 import time
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+import zipfile
 
 
 def docker(*args):
@@ -91,6 +93,14 @@ def smoke(image, directory):
         assert (Path(directory) / "sources.json").stat().st_mode & 0o777 == 0o600
         check_calendar(container)
 
+        status = json_request(base, "/status")
+        assert status["server"]["where"] == "Docker" and status["server"]["writable"], status["server"]
+        diagnostics = request(base, "/diagnostics")
+        with zipfile.ZipFile(io.BytesIO(diagnostics)) as z:
+            assert "settings.json" in z.namelist() and "console.log" in z.namelist(), z.namelist()
+            blob = b"".join(z.read(name) for name in z.namelist())
+        assert b"private.ics" not in blob and b"Smoke test" not in blob, "diagnostics kept a private value"
+
         docker("rm", "--force", "--volumes", container)
         container = start(image, directory)
         base = ready(container)
@@ -104,7 +114,7 @@ def smoke(image, directory):
         raise
     finally:
         subprocess.run(["docker", "rm", "--force", "--volumes", container], check=False, stdout=subprocess.DEVNULL)
-    print(f"{image}: fresh boot, calendar timezone, writes, and persistence passed.")
+    print(f"{image}: fresh boot, calendar timezone, writes, status, diagnostics and persistence passed.")
 
 
 if __name__ == "__main__":

@@ -35,11 +35,11 @@ Use the IP address printed by the server in place of `SERVER-IP`.
 
 On an Echo Show, open Silk, bookmark the dashboard, and tap the page once to start the full-screen keep-alive. Alexa still works. If Amazon returns to its home screen after an update or power outage, reopen Silk.
 
-Start in **Controls → Setup**:
+The first time you open Controls, a short setup guide asks for your location, a calendar and your grocery list. You can skip it and come back from **Controls → Status → Run the setup guide again**. Everything it sets also lives in **Controls → Setup**:
 
 - **Location & units.** Search for your town and pick your temperature and time formats.
 - **Calendars.** Add an iCal link for each calendar you want to see. In iCloud Calendar, open the calendar’s information, turn on **Public Calendar**, and use **Share Link**. Google Calendar calls its link **Secret address in iCal format** in the calendar’s settings. Keep those links private.
-- **Lists.** Choose **This dashboard** to share a list across phones and screens. Syncing a native Apple Reminders list requires a Mac as the server.
+- **Lists.** Choose **This dashboard** to share a list across phones and screens. To show an Apple Reminders list or a list kept in another app, see [list sync](list-sync.md). Reading Reminders directly needs a Mac as the server; the iPhone Shortcut and the Mac helper work with any server.
 - **Optional sources.** Add teams, shared photo albums, live cams, or the stores you shop at. For deals based on purchase history, put a CSV in `work/purchases/` with `date,store,brand,item,size,price` and an optional `regular` column. Without purchase history, deals can still match the list.
 
 From Controls, choose **Edit dashboard on screen** to arrange your tiles. For ideas, browse the [tile gallery](screenshots/tile-gallery.png) or see the [dashboard editor](screenshots/editor.png) and [tile picker](screenshots/tile-store.png).
@@ -48,7 +48,11 @@ From Controls, choose **Edit dashboard on screen** to arrange your tiles. For id
 
 Your layout, calendar links, groceries, and purchase exports live in `work/` on the server, or in the data directory you mounted for Docker. Back up that directory when you move or update your setup. Anyone on the local network who can reach the dashboard can open Controls, so keep its port off the public internet.
 
-Weather and some optional tiles depend on public data feeds. Their availability can change. There is no Countertop account or telemetry service.
+Weather and some optional tiles depend on public data feeds. Their availability can change. There is no Countertop account or telemetry service. Twice a day the server asks GitHub for the newest release number so Controls can tell you about updates; nothing about your setup is sent, and you can turn it off in **Controls → Status** (or set `COUNTERTOP_NO_UPDATE_CHECK=1`).
+
+## When something goes wrong
+
+**Controls → Status** shows whether the screen is checking in, when the weather, calendars and list last loaded, and anything that needs a look. To report a bug, press **Download diagnostics** there and attach the file to a [bug report](https://github.com/kizit/countertop/issues/new?template=bug_report.yml). The file holds your settings, version and recent logs. Calendar, album and list links, sync keys, your location, ZIP code and network addresses are removed, and list items aren't included. Open it to check before you share it.
 
 <details>
 <summary>How the dashboard works</summary>

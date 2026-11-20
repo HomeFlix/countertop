@@ -62,9 +62,9 @@ function render(d){
     esc(i.text) + '</span>' + (d.readonly ? '' : '<button class="x" data-del="1" aria-label="Remove">×</button>') + '</li>').join("")
     : '<li class="empty">Nothing on the list.</li>';
   if (!noteDirty) $("note").value = d.note || "";
-  $("lname").textContent = d.source === "pushed" ? d.list + " (kept in " + (d.via || "another app") + ")" : d.list ? d.list + " (synced with Reminders)" : "Grocery list";
+  $("lname").textContent = d.source === "pushed" ? d.list + " (kept in " + (d.via || "another app") + ")" : d.source === "url" ? d.list + " (read from " + (d.via || "the web") + ")" : d.list ? d.list + " (synced with Reminders)" : "Grocery list";
   $("add").hidden = $("clear").hidden = !!d.readonly;
-  $("status").textContent = (d.error ? (d.source === "pushed" ? "" : "Reminders error: ") + d.error + " · " : "") + "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  $("status").textContent = (d.error ? (d.source === "pushed" || d.source === "url" ? "" : "Reminders error: ") + d.error + " · " : "") + "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
 }
 async function call(body){
   try{

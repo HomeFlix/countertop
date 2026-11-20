@@ -150,7 +150,8 @@
       up: Math.round(performance.now()/1000),
       fs: isFull(), vis: document.visibilityState, audio: audioOk(),
       shell: true, frameAge: Math.round((Date.now() - lastLoad)/1000),
-      fx: (function(){ try{ return frame.contentWindow.FXINFO || null; }catch(e){ return null; } })()
+      fx: (function(){ try{ return frame.contentWindow.FXINFO || null; }catch(e){ return null; } })(),
+      feeds: (function(){ try{ return frame.contentWindow.FEEDAT || null; }catch(e){ return null; } })()
     });
   }
   beat(); setInterval(beat, 60e3);
