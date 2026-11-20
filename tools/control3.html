@@ -172,7 +172,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ECHO = /[?&]echo=1/.test(location.search);
 let schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
-const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams"];
+const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams", "homeassistant"];
 
 window.shellBusy = () => true;       // on the Echo, the shell must not reload the dashboard over Controls when a save changes the settings
 if (ECHO){
@@ -332,12 +332,14 @@ function srcItemScreen(k, id){
       const ch = F.choices.map(c => Array.isArray(c) ? c : [c, c]), cur = x[f] || ch[0][0];
       inp = '<div class="row col"><div class="t"><b>' + esc(F.label) + '</b></div><select ' + a + '>' + ch.map(([v, l]) => '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + '>' + esc(l) + '</option>').join("") + '</select>' + help + '</div>';
     } else {
-      const ph = F.secret && x.urlSet ? "Saved and hidden. Paste a new link to replace it." : "";
+      const ph = F.secret && x[f + "Set"] ? (f === "url" ? "Saved and hidden. Paste a new link to replace it." : "Saved and hidden. Paste a new one to replace it.") : "";
       inp = '<div class="row col"><div class="t"><b>' + esc(F.label) + '</b></div><input type="text" ' + a + ' value="' + esc(F.secret ? "" : x[f] || "") + '" placeholder="' + esc(ph) + '" autocapitalize="off" spellcheck="false">' + help + '</div>';
     }
     rows += '<div data-fw="' + f + '"' + (hide ? " hidden" : "") + '>' + inp + '</div>';
   }
   h += sec("", rows);
+  if (k === "homeassistant") h += sec("", '<button class="btnrow blue" data-sact="test" data-k="' + k + '" data-id="' + id + '">Test connection</button><div class="row" id="hatest" hidden></div>',
+    "Checks the address and token without saving. Leave the token blank to test the one already saved.");
   h += '<div class="saverow">' + (id === "new" ? "" : '<button class="red" data-sact="del" data-k="' + k + '" data-id="' + id + '" style="color:var(--bad)">Delete</button>') +
     '<button class="pri" data-sact="save" data-k="' + k + '" data-id="' + id + '">' + (id === "new" ? "Add " + esc(K.one) : "Save") + '</button></div>';
   if (id !== "new"){ const u = usedBy(k, id); if (u.length) h += '<div class="sec"><div class="foot">Used by ' + esc(u.join(", ")) + '.</div></div>'; }
@@ -345,17 +347,31 @@ function srcItemScreen(k, id){
 }
 async function srcAction(act, k, id){
   const K = KINDS[k], item = {id: id === "new" ? undefined : id};
+  if (act === "test") return srcTest(k, id);
   if (act === "save"){
     document.querySelectorAll("[data-sf]").forEach(el => { const v = el.value.trim(); if (!(K.fields[el.dataset.sf].secret && !v)) item[el.dataset.sf] = v; });
     if (!item.name){ toast("Give it a name first", "bad"); return; }
     const uw = document.querySelector('[data-fw="url"]');
     if (id === "new" && K.fields.url && K.fields.url.secret && !item.url && uw && !uw.hidden){ toast("Paste the link first", "bad"); return; }
+    if (k === "homeassistant" && !item.url){ toast("Type the address first", "bad"); return; }
+    if (k === "homeassistant" && id === "new" && !item.token){ toast("Paste the access token first", "bad"); return; }
   } else if (!confirmDel(K, id)) return;
   try{
     const r = await fetch("/sources", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind:k, op: act === "del" ? "delete" : id === "new" ? "add" : "update", item})});
     const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
     SRC = j.sources; toast(act === "del" ? "Deleted" : "Saved", "ok"); stack.pop(); show(); pvRefresh();
   }catch(e){ toast("Didn't save: " + e.message, "bad"); }
+}
+async function srcTest(k, id){
+  const item = {id: id === "new" ? undefined : id}, out = document.getElementById("hatest");
+  document.querySelectorAll("[data-sf]").forEach(el => { item[el.dataset.sf] = el.value.trim(); });
+  out.hidden = false; out.innerHTML = '<div class="t"><small>Checking…</small></div>';
+  try{
+    const r = await fetch("/sources/test", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({kind:k, item})});
+    const j = await r.json();
+    out.innerHTML = j.ok ? '<div class="t"><b style="color:var(--ok)">✓ Connected</b><small>' + esc((j.name ? j.name + " · " : "") + "Home Assistant " + (j.version || "") + " · " + j.count + " entities") + '</small></div>'
+      : '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(j.error || "Unknown problem") + '</small></div>';
+  }catch(e){ out.innerHTML = '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(e.message) + '</small></div>'; }
 }
 let delArm = "";
 function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Echo can't show them reliably)
@@ -514,6 +530,9 @@ function statusScreen(){
     "The screen checks in every minute while /dash is open.");
   if ((S.calendars || []).length) h += sec("Calendars", S.calendars.map(c => row({t:c.name, sub: c.ok === false ? c.error : "",
     v: c.ok === false ? "Not loading" : c.ago == null ? "Not loaded yet" : agoText(c.ago) + (c.count != null ? " · " + c.count + " events" : "")})).join(""));
+  if ((S.homeassistant || []).length) h += sec("Home Assistant", S.homeassistant.map(c => row({t:c.name, sub: c.ok === false ? c.error : "",
+    v: c.ok === false ? "Not answering" : c.ago == null ? "Not used yet" : agoText(c.ago) + (c.count != null ? " · " + c.count + " entities" : "")})).join(""),
+    "Countertop reads Home Assistant only while a Home or Sensor tile is showing.");
   const L = S.list;
   if (L && L.name){ const SRCN = {dashboard:"This dashboard", reminders:"Apple Reminders", pushed:"Sent from another app", url:"A web address"};
     h += sec("List", row({t:L.name, sub:(SRCN[L.source] || L.source) + (L.error ? " · " + L.error : ""), v:L.count + (L.count === 1 ? " item" : " items")})); }
