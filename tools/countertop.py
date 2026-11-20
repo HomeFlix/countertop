@@ -36,9 +36,12 @@ from urllib.request import Request, urlopen
 VERSION = "0.2.0"                 # bump with each release; CHANGELOG.md says what changed
 REPO = "kizit/countertop"
 HERE = Path(__file__).resolve().parent
-LOG = HERE.parent / "work" / "heartbeat.log"
-OLD_LOG = HERE.parent / "work" / "silk_collect.log"     # name used before the rename; moved over once at startup
-NOTES = HERE.parent / "work" / "notes.json"
+# Everything the server saves lives here: tools/../work by default, or COUNTERTOP_DATA (the Mac app keeps it in
+# ~/Library/Application Support/Countertop, since the app itself is read-only).
+WORK = Path(os.environ.get("COUNTERTOP_DATA") or HERE.parent / "work").expanduser()
+LOG = WORK / "heartbeat.log"
+OLD_LOG = WORK / "silk_collect.log"     # name used before the rename; moved over once at startup
+NOTES = WORK / "notes.json"
 NOTES_LOCK = threading.Lock()
 
 ICS_CACHE = {}           # url -> (ts, [events])
@@ -284,7 +287,7 @@ class Handler(BaseHTTPRequestHandler):
                 evs = parse_ics(raw)
                 ICS_CACHE[url] = (now, evs)
                 try:                                     # last copy kept on this machine only, for troubleshooting
-                    cf = HERE.parent / "work" / ("calendar_cache_%s.ics" % re.sub(r"[^A-Za-z0-9_-]", "", str(cal.get("id")))[:20])
+                    cf = WORK / ("calendar_cache_%s.ics" % re.sub(r"[^A-Za-z0-9_-]", "", str(cal.get("id")))[:20])
                     cf.write_text(raw)
                     cf.chmod(0o600)
                 except Exception:
@@ -319,7 +322,7 @@ class Handler(BaseHTTPRequestHandler):
 # ---------- Sources: connections set up once (Setup in Controls) and picked by tiles ----------
 # work/sources.json, readable only by this user. Fields marked secret (a calendar's private link) are write-only:
 # the browser never gets them back, only that one is set.
-SOURCES_FILE = HERE.parent / "work" / "sources.json"
+SOURCES_FILE = WORK / "sources.json"
 SOURCES_LOCK = threading.Lock()
 PUSHED = "Sent from another app"
 FROM_URL = "A web address"
@@ -336,10 +339,10 @@ SOURCE_KINDS = {
         "fields": {
             "name": {"label": "Name", "type": "text"},
             "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders", PUSHED, FROM_URL],
-                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. the Countertop List Sync helper on a Mac (Reminders, updates within seconds) or an iPhone Shortcut. " + FROM_URL + ": the server reads a list that is published online (plain text, a Markdown checklist, JSON or iCal to-dos) every few minutes. See docs/list-sync.md."},
+                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. Reminders Sync in the Countertop Mac app (updates within seconds) or an iPhone Shortcut. " + FROM_URL + ": the server reads a list that is published online (plain text, a Markdown checklist, JSON or iCal to-dos) every few minutes. See docs/list-sync.md."},
             "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}},
             "pushKey": {"label": "Sync key", "type": "text", "when": {"kind": PUSHED},
-                        "help": "Made for you when you save. Paste it into the List Sync helper or your Shortcut; anyone on your network with this key can replace the list."},
+                        "help": "Made for you when you save. Paste it into Reminders Sync in the Mac app or your Shortcut; anyone on your network with this key can replace the list."},
             "url": {"label": "Address of the list", "type": "text", "secret": True, "when": {"kind": FROM_URL},
                     "help": "A link that shows the list: plain text with one item per line, a Markdown checklist, JSON, or an iCal (.ics) file of to-dos. Checked-off items are skipped. It stays on the server and is never shown again."}}},
     "teams": {"title": "Sports teams", "one": "team",
@@ -369,7 +372,7 @@ def _sid():
 def sources_seed():
     """First run on an existing install: turn the old per-tile settings and files into sources."""
     src = {k: [] for k in SOURCE_KINDS}
-    f = HERE.parent / "work" / "calendar_url.txt"
+    f = WORK / "calendar_url.txt"
     if f.exists():
         lines = [ln.strip() for ln in f.read_text().splitlines() if ln.strip()]
         for i, u in enumerate(lines):
@@ -478,7 +481,7 @@ def notes_load():
 # ---------- optional: mirror an Apple Reminders list (work/reminders_list.txt holds its name) ----------
 # The Mac's Reminders app (signed in to iCloud) is the source of truth; the server reads it with
 # osascript. The first run makes macOS ask whether Terminal may control Reminders: click OK.
-REM_FILE = HERE.parent / "work" / "reminders_list.txt"
+REM_FILE = WORK / "reminders_list.txt"
 REM = {"items": [], "error": None, "at": 0, "done": {}}   # done: id -> (text, ts) for recently ticked items
 REM_LOCK = threading.Lock()
 
@@ -647,8 +650,8 @@ def url_list(L, max_age=300):
     return out
 
 
-# ---------- a list another app sends here (List Sync helper on a Mac, an iPhone Shortcut, a script) ----------
-PUSHED_FILE = HERE.parent / "work" / "pushed_lists.json"
+# ---------- a list another app sends here (Reminders Sync in the Mac app, an iPhone Shortcut, a script) ----------
+PUSHED_FILE = WORK / "pushed_lists.json"
 PUSHED_LOCK = threading.Lock()
 
 
@@ -726,7 +729,7 @@ def notes_view():
         got = pushed_load().get(pl["id"]) or {}
         return dict(d, items=got.get("items", []), source="pushed", list=pl.get("name") or "List", via=got.get("via") or "",
                     pushedAt=got.get("at") or 0, readonly=True,
-                    error=None if got else "Nothing sent yet. Set up the List Sync helper or a Shortcut with this list's sync key.")
+                    error=None if got else "Nothing sent yet. Turn on Reminders Sync in the Mac app or set up a Shortcut with this list's sync key.")
     name = reminders_list_name()
     if not name:
         return d
@@ -802,7 +805,7 @@ def notes_apply(body):
 
 
 # ---------- module platform: config schema, stored settings, team schedule, shared photo album ----------
-CONFIG_FILE = HERE.parent / "work" / "dashboard.json"
+CONFIG_FILE = WORK / "dashboard.json"
 SERVER_START = int(time.time())
 CONFIG_LOCK = threading.Lock()
 ZONES = ["header-left", "header-right", "strip", "main", "side"]
@@ -1580,7 +1583,7 @@ def reddit_pics(sub, period="day"):
     if not sub:
         return {"posts": [], "error": "no subreddit"}
     key = sub.lower() + "|" + period
-    f = HERE.parent / "work" / "reddit_cache.json"
+    f = WORK / "reddit_cache.json"
     if not REDDIT_CACHE:
         try:
             REDDIT_CACHE.update(json.loads(f.read_text()))
@@ -1677,7 +1680,7 @@ def dinner_ideas():
 # date,store,brand,item,size,price (one row per item bought; see _parse_csv) from any store, or a
 # Schnucks receipts export (schnucks_receipts.json from tools/schnucks_export.js). Everything stays on this machine; only short search words (e.g. "ghost energy")
 # and the ZIP code go to Flipp, the weekly-ad service most US chains publish through.
-PURCH_DIR = HERE.parent / "work" / "purchases"
+PURCH_DIR = WORK / "purchases"
 LIB_FILE = PURCH_DIR / "library.json"
 LISTLOG_FILE = PURCH_DIR / "list_log.json"
 SALES_FILE = PURCH_DIR / "sales_cache.json"
@@ -2080,6 +2083,8 @@ def _vtuple(v):
 def _where():
     if Path("/.dockerenv").exists() or os.environ.get("COUNTERTOP_DOCKER"):
         return "Docker"
+    if os.environ.get("COUNTERTOP_APP"):
+        return "Mac app"
     return {"Darwin": "Mac", "Linux": "Linux", "Windows": "Windows"}.get(platform.system(), platform.system())
 
 
@@ -2128,7 +2133,7 @@ def status_view():
         g = config_load()["modules"]["general"]["settings"]
     except Exception:
         g = {}
-    work = HERE.parent / "work"
+    work = WORK
     writable = os.access(work, os.W_OK) if work.exists() else os.access(work.parent, os.W_OK)
     if not writable:
         probs.append(["bad", "The server can't save settings: the data folder isn't writable. Check its owner (Docker: PUID/PGID, Unraid: 99:100)."])
@@ -2177,7 +2182,7 @@ def status_view():
         "latest": {"tag": LATEST["tag"], "name": LATEST["name"], "url": LATEST["url"], "checkedAgo": _ago(LATEST["checked"]),
                    "error": LATEST["error"], "on": updates_on()},
         "update": update,
-        "server": {"startedAgo": int(now - SERVER_START), "where": _where(), "python": platform.python_version(),
+        "server": {"startedAgo": int(now - SERVER_START), "where": _where(), "git": (HERE.parent / ".git").exists(), "python": platform.python_version(),
                    "tz": time.strftime("%Z"), "writable": writable},
         "screen": {"seenAgo": _ago(seen), "fullscreen": beat.get("fs"), "wxAgo": int(now - feeds["wx"] / 1000) if feeds.get("wx") else None},
         "calendars": [dict(c, ago=_ago(c["at"])) for c in cals],
@@ -2257,7 +2262,7 @@ def _tail(path, n=400, max_bytes=400_000):
 def diagnostics_zip():
     sec = _secrets()
     R = lambda t: redact(t, sec)
-    work = HERE.parent / "work"
+    work = WORK
     mods = config_load()["modules"]
     g = mods["general"]["settings"]
     for k in ("place", "lat", "lon"):
@@ -2324,11 +2329,12 @@ def main():
     ap = argparse.ArgumentParser(description="Countertop dashboard server")
     ap.add_argument("--port", type=int, default=8090)
     ap.add_argument("--tls", action="store_true")
-    ap.add_argument("--cert", default=str(HERE.parent / "work" / "tls" / "cert.pem"))
-    ap.add_argument("--key", default=str(HERE.parent / "work" / "tls" / "key.pem"))
+    ap.add_argument("--cert", default=str(WORK / "tls" / "cert.pem"))
+    ap.add_argument("--key", default=str(WORK / "tls" / "key.pem"))
     ap.add_argument("--also-tls", action="store_true", help="also listen HTTPS on --tls-port sharing state")
     ap.add_argument("--tls-port", type=int, default=8443)
     a = ap.parse_args()
+    WORK.mkdir(parents=True, exist_ok=True)
     sys.stdout, sys.stderr = _Tee(sys.stdout), _Tee(sys.stderr)
     print("Countertop %s starting (Python %s, %s)" % (VERSION, platform.python_version(), platform.system()), flush=True)
     if OLD_LOG.exists() and not LOG.exists():
@@ -2345,6 +2351,9 @@ def main():
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(a.cert, a.key)
         srv.socket = ctx.wrap_socket(srv.socket, server_side=True)
+    if a.also_tls and not (Path(a.cert).exists() and Path(a.key).exists()):
+        print("HTTPS not started: no certificate at %s (only needed for older Echo setups)" % a.cert, flush=True)
+        a.also_tls = False
     if a.also_tls:
         tls_srv = ThreadingHTTPServer(("0.0.0.0", a.tls_port), Handler)
         ctx2 = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

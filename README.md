@@ -113,7 +113,7 @@ You can also schedule whole looks by time of day, day of the week, or date, for 
 
 ## Get started
 
-1. **Run Countertop** on a computer or home server that stays on. Use the [Mac or Linux setup guide](docs/setup.md) or the [Docker and Unraid guide](docs/install-docker-unraid.md).
+1. **Run Countertop** on a computer or home server that stays on. On a Mac, [download the app](docs/setup.md#run-it-on-a-mac) and open it. For Docker, Unraid or Linux, see the [Docker and Unraid guide](docs/install-docker-unraid.md) or the [Linux steps](docs/setup.md#run-it-on-linux).
 2. **Open it on your screen.** Use the dashboard address from setup. On an Echo Show 15, say **“Alexa, open Silk,”** open that address, and tap the page once to start full screen.
 3. **Add your own details.** Open **Controls** from a computer or phone on the same home network. A short setup guide asks for your town, your calendar and where your grocery list lives. Start with a few favorite tiles and arrange the rest whenever you like.
 

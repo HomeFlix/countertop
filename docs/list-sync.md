@@ -20,17 +20,14 @@ The first time you open Controls, the setup guide asks which one you want. You c
 
 ## 2a. Apple Reminders through a Mac (recommended for Reminders)
 
-**Countertop List Sync** is a small background app for any Mac that stays on. macOS tells it about every change to the list, including items added on an iPhone or with Siri that arrive through iCloud, and it sends the list within a few seconds. It also resends every 10 minutes in case the server restarted.
+The **Countertop app for Mac** has **Reminders Sync**. macOS tells it about every change to the list, including items added on an iPhone or with Siri that arrive through iCloud, and it sends the list within a few seconds. It also resends every 10 minutes in case the server restarted. It works whether the server runs on that Mac or on Docker or Unraid.
 
-```sh
-zsh tools/listsync/build.sh            # asks for the server address, the sync key and the Reminders list name
-```
+1. Get the app: download it from the [latest release](https://github.com/kizit/countertop/releases/latest), or build it with `zsh mac/build.sh` (see [setup](setup.md)).
+2. In the menu bar, choose **Reminders Sync > Set Up…**. Allow access to Reminders when macOS asks.
+3. Enter the server address (for example `http://192.168.1.50:8090`), paste the sync key and pick the list. If the server runs on the same Mac, the key is filled in for you.
+4. If your server runs elsewhere, turn off **Run the Server on This Mac** in the menu.
 
-It needs the Xcode command line tools (`xcode-select --install`). The first time it runs, macOS asks whether it may use Reminders: click **Allow**. It then starts at every login.
-
-- Watch it work: `tail -f ~/Library/Logs/countertop-listsync.log`
-- Change the settings: `zsh tools/listsync/build.sh --setup`
-- Remove it: `zsh tools/listsync/build.sh --remove`
+Turn on **Open at Login** so it keeps syncing after a restart. The menu shows when the list was last sent.
 
 ## 2b. Apple Reminders from an iPhone (no Mac)
 

@@ -1,0 +1,80 @@
+name: Mac app
+
+on:
+  pull_request:
+    paths: ["mac/**", "tools/**", ".github/workflows/mac-app.yml"]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: Countertop.app (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            name: apple-silicon
+            runner: macos-15
+          - arch: x86_64
+            name: intel
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write          # attach the zip to the release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build the app with the server and Python inside
+        env:
+          ARCH: ${{ matrix.arch }}
+          GH_TOKEN: ${{ github.token }}
+        run: mac/package.sh
+
+      - name: Open the app and check that it starts the server
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/try"
+          ditto -x -k dist/Countertop-*-mac-${{ matrix.name }}.zip "$RUNNER_TEMP/try"
+          APP="$RUNNER_TEMP/try/Countertop.app"
+          # its own Python can reach HTTPS sites
+          SSL_CERT_FILE="$APP/Contents/Resources/python/cacert.pem" "$APP/Contents/Resources/python/bin/python3" -I -c \
+            "import urllib.request; urllib.request.urlopen('https://api.github.com', timeout=20); import dateutil; print('python ok')"
+          open "$APP"
+          for i in $(seq 1 30); do
+            if curl -fs http://127.0.0.1:8090/status > status.json; then break; fi
+            sleep 2
+          done
+          cat status.json
+          python3 - <<'PY'
+          import json
+          s = json.load(open("status.json"))
+          assert s["repo"] == "kizit/countertop", s
+          assert s["server"]["where"] == "Mac app" and s["server"]["writable"], s["server"]
+          print("app started the server:", s["version"])
+          PY
+          test -f "$HOME/Library/Application Support/Countertop/dashboard.json"
+          osascript -e 'quit app "Countertop"' || pkill -x Countertop
+          sleep 3
+          if curl -fs http://127.0.0.1:8090/status >/dev/null; then echo "server still running after quit"; exit 1; fi
+
+      - name: Keep the build (pull requests)
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Countertop-mac-${{ matrix.name }}
+          path: dist/*.zip
+          retention-days: 14
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release upload "$TAG" dist/*.zip --clobber --repo "$GITHUB_REPOSITORY"

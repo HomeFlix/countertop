@@ -2,9 +2,33 @@
 
 Run Countertop on a computer that stays on, then open the dashboard on a screen connected to the same home network. The layout is designed for the Echo Show 15 in Silk at 1920×1080. You can also open it in a modern browser on a tablet or monitor. Other Echo models may behave differently.
 
-## Run it on Mac or Linux
+## Run it on a Mac
 
-With Git and Python 3 installed, open Terminal and run:
+The easiest way is the **Countertop app**. It runs the server for you and lives in the menu bar.
+
+1. From the [latest release](https://github.com/kizit/countertop/releases/latest), download **Countertop-…-mac-apple-silicon.zip** (M1 and newer) or **…-mac-intel.zip**. It needs macOS 13 or later.
+2. Unzip it and drag **Countertop** into Applications, then open it.
+3. The first time, macOS says it can't check the app for malicious software, because the app isn't signed by Apple. Click **Done**, open **System Settings > Privacy & Security**, scroll down and click **Open Anyway** next to Countertop. You only do this once.
+
+A fork-and-knife icon appears in the menu bar. Its color tells you how things are: green is working, orange needs a look, red is stopped. The menu opens Controls, the dashboard and the grocery list page, restarts the server, and turns on **Open at Login**. Your settings are kept in `~/Library/Application Support/Countertop`. To update, download the new version and replace the app.
+
+The app also has **Reminders Sync**, which keeps an Apple Reminders list on the dashboard (see [list sync](list-sync.md)). If your server runs on Docker or Unraid, you can use the app just for that: turn off **Run the Server on This Mac**.
+
+### Or build it from the source
+
+If you'd rather run Countertop from a copy of this repository (to follow `main`, or to change the code), install Git and the Xcode command line tools (`xcode-select --install`), then:
+
+```sh
+git clone https://github.com/kizit/countertop.git
+cd countertop
+zsh mac/build.sh
+```
+
+That builds Countertop.app into `~/Applications`. It runs the server from this folder with your `python3` and keeps settings in `work/`, so updating is `git pull`, then **Restart Server** in the menu.
+
+## Run it on Linux
+
+With Git and Python 3 installed:
 
 ```sh
 git clone https://github.com/kizit/countertop.git
@@ -18,8 +42,6 @@ Countertop prints the local dashboard and Controls addresses. To keep it running
 mkdir -p work
 nohup python3 tools/countertop.py --port 8090 > work/server.log 2>&1 &
 ```
-
-On a Mac, you can also build the optional menu bar app with [its build script](../tools/menubar/build.sh). It requires the Xcode command-line tools.
 
 For a NAS, Raspberry Pi, or other Docker host, see [Docker and Unraid installation](install-docker-unraid.md).
 

@@ -492,7 +492,9 @@ function statusRows(){       // the root screen: one line, plus a notice when th
     pre:'<span class="dot" style="background:' + col + '"></span>'});
   return sec("", h);
 }
-function howToUpdate(where){
+function howToUpdate(where, git){
+  if (where === "Mac app") return "Download the new Countertop app from the release page and drag it into Applications, replacing the old one. Your settings stay where they are.";
+  if (git) return "In the Countertop folder, run git pull, then restart the server (the menu bar app's Restart Server). Your settings stay in the work folder.";
   if (where === "Docker") return "Unraid: open the Docker tab, click Check for Updates, then Apply Update. Docker Compose: run docker compose pull, then docker compose up -d. Your settings stay in the data folder.";
   return "Download the new version from GitHub and replace the tools folder, then restart the server. Your settings stay in the work folder.";
 }
@@ -504,7 +506,7 @@ function statusScreen(){
   h += sec("", S.problems.length ? S.problems.map(p => row({t:p, pre:'<span class="dot" style="background:' + col + '"></span>'})).join("")
     : row({t:word, pre:'<span class="dot" style="background:' + col + '"></span>'}));
   if (S.update) h += sec("New version", row({t:"Countertop " + S.latest.tag + " is out", sub:"You have v" + S.version}) +
-    '<a class="btnrow blue" href="' + esc(S.latest.url) + '" target="_blank" rel="noopener">See what\'s new</a>', howToUpdate(S.server.where));
+    '<a class="btnrow blue" href="' + esc(S.latest.url) + '" target="_blank" rel="noopener">See what\'s new</a>', howToUpdate(S.server.where, S.server.git));
   const sc = S.screen || {};
   h += sec("Screen", row({t:"Last check-in", v:agoText(sc.seenAgo)}) + row({t:"Weather updated", v:agoText(sc.wxAgo)}) +
     (sc.fullscreen == null ? "" : row({t:"Full screen", v: sc.fullscreen ? "Yes" : "No"})),
@@ -559,7 +561,7 @@ function wizScreen(){
   } else if (st === 3){
     const L = firstList() || {}, kind = WIZ.kind || L.kind || "This dashboard", mac = STATUS && STATUS.server.where === "Mac";
     const OPTS = [["This dashboard", "Right here", "Add and tick items from any phone's browser at " + host + "/list. Nothing to install."],
-      ["Sent from another app", "Apple Reminders or another app", "An iPhone Shortcut, the Mac List Sync helper or a script sends the list. Works with Docker and Unraid."],
+      ["Sent from another app", "Apple Reminders or another app", "Reminders Sync in the Countertop Mac app, an iPhone Shortcut or a script sends the list. Works with Docker and Unraid."],
       ["A web address", "A list that's online", "Countertop reads a published list (text, Markdown checklist, JSON or iCal to-dos) every few minutes."]];
     if (mac) OPTS.splice(1, 0, ["Apple Reminders", "Apple Reminders on this Mac", "The server reads a Reminders list itself, because it runs on a Mac."]);
     h += '<div class="big">Your grocery list</div><p class="intro">Where should the list on the screen come from?</p>';
@@ -568,7 +570,7 @@ function wizScreen(){
     if (kind === "Apple Reminders") extra = '<div class="row col"><div class="t"><b>Reminders list name</b></div><input type="text" id="wlrem" value="' + esc(L.remName || "Grocery") + '"></div>';
     if (kind === "A web address") extra = '<div class="row col"><div class="t"><b>Address of the list</b></div><input type="text" id="wlurl" placeholder="' + (L.kind === "A web address" && L.urlSet ? "Saved and hidden. Paste a new link to replace it." : "https://…") + '" autocapitalize="off" spellcheck="false"><div class="help">' + esc(KINDS.lists.fields.url ? KINDS.lists.fields.url.help : "") + '</div></div>';
     if (kind === "Sent from another app") extra = L.kind === kind && L.pushKey
-      ? row({t:"Sync key: " + L.pushKey, sub:"Paste it into your Shortcut or the List Sync helper. The steps are in docs/list-sync.md on GitHub."})
+      ? row({t:"Sync key: " + L.pushKey, sub:"In the Countertop Mac app, Reminders Sync fills it in for you. For a Shortcut, the steps are in docs/list-sync.md on GitHub."})
       : row({t:"A sync key is made when you press Next", sub:"Come back to Controls > Lists to copy it. The steps for the iPhone Shortcut and the Mac helper are in docs/list-sync.md on GitHub."});
     if (extra) h += sec("", extra);
     h += nav(["Next", "wizlist"]);
