@@ -8,7 +8,7 @@ set -e
 here="${0:A:h}"
 APP="$HOME/Applications/Countertop.app"
 mkdir -p "$HOME/Applications"
-osascript -e 'quit app "Countertop"' 2>/dev/null || true
+pkill -x Countertop 2>/dev/null && sleep 2 || true     # quitting the app also stops its server
 "$here/make-app.sh" "$APP" --folder "$here/.."
 
 # earlier builds were called "Kitchen Dashboard" (and the Reminders helper was its own app): retire them

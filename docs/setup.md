@@ -10,7 +10,7 @@ The easiest way is the **Countertop app**. It runs the server for you and lives 
 2. Unzip it and drag **Countertop** into Applications, then open it.
 3. The first time, macOS says it can't check the app for malicious software, because the app isn't signed by Apple. Click **Done**, open **System Settings > Privacy & Security**, scroll down and click **Open Anyway** next to Countertop. You only do this once.
 
-A fork-and-knife icon appears in the menu bar. Its color tells you how things are: green is working, orange needs a look, red is stopped. The menu opens Controls, the dashboard and the grocery list page, restarts the server, and turns on **Open at Login**. Your settings are kept in `~/Library/Application Support/Countertop`. To update, download the new version and replace the app.
+A fork-and-knife icon appears in the menu bar. Its color tells you how things are: green is working, orange needs a look, red is stopped. The menu opens Controls, the dashboard and the grocery list page, restarts the server, and turns on **Open at Login**. Your settings are kept in `~/Library/Application Support/Countertop`. When a new version is out, the menu shows **Install Countertop v…**: it downloads the update, replaces the app and starts again by itself.
 
 The app also has **Reminders Sync**, which keeps an Apple Reminders list on the dashboard (see [list sync](list-sync.md)). If your server runs on Docker or Unraid, you can use the app just for that: turn off **Run the Server on This Mac**.
 
@@ -24,7 +24,7 @@ cd countertop
 zsh mac/build.sh
 ```
 
-That builds Countertop.app into `~/Applications`. It runs the server from this folder with your `python3` and keeps settings in `work/`, so updating is `git pull`, then **Restart Server** in the menu.
+That builds Countertop.app into `~/Applications`. It runs the server from this folder with your `python3` and keeps settings in `work/`, so **Install Countertop v…** in the menu runs `git pull` for you (and rebuilds the app when it changed). You can also run `git pull` yourself and choose **Restart Server**.
 
 ## Run it on Linux
 

@@ -262,6 +262,116 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     @objc func useBuiltIn() { defaults.removeObject(forKey: "folder"); restartAction() }
     @objc func setUpSync() { sync.setUp() }
+
+    // MARK: updates
+
+    @objc func installUpdate() {
+        let tag = health.latestTag
+        NSApp.activate(ignoringOtherApps: true)
+        let a = NSAlert()
+        a.messageText = "Install Countertop \(tag)?"
+        a.informativeText = "Countertop restarts to finish. Your settings stay as they are, and the screen reloads on its own."
+        a.addButton(withTitle: "Install")
+        a.addButton(withTitle: "What's New")
+        a.addButton(withTitle: "Later")
+        switch a.runModal() {
+        case .alertFirstButtonReturn: break
+        case .alertSecondButtonReturn: return openRelease()
+        default: return
+        }
+        let setup = ServerSetup.current()
+        if setup.bundled { downloadUpdate(tag) } else { pullUpdate(setup) }
+    }
+
+    /// A copy of the repository: git pull, then rebuild the app if its code changed, or restart the server.
+    func pullUpdate(_ s: ServerSetup) {
+        let root = s.script.deletingLastPathComponent().deletingLastPathComponent().path
+        busy = "Updating…"; updateIcon()
+        DispatchQueue.global().async {
+            let q = { (x: String) in "'" + x.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+            let before = self.run("/usr/bin/git", ["-C", root, "rev-parse", "HEAD"]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let out = self.run("/bin/zsh", ["-lc", "git -C \(q(root)) pull --ff-only 2>&1; echo \"exit=$?\""])
+            let ok = out.contains("exit=0")
+            let changed = ok ? self.run("/usr/bin/git", ["-C", root, "diff", "--name-only", before, "HEAD", "--", "mac"]) : ""
+            DispatchQueue.main.async {
+                self.busy = nil
+                if !ok { return self.alert("Couldn't update", "git pull in \(root) said:\n\n" + out.replacingOccurrences(of: "exit=", with: "(exit code ") + ")") }
+                if !changed.isEmpty {
+                    // the app itself changed: build.sh rebuilds it, quits this copy and opens the new one
+                    let p = Process()
+                    p.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                    p.arguments = ["-lc", "zsh \(q(root + "/mac/build.sh")) > /tmp/countertop-build.log 2>&1"]
+                    do { try p.run() } catch { self.alert("Couldn't rebuild the app", "Run zsh mac/build.sh in \(root).") }
+                } else {
+                    self.restartAction()
+                }
+            }
+        }
+    }
+
+    /// The downloaded app: fetch the zip for this Mac from the release, check it, swap it in and relaunch.
+    func downloadUpdate(_ tag: String) {
+        let app = Bundle.main.bundleURL
+        if app.path.contains("/AppTranslocation/") {
+            return alert("Move Countertop to Applications first", "macOS is running it from a temporary copy, which can't be updated. Drag Countertop into Applications, open it from there and try again.")
+        }
+        guard FileManager.default.isWritableFile(atPath: app.deletingLastPathComponent().path) else {
+            alert("Countertop can't replace itself here", "Download the new version from the release page and drag it into \(app.deletingLastPathComponent().path).")
+            return openRelease()
+        }
+        #if arch(arm64)
+        let suffix = "-mac-apple-silicon.zip"
+        #else
+        let suffix = "-mac-intel.zip"
+        #endif
+        busy = "Downloading \(tag)…"; updateIcon()
+        let fail = { (why: String) in
+            DispatchQueue.main.async {
+                self.busy = nil; self.updateIcon()
+                self.alert("Couldn't install the update", why + "\n\nYou can download it from the release page instead.")
+                self.openRelease()
+            }
+        }
+        guard let api = URL(string: "https://api.github.com/repos/\(REPO)/releases/tags/\(tag)") else { return }
+        var req = URLRequest(url: api, timeoutInterval: 20)
+        req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        URLSession.shared.dataTask(with: req) { data, _, err in
+            guard let d = data, let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+                  let assets = j["assets"] as? [[String: Any]],
+                  let zip = assets.first(where: { ($0["name"] as? String ?? "").hasSuffix(suffix) }),
+                  let dl = (zip["browser_download_url"] as? String).flatMap(URL.init(string:)) else {
+                return fail(err?.localizedDescription ?? "This release has no Mac download yet.")
+            }
+            URLSession.shared.downloadTask(with: dl) { file, _, err in
+                guard let file = file else { return fail(err?.localizedDescription ?? "The download failed.") }
+                let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("countertop-update-\(UUID().uuidString)")
+                try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+                _ = self.run("/usr/bin/ditto", ["-x", "-k", file.path, tmp.path])
+                let new = tmp.appendingPathComponent("Countertop.app")
+                let info = NSDictionary(contentsOf: new.appendingPathComponent("Contents/Info.plist"))
+                guard info?["CFBundleIdentifier"] as? String == Bundle.main.bundleIdentifier,
+                      "v" + (info?["CFBundleShortVersionString"] as? String ?? "") == tag else {
+                    return fail("The downloaded file didn't look like Countertop \(tag).")
+                }
+                DispatchQueue.main.async { self.swapAndRelaunch(new, over: app) }
+            }.resume()
+        }.resume()
+    }
+
+    func swapAndRelaunch(_ new: URL, over app: URL) {
+        // a small script waits for this copy to quit (which stops the server), moves the new app into place and opens it
+        let q = { (x: String) in "'" + x.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+        let old = app.path + ".old"
+        let script = "while kill -0 \(getpid()) 2>/dev/null; do sleep 0.2; done; rm -rf \(q(old)); "
+            + "if mv \(q(app.path)) \(q(old)) && mv \(q(new.path)) \(q(app.path)); then rm -rf \(q(old)); else mv \(q(old)) \(q(app.path)); fi; "
+            + "/usr/bin/xattr -dr com.apple.quarantine \(q(app.path)); open \(q(app.path))"
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", script]
+        do { try p.run() } catch { busy = nil; return alert("Couldn't install the update", error.localizedDescription) }
+        busy = "Restarting…"
+        NSApp.terminate(nil)
+    }
     @objc func syncNow() { sync.sendNow() }
     @objc func syncOff() { sync.turnOff() }
 
@@ -328,7 +438,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             m.addItem(info("Server stopped", dot: .systemRed))
         }
         if h.update {
-            m.addItem(action("Countertop \(h.latestTag) is available…", #selector(openRelease)))
+            m.addItem(action("Install Countertop \(h.latestTag)…", #selector(installUpdate)))
         }
 
         if runServer {

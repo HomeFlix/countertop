@@ -5,7 +5,7 @@ Each version gets a section here. The newest is on top. Install a version from t
 ## Unreleased
 
 ### New
-- **A Countertop app for Mac you can download.** Each release now includes a ready-made app with the server and everything it needs inside: no Xcode, Terminal or Python needed. It sits in the menu bar, shows whether everything is working, tells you about new versions, and keeps your settings in Application Support.
+- **A Countertop app for Mac you can download.** Each release now includes a ready-made app with the server and everything it needs inside: no Xcode, Terminal or Python needed. It sits in the menu bar, shows whether everything is working, installs new versions with one click, and keeps your settings in Application Support.
 - **Reminders Sync is part of the Mac app.** It replaces the separate List Sync helper, and it fills in the sync key for you when the server runs on the same Mac. It also works with a server on Docker or Unraid.
 
 ### Changed
