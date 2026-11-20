@@ -69,6 +69,14 @@ Your data sources live in **Controls → Setup**:
 
 From Controls, choose **Edit dashboard on screen** to arrange your tiles. For ideas, browse the [tile gallery](screenshots/tile-gallery.png) or see the [dashboard editor](screenshots/editor.png) and [tile picker](screenshots/tile-store.png).
 
+### Portrait displays
+
+Open `/dash` in a tall browser window or rotate your display. Countertop reads your existing layout from top to bottom and left to right, puts wide tiles on their own rows, and pairs neighboring smaller tiles. Week ahead wraps onto two rows. Swipe left or right to change pages as usual.
+
+If Silk keeps reporting landscape on a vertically mounted Echo Show, open **Controls → Screen orientation** on any device. Pick **Portrait · left edge up** or **Portrait · right edge up** according to which edge of the landscape screen is now at the top. Countertop saves the setting on the server. Every display at the usual `/dash` address picks it up on its next settings check, within about 30 seconds. Choose **Automatic** to follow each browser's viewport again.
+
+On a computer, choose **Portrait** in the Controls preview to see the dashboard at 1080×1920. The editor uses the shared dashboard layout, so changes to your boxes apply in both orientations.
+
 ## Data and access
 
 Your layout, calendar links, groceries, and purchase exports live in `work/` on the server, or in the data directory you mounted for Docker. Back up that directory when you move or update your setup. Anyone on the local network who can reach the dashboard can open Controls, so keep its port off the public internet.

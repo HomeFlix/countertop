@@ -6,6 +6,7 @@ Each version gets a section here. The newest is on top. Install a version from t
 
 ### New
 - Preview six editable dashboards or start from scratch during setup and when adding a page. Everyday is the default layout.
+- **Portrait displays.** The dashboard arranges your boxes into rows on tall screens and wraps the Week ahead tile. Try the 1080×1920 preview in Controls, or set **Screen orientation** manually for a display that keeps reporting landscape.
 - **Check for Updates in the Mac app menu.** Look for a new version right away, instead of waiting for the twice-a-day check.
 
 ## v0.4.0 (2026-11-20)

@@ -198,7 +198,7 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
             # include the server's start time, so a restart also reloads the dashboard (it reads /config at boot)
-            self._json({"v": v + SERVER_START})
+            self._json({"v": v + SERVER_START, "orientation": dashboard_orientation()})
         elif p == "/status":
             if parse_qs(urlparse(self.path).query).get("check"):
                 update_check(force=True)
@@ -1262,6 +1262,19 @@ def migrate_looks(m):
     return changed
 
 
+ORIENTATIONS = ("auto", "left", "right")
+
+
+def dashboard_orientation(saved=None):
+    if saved is None:
+        try:
+            saved = json.loads(CONFIG_FILE.read_text())
+        except (OSError, ValueError):
+            return "auto"
+    mode = saved.get("orientation")
+    return mode if mode in ORIENTATIONS else "auto"
+
+
 def config_load():
     merged = config_defaults()
     try:
@@ -1299,17 +1312,31 @@ def config_load():
         for k, v in (c.get("settings") or {}).items():
             if k in m["settings"]:
                 m["settings"][k] = v
-    return {"modules": merged}
+    return {"modules": merged, "orientation": dashboard_orientation(saved)}
 
 
 def config_save(body, quiet=False):
     mods = body.get("modules") if isinstance(body, dict) else None
-    if not isinstance(mods, dict):
-        raise ValueError("expected {modules: {...}}")
+    orientation_edit = isinstance(body, dict) and "orientation" in body
+    if orientation_edit and body["orientation"] not in ORIENTATIONS:
+        raise ValueError("unknown screen orientation")
+    if not isinstance(mods, dict) and not (orientation_edit and "modules" not in body):
+        raise ValueError("expected modules or screen orientation")
     with CONFIG_LOCK:
         CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(mods, dict):
+            # Layout editors send a snapshot of the modules. Preserve the current mount.
+            saved = {"modules": mods, "orientation": dashboard_orientation()}
+        else:
+            try:
+                saved = json.loads(CONFIG_FILE.read_text())
+            except FileNotFoundError:
+                saved = {}
+        if orientation_edit:
+            saved["orientation"] = body["orientation"]
+        saved["saved"] = int(time.time())
         tmp = CONFIG_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps({"modules": mods, "saved": int(time.time())}, indent=1, ensure_ascii=False))
+        tmp.write_text(json.dumps(saved, indent=1, ensure_ascii=False))
         tmp.replace(CONFIG_FILE)
     return None if quiet else config_load()
 

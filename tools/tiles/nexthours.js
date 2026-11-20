@@ -12,12 +12,14 @@ viewTile("nexthours", {
   draw(){
     const box = this.box, cv = box.querySelector("canvas"), W = box.clientWidth, H = box.clientHeight;
     if (!W || !H) return;
+    this.size = W + "x" + H;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
     const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     const rows = hourlyFrom(STATE.wx, this.s.hours || 18);
     if (rows.length < 3){ c.fillStyle = "#98a0aa"; c.font = "22px system-ui"; c.fillText(STATE.noLoc ? "Set your location in Setup to see the forecast" : "Waiting for the forecast…", 30, H / 2); return; }
-    const L = 40, R = W - 40, T = 185, B = H - 120, n = rows.length;
+    const compact = H < 350;
+    const L = 40, R = W - 40, T = Math.min(185, H * .55), B = H - Math.min(120, H * .27), n = rows.length;
     const X = i => L + (R - L) * i / (n - 1);
     const temps = rows.map(r => r.temp), lo = Math.min(...temps) - 3, hi = Math.max(...temps) + 3;
     const Y = v => B - (v - lo) / (hi - lo) * (B - T);
@@ -47,8 +49,10 @@ viewTile("nexthours", {
     c.textAlign = "center";
     rows.forEach((r, i) => {
       if (i % every) return;
-      c.fillStyle = "#e9ecf1"; c.font = "600 22px system-ui"; c.fillText(Math.round(r.temp) + "°", X(i), Y(r.temp) - 34);
-      c.font = "24px system-ui"; c.fillText(wx(r.code, !r.day).g, X(i), Y(r.temp) - 62);
+      c.fillStyle = "#e9ecf1"; c.font = compact ? "600 19px system-ui" : "600 22px system-ui";
+      c.fillText(Math.round(r.temp) + "°", X(i), Y(r.temp) - (compact ? 21 : 34));
+      c.font = compact ? "20px system-ui" : "24px system-ui";
+      c.fillText(wx(r.code, !r.day).g, X(i), Y(r.temp) - (compact ? 44 : 62));
       c.fillStyle = "#98a0aa"; c.font = "16px system-ui";
       c.fillText(i === 0 ? "Now" : new Date(r.t).toLocaleTimeString([], {hour:"numeric"}).replace(" ", "").toLowerCase(), X(i), H - 20);
       c.fillStyle = "#e9ecf1"; c.beginPath(); c.arc(X(i), Y(r.temp), 5, 0, 7); c.fill();
@@ -60,8 +64,9 @@ viewTile("nexthours", {
         for (const [v, g] of [[j.daily.sunrise[k], "🌅"], [j.daily.sunset[k], "🌇"]]){
           const x = tOf(new Date(v).getTime()); if (x == null) continue;
           c.strokeStyle = "rgba(255,210,120,.5)"; c.setLineDash([4, 6]); c.lineWidth = 2;
-          c.beginPath(); c.moveTo(x, 136); c.lineTo(x, H - 44); c.stroke(); c.setLineDash([]);
-          c.font = "18px system-ui"; c.fillStyle = "#ffd98a"; c.fillText(g + " " + fmtTime(new Date(v)).replace(/\s?([AP])M/i, (m, a) => a.toLowerCase()), x, 128);
+          const labelY = compact ? Math.min(95, H * .36) : 128;
+          c.beginPath(); c.moveTo(x, labelY + 8); c.lineTo(x, H - 44); c.stroke(); c.setLineDash([]);
+          c.font = "18px system-ui"; c.fillStyle = "#ffd98a"; c.fillText(g + " " + fmtTime(new Date(v)).replace(/\s?([AP])M/i, (m, a) => a.toLowerCase()), x, labelY);
         }
       }
     }
@@ -91,7 +96,9 @@ viewTile("nexthours", {
     box.querySelector(".gs").textContent = "High " + Math.round(temps[iHi]) + "° " + hr(iHi) + " · Low " + Math.round(temps[iLo]) + "° " + hr(iLo) +
       (wet >= 0 ? " · " + (SNOWY(rows[wet].code) ? "Snow" : "Rain") + " likely " + (wet === 0 ? "now" : "from " + hr(wet)) : " · Dry");
   },
-  hide(){},
-  tick(){ if (Date.now() - (this.drawn || 0) > 60e3 || this.wx !== STATE.wx || this.ev !== STATE.events){ this.drawn = Date.now(); this.wx = STATE.wx; this.ev = STATE.events; this.draw(); } },
+  tick(){
+    if (this.size !== this.box.clientWidth + "x" + this.box.clientHeight || Date.now() - this.drawn > 60e3 ||
+        this.wx !== STATE.wx || this.ev !== STATE.events) this.show();
+  },
   hide(){}
 });

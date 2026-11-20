@@ -10,6 +10,15 @@
   iframe{position:fixed;inset:0;width:100%;height:100%;border:0;background:#0a0c0f;
     transition:opacity .9s}
   iframe.loading{opacity:0}
+  @media (orientation:landscape){
+    :root{--screen-height:100vh}
+    @supports (height:100dvh){ :root{--screen-height:100dvh} }
+    html[data-orientation=left] iframe,html[data-orientation=right] iframe{
+      inset:0 auto auto 0;width:var(--screen-height);height:100vw;transform-origin:0 0
+    }
+    html[data-orientation=left] iframe{transform:translateY(var(--screen-height)) rotate(-90deg)}
+    html[data-orientation=right] iframe{transform:translateX(100vw) rotate(90deg)}
+  }
 </style>
 </head>
 <body>
@@ -19,13 +28,18 @@
   lives in an iframe, so it can be refreshed (on a schedule, when dashboard.html changes on
   disk, or when it stops responding) without exiting fullscreen or disarming keep-alive.
 -->
-<iframe id="f" src="/dash/content" allow="fullscreen; autoplay"></iframe>
+<iframe id="f" title="Countertop dashboard" allow="fullscreen; autoplay"></iframe>
 <script>
 (function(){
   "use strict";
   var REFRESH_AT = "03:30";      // daily iframe refresh, local time ("" disables)
   var VERSION_POLL = 30e3;       // how often to look for a new dashboard.html
   var STALL_MS = 120e3;          // reload the iframe if it stops ticking this long
+
+  // Rotate the iframe so dashboard layout and input both use portrait coordinates.
+  window.shellSetOrientation = function(mode){
+    document.documentElement.dataset.orientation = mode === "left" || mode === "right" ? mode : "auto";
+  };
 
   function report(task, ok, result, error){
     try{
@@ -88,7 +102,13 @@
   var version = null;
   var swapping = false;
   window.contentTick = function(){ lastTick = Date.now(); };
-  window.SHELL_V = 2;
+  window.SHELL_V = 4;
+  var url = new URL(location.href), edit = url.searchParams.get("edit") === "1";
+  if (edit){
+    url.searchParams.delete("edit");
+    history.replaceState(history.state, "", url);
+  }
+  frame.src = "/dash/content" + (edit ? "?edit=1" : "");
   // the page in the frame says when it must not be swapped out (the editor is open, or Controls)
   function busy(){ try{ var w = frame.contentWindow; return !!(w && w.shellBusy && w.shellBusy()); }catch(e){ return false; } }
 
@@ -100,6 +120,7 @@
     swapping = true;
     var nf = document.createElement("iframe");
     nf.className = "loading";
+    nf.title = frame.title;
     nf.setAttribute("allow", "fullscreen; autoplay");
     nf.src = "/dash/content?r=" + Date.now();
     var done = false;
@@ -123,6 +144,7 @@
     fetch("/version", {cache:"no-store"}).then(function(r){ return r.ok ? r.json() : null; })
       .then(function(j){
         if (!j || !j.v) return;
+        window.shellSetOrientation(j.orientation);
         if (version === null){ version = j.v; return; }
         if (j.v !== version){ version = j.v; refresh("dashboard.html changed"); }
       }).catch(function(){});
