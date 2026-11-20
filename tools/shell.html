@@ -78,16 +78,25 @@
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) wake(); });
 
   /* ---------- iframe management ---------- */
+  var pending = "";
   var frame = document.getElementById("f");
+  // back on the dashboard after Controls (or a fresh load): it already has the latest files
+  function watchLoad(f){ f.addEventListener("load", function(){ try{ if (/\/dash\/content/.test(f.contentWindow.location.pathname)) pending = ""; }catch(e){} }); }
+  watchLoad(frame);
   var lastTick = Date.now();
   var lastLoad = Date.now();
   var version = null;
   var swapping = false;
   window.contentTick = function(){ lastTick = Date.now(); };
+  window.SHELL_V = 2;
+  // the page in the frame says when it must not be swapped out (the editor is open, or Controls)
+  function busy(){ try{ var w = frame.contentWindow; return !!(w && w.shellBusy && w.shellBusy()); }catch(e){ return false; } }
 
   // load the new dashboard in a hidden iframe, then cross-fade, so there is no blank flash
   function refresh(reason){
     if (swapping) return;
+    if (busy() && reason !== "stalled"){ pending = reason; return; }
+    pending = "";
     swapping = true;
     var nf = document.createElement("iframe");
     nf.className = "loading";
@@ -103,6 +112,7 @@
       setTimeout(function(){ if (old && old.parentNode) old.parentNode.removeChild(old); swapping = false; }, 1200);
     }
     nf.addEventListener("load", function(){ setTimeout(finish, 600); });
+    watchLoad(nf);
     setTimeout(finish, 20e3);                    // swap anyway if load never fires
     document.body.appendChild(nf);
     report("frame-refresh", true, {reason:reason});
@@ -128,6 +138,7 @@
       lastDaily = d.toDateString();
       refresh("daily");
     }
+    if (pending && !busy()) refresh(pending);
     if (!document.hidden && Date.now() - lastTick > STALL_MS && Date.now() - lastLoad > STALL_MS){
       refresh("stalled");
     }
@@ -139,7 +150,8 @@
       up: Math.round(performance.now()/1000),
       fs: isFull(), vis: document.visibilityState, audio: audioOk(),
       shell: true, frameAge: Math.round((Date.now() - lastLoad)/1000),
-      fx: (function(){ try{ return frame.contentWindow.FXINFO || null; }catch(e){ return null; } })()
+      fx: (function(){ try{ return frame.contentWindow.FXINFO || null; }catch(e){ return null; } })(),
+      feeds: (function(){ try{ return frame.contentWindow.FEEDAT || null; }catch(e){ return null; } })()
     });
   }
   beat(); setInterval(beat, 60e3);

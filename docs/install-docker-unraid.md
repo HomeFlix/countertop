@@ -41,11 +41,13 @@ The [Unraid XML template](../docker/unraid/countertop.xml) defines the same sett
 
 ## First run
 
-- Open `http://SERVER-IP:8090/control` to set your location and configure the dashboard.
+- Open `http://SERVER-IP:8090/control`. A short setup guide asks for your location, a calendar and where your grocery list lives.
 - Open `http://SERVER-IP:8090/dash` in Silk on the Echo Show. Tap once to start the full-screen keep-alive.
-- Open `http://SERVER-IP:8090/list` on a phone to use the shared grocery list. Use **This dashboard** as the list source. Native Apple Reminders synchronization requires macOS.
+- Open `http://SERVER-IP:8090/list` on a phone to use the shared grocery list. To show an Apple Reminders list instead, send it with an iPhone Shortcut or the Mac helper, or point Countertop at a list that's online. See [list sync](list-sync.md).
 
-If setup fails to save, check container logs and verify the selected UID and GID can write to the mounted directory. If the dashboard fails to open, check that `http://SERVER-IP:8090/version` returns JSON from a computer on the same network.
+**Controls → Status** shows whether everything is working and tells you when a new version is out. On Unraid, update from the Docker tab with **Check for Updates**, then **Apply Update**. Your settings stay in appdata.
+
+If setup fails to save, Status says so; check that the selected UID and GID can write to the mounted directory. If the dashboard fails to open, check that `http://SERVER-IP:8090/version` returns JSON from a computer on the same network. To report a problem, use **Download diagnostics** in Status and attach the file to a [bug report](https://github.com/kizit/countertop/issues/new?template=bug_report.yml).
 
 ## Build from source
 

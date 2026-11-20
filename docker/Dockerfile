@@ -13,6 +13,7 @@ COPY tools/ /app/tools/
 RUN install -d -m 0755 -o 1000 -g 1000 /app/work
 
 ENV TZ=America/Chicago \
+    COUNTERTOP_DOCKER=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 USER 1000:1000

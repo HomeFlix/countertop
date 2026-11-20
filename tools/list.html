@@ -59,11 +59,12 @@ function render(d){
   const items = (d.items || []).slice().sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0));
   $("items").innerHTML = items.length ? items.map(i =>
     '<li class="' + (i.done ? "done" : "") + '" data-id="' + esc(i.id) + '"><span class="box"></span><span class="tx">' +
-    esc(i.text) + '</span><button class="x" data-del="1" aria-label="Remove">×</button></li>').join("")
+    esc(i.text) + '</span>' + (d.readonly ? '' : '<button class="x" data-del="1" aria-label="Remove">×</button>') + '</li>').join("")
     : '<li class="empty">Nothing on the list.</li>';
   if (!noteDirty) $("note").value = d.note || "";
-  $("lname").textContent = d.list ? d.list + " (synced with Reminders)" : "Grocery list";
-  $("status").textContent = (d.error ? "Reminders error: " + d.error + " · " : "") + "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+  $("lname").textContent = d.source === "pushed" ? d.list + " (kept in " + (d.via || "another app") + ")" : d.source === "url" ? d.list + " (read from " + (d.via || "the web") + ")" : d.list ? d.list + " (synced with Reminders)" : "Grocery list";
+  $("add").hidden = $("clear").hidden = !!d.readonly;
+  $("status").textContent = (d.error ? (d.source === "pushed" || d.source === "url" ? "" : "Reminders error: ") + d.error + " · " : "") + "Updated " + new Date().toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
 }
 async function call(body){
   try{

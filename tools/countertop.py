@@ -10,9 +10,16 @@ Controls (any computer):    http://<server-ip>:8090/control
 Grocery list (phone):       http://<server-ip>:8090/list
 
 The dashboard posts heartbeats and page errors to /report; they are appended to work/heartbeat.log.
+Controls shows the server's health from /status and offers a redacted bug-report bundle at /diagnostics.
 """
 import argparse
+import collections
+import io
 import json
+import os
+import platform
+import sys
+import zipfile
 import re
 import socket
 import ssl
@@ -26,6 +33,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 from urllib.request import Request, urlopen
 
+VERSION = "0.2.0"                 # bump with each release; CHANGELOG.md says what changed
+REPO = "kizit/countertop"
 HERE = Path(__file__).resolve().parent
 LOG = HERE.parent / "work" / "heartbeat.log"
 OLD_LOG = HERE.parent / "work" / "silk_collect.log"     # name used before the rename; moved over once at startup
@@ -34,6 +43,35 @@ NOTES_LOCK = threading.Lock()
 
 ICS_CACHE = {}           # url -> (ts, [events])
 LOG_LOCK = threading.Lock()
+CAL_STATUS = {}          # calendar id -> {name, at, ok, error, count}: the last time each calendar was fetched
+SCREEN = {"beat": None, "at": 0, "errors": collections.deque(maxlen=200)}   # last heartbeat from a screen, recent page errors
+CONSOLE = collections.deque(maxlen=800)      # recent console output (also what `docker logs` shows), for diagnostics
+
+
+class _Tee:
+    """Keep printing as before, and keep the last lines in memory so Controls can include them in a diagnostics file."""
+    def __init__(self, real):
+        self.real, self.buf = real, ""
+
+    def write(self, s):
+        try:
+            self.real.write(s)
+        except Exception:
+            pass
+        self.buf += s
+        while "\n" in self.buf:
+            line, self.buf = self.buf.split("\n", 1)
+            CONSOLE.append(time.strftime("%Y-%m-%d %H:%M:%S ") + line)
+        return len(s)
+
+    def flush(self):
+        try:
+            self.real.flush()
+        except Exception:
+            pass
+
+    def __getattr__(self, k):
+        return getattr(self.real, k)
 
 
 def lan_ip() -> str:
@@ -58,7 +96,7 @@ def log_entry(e):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "Countertop/1.0"
+    server_version = "Countertop/" + VERSION
 
     def _send(self, code, body=b"", ctype="text/plain", extra=None):
         self.send_response(code)
@@ -154,6 +192,13 @@ class Handler(BaseHTTPRequestHandler):
                     pass
             # include the server's start time, so a restart also reloads the dashboard (it reads /config at boot)
             self._json({"v": v + SERVER_START})
+        elif p == "/status":
+            if parse_qs(urlparse(self.path).query).get("check"):
+                update_check(force=True)
+            self._json(status_view())
+        elif p == "/diagnostics":
+            name = "countertop-diagnostics-%s.zip" % time.strftime("%Y%m%d-%H%M")
+            self._send(200, diagnostics_zip(), "application/zip", {"Content-Disposition": 'attachment; filename="%s"' % name})
         elif p == "/notes":
             self._json(notes_view())
         elif p == "/list":
@@ -179,6 +224,10 @@ class Handler(BaseHTTPRequestHandler):
             body["client"] = self.client_address[0]
             body["kind"] = "report"
             log_entry(body)
+            if body.get("task") == "beat":
+                SCREEN["beat"], SCREEN["at"] = body.get("result") or {}, time.time()
+            elif body.get("task") == "js-error":
+                SCREEN["errors"].append({"at": time.time(), "error": str(body.get("error") or "")[:300]})
             self._send(204)
         elif p == "/config":
             try:
@@ -190,8 +239,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"sources": sources_apply(body), "kinds": SOURCE_KINDS})
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p == "/lists/push":
+            code, out = list_push(body)
+            self._json(out, code)
         elif p == "/notes":
-            if reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
+            if pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
+                self._json(notes_view())          # the list is kept in another app: read-only here
+            elif reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(reminders_apply(body))
             else:
                 notes_apply(body)
@@ -236,8 +290,12 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception:
                     pass
                 merged.extend(tag(evs))
+                CAL_STATUS[cal.get("id")] = {"name": cal.get("name") or "Calendar", "at": now, "ok": True, "error": "", "count": len(evs)}
             except Exception as e:
-                errors.append("%s: %s" % (cal.get("name") or "Calendar", str(e).replace(url, "(link)")[:120]))   # never echo the link: it is the password
+                msg = str(e).replace(url, "(link)")[:120]           # never echo the link: it is the password
+                errors.append("%s: %s" % (cal.get("name") or "Calendar", msg))
+                last = CAL_STATUS.get(cal.get("id")) or {}
+                CAL_STATUS[cal.get("id")] = dict(last, name=cal.get("name") or "Calendar", ok=False, error=msg, tried=now)
         merged.sort(key=lambda e: e["start"])
         seen, deduped = set(), []
         for e in merged:
@@ -263,6 +321,8 @@ class Handler(BaseHTTPRequestHandler):
 # the browser never gets them back, only that one is set.
 SOURCES_FILE = HERE.parent / "work" / "sources.json"
 SOURCES_LOCK = threading.Lock()
+PUSHED = "Sent from another app"
+FROM_URL = "A web address"
 SOURCE_KINDS = {
     "calendars": {"title": "Calendars", "one": "calendar",
         "desc": "Calendars your tiles can show: Google, iCloud, Outlook or any calendar with a private iCal link.",
@@ -275,9 +335,13 @@ SOURCE_KINDS = {
         "desc": "Shopping or to-do lists for the List tile.",
         "fields": {
             "name": {"label": "Name", "type": "text"},
-            "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders"],
-                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac)."},
-            "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}}}},
+            "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders", PUSHED, FROM_URL],
+                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. the Countertop List Sync helper on a Mac (Reminders, updates within seconds) or an iPhone Shortcut. " + FROM_URL + ": the server reads a list that is published online (plain text, a Markdown checklist, JSON or iCal to-dos) every few minutes. See docs/list-sync.md."},
+            "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}},
+            "pushKey": {"label": "Sync key", "type": "text", "when": {"kind": PUSHED},
+                        "help": "Made for you when you save. Paste it into the List Sync helper or your Shortcut; anyone on your network with this key can replace the list."},
+            "url": {"label": "Address of the list", "type": "text", "secret": True, "when": {"kind": FROM_URL},
+                    "help": "A link that shows the list: plain text with one item per line, a Markdown checklist, JSON, or an iCal (.ics) file of to-dos. Checked-off items are skipped. It stays on the server and is never shown again."}}},
     "teams": {"title": "Sports teams", "one": "team",
         "desc": "Teams whose matches show on the Team, Week ahead and Month tiles. Soccer only for now.",
         "fields": {
@@ -389,8 +453,13 @@ def sources_apply(body):
                 if fields[f].get("secret") and not v:
                     continue           # blank = keep the link already saved
                 cur[f] = v
+    if kind == "lists":
+        for x in L:
+            if x.get("kind") == PUSHED and not (x.get("pushKey") or "").strip():
+                x["pushKey"] = uuid.uuid4().hex[:16]
     sources_write(d)
     ICS_CACHE.clear()
+    URL_LISTS.clear()
     return sources_public()
 
 
@@ -502,8 +571,162 @@ def reminders_loop():
         time.sleep(120)
 
 
+# ---------- a list read from a web address (a published text file, a Markdown checklist, JSON, iCal to-dos) ----------
+URL_LISTS = {}            # list id -> {at, items, error, host, key}
+URL_LIST_LOCK = threading.Lock()
+_BULLET = re.compile(r"^\s*(?:[-*+\u2022\u25e6\u25aa]|\d+[.)])?\s*(?:\[( |x|X)\]\s*)?")
+
+
+def _list_from_text(raw):
+    raw = raw.lstrip("\ufeff")
+    t = raw.strip()
+    if t[:1] in "[{":
+        try:
+            d = json.loads(t)
+            if isinstance(d, dict):
+                d = next((d[k] for k in ("items", "list", "tasks", "todos", "data") if isinstance(d.get(k), list)), [])
+            out = []
+            for x in d if isinstance(d, list) else []:
+                if isinstance(x, dict):
+                    if x.get("done") or x.get("completed") or x.get("checked") or x.get("complete"):
+                        continue
+                    x = x.get("text") or x.get("title") or x.get("name") or x.get("content") or x.get("summary") or ""
+                out.append(str(x))
+            return out
+        except ValueError:
+            pass
+    if "BEGIN:VTODO" in raw:
+        out = []
+        for block in _unfold(raw).split("BEGIN:VTODO")[1:]:
+            block = block.split("END:VTODO")[0]
+            status = (_field(block, "STATUS") or "").upper()
+            if status in ("COMPLETED", "CANCELLED") or _field(block, "COMPLETED"):
+                continue
+            out.append(_field(block, "SUMMARY") or "")
+        return out
+    out = []
+    for line in raw.splitlines():
+        if not line.strip() or line.lstrip().startswith(("#", "//")):
+            continue
+        m = _BULLET.match(line)
+        if m and m.group(1) in ("x", "X"):
+            continue                                   # a ticked Markdown checkbox
+        out.append(line[m.end():] if m else line)
+    return out
+
+
+def url_list(L, max_age=300):
+    """The list at a web address, read at most every five minutes."""
+    url = (L.get("url") or "").strip()
+    if url.startswith("webcal://"):
+        url = "https://" + url[len("webcal://"):]
+    host = urlparse(url).hostname or ""
+    with URL_LIST_LOCK:
+        c = URL_LISTS.get(L["id"])
+        if c and c.get("key") == url and time.time() - c["at"] < max_age:
+            return c
+    try:
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("the address should start with https://")
+        req = Request(url, headers={"User-Agent": "Countertop/%s (+https://github.com/%s)" % (VERSION, REPO),
+                                    "Accept": "text/plain, application/json, text/calendar, */*"})
+        raw = urlopen(req, timeout=15).read(1_000_000).decode("utf-8", "replace")
+        items, seen = [], set()
+        for x in _list_from_text(raw)[:300]:
+            t = " ".join(str(x).split())[:80]
+            if t and t.lower() not in seen:
+                seen.add(t.lower())
+                items.append({"id": "u%d" % len(items), "text": t, "done": False})
+        out = {"at": time.time(), "items": items, "error": None, "host": host, "key": url}
+    except Exception as e:
+        prev = URL_LISTS.get(L["id"]) or {}
+        out = {"at": time.time(), "items": prev.get("items", []) if prev.get("key") == url else [], "host": host, "key": url,
+               "error": "Couldn't read the list: " + str(e).replace(url, "(link)")[:140]}
+    with URL_LIST_LOCK:
+        URL_LISTS[L["id"]] = out
+    return out
+
+
+# ---------- a list another app sends here (List Sync helper on a Mac, an iPhone Shortcut, a script) ----------
+PUSHED_FILE = HERE.parent / "work" / "pushed_lists.json"
+PUSHED_LOCK = threading.Lock()
+
+
+def pushed_list():
+    """The first list in Setup kept in another app (sent here, or read from a web address), if it comes before any Reminders list."""
+    try:
+        for L in sources_load().get("lists") or []:
+            if L.get("kind") == PUSHED or (L.get("kind") == FROM_URL and (L.get("url") or "").strip()):
+                return L
+            if L.get("kind") == "Apple Reminders" and (L.get("remName") or "").strip():
+                return None
+    except Exception:
+        pass
+    return None
+
+
+def pushed_load():
+    try:
+        d = json.loads(PUSHED_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def list_push(body):
+    """POST /lists/push {key, items:[text | {id,text}] or text:"one per line", via?}. Replaces the whole list."""
+    key = str(body.get("key") or "").strip()
+    target = None
+    for L in sources_load().get("lists") or []:
+        if L.get("kind") == PUSHED and key and L.get("pushKey") == key:
+            target = L
+    if not target:
+        return 403, {"error": "unknown sync key. Copy it from Controls > Setup > Lists"}
+    raw = body.get("items")
+    if raw is None:
+        raw = body.get("text") if body.get("text") is not None else body.get("raw", "")
+    if isinstance(raw, str):
+        raw = raw.splitlines()
+    if not isinstance(raw, list):
+        return 400, {"error": "send items as a list, or text with one item per line"}
+    with PUSHED_LOCK:
+        all_ = pushed_load()
+        prev = {i["text"].lower(): i["id"] for i in (all_.get(target["id"]) or {}).get("items", [])}
+        items, seen = [], set()
+        for x in raw[:300]:
+            rid = ""
+            if isinstance(x, dict):
+                rid, x = str(x.get("id") or "")[:120], x.get("text") or x.get("title") or ""
+            t = " ".join(str(x).split())[:80]
+            if not t or t.lower() in seen:
+                continue
+            seen.add(t.lower())
+            items.append({"id": rid or prev.get(t.lower()) or uuid.uuid4().hex[:10], "text": t, "done": False})
+        all_[target["id"]] = {"items": items, "at": time.time(), "via": str(body.get("via") or "")[:40]}
+        PUSHED_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = PUSHED_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(all_, ensure_ascii=False, indent=1))
+        tmp.chmod(0o600)
+        tmp.replace(PUSHED_FILE)
+    try:
+        purchases_log_list(items)
+    except Exception:
+        pass
+    return 200, {"ok": True, "list": target.get("name"), "count": len(items)}
+
+
 def notes_view():
     d = notes_load()
+    pl = pushed_list()
+    if pl and pl.get("kind") == FROM_URL:
+        got = url_list(pl)
+        return dict(d, items=got.get("items", []), source="url", list=pl.get("name") or "List", via=got.get("host") or "",
+                    pushedAt=got.get("at") or 0, readonly=True, error=got.get("error"))
+    if pl:
+        got = pushed_load().get(pl["id"]) or {}
+        return dict(d, items=got.get("items", []), source="pushed", list=pl.get("name") or "List", via=got.get("via") or "",
+                    pushedAt=got.get("at") or 0, readonly=True,
+                    error=None if got else "Nothing sent yet. Set up the List Sync helper or a Shortcut with this list's sync key.")
     name = reminders_list_name()
     if not name:
         return d
@@ -598,6 +821,8 @@ SCHEMA = {
         "emoji": {"type": "choice", "label": "Icons", "choices": ["Emoji", "Simple symbols", "No emoji"], "default": "Emoji"},
         "swap": {"type": "list", "label": "Swap emoji, one per line as old = new (leave new empty to remove it), e.g. ⚽ = 🥅", "default": []},
         "gear": {"type": "bool", "label": "Show a ⚙ settings button on the screen", "default": True},
+        "updates": {"type": "bool", "label": "Check GitHub for new versions", "default": True},
+        "setupDone": {"type": "bool", "label": "First-run setup finished", "default": False},
     }},
     "effects": {"title": "Effects", "global": True, "desc": "Little animations on the screen: weather, the seasons and short shows. Turn on the ones you like and choose when they play.", "settings": {
         "front": {"type": "bool", "label": "Rain, snow and falling things in front of the tiles", "default": True},
@@ -1842,6 +2067,259 @@ def album_photos(sid=""):
     return out
 
 
+# ---------- health, update notice and diagnostics (Controls > Status) ----------
+LATEST = {"at": 0, "tag": "", "name": "", "url": "", "error": "", "checked": 0}
+LATEST_LOCK = threading.Lock()
+
+
+def _vtuple(v):
+    m = re.match(r"v?(\d+)\.(\d+)\.(\d+)", str(v or "").strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def _where():
+    if Path("/.dockerenv").exists() or os.environ.get("COUNTERTOP_DOCKER"):
+        return "Docker"
+    return {"Darwin": "Mac", "Linux": "Linux", "Windows": "Windows"}.get(platform.system(), platform.system())
+
+
+def updates_on():
+    if os.environ.get("COUNTERTOP_NO_UPDATE_CHECK"):
+        return False
+    try:
+        return config_load()["modules"]["general"]["settings"].get("updates", True) is not False
+    except Exception:
+        return True
+
+
+def update_check(force=False):
+    """Ask GitHub for the newest release, at most twice a day (or now, from Controls). Sends nothing about this install."""
+    if not force and (not updates_on() or time.time() - LATEST["checked"] < 12 * 3600):
+        return
+    with LATEST_LOCK:
+        LATEST["checked"] = time.time()
+        try:
+            req = Request("https://api.github.com/repos/%s/releases/latest" % REPO,
+                          headers={"User-Agent": "Countertop/" + VERSION, "Accept": "application/vnd.github+json"})
+            d = json.loads(urlopen(req, timeout=10).read().decode())
+            LATEST.update(at=time.time(), tag=d.get("tag_name") or "", name=d.get("name") or "", url=d.get("html_url") or "", error="")
+        except Exception as e:
+            LATEST["error"] = str(e)[:160]
+
+
+def update_loop():
+    time.sleep(45)
+    while True:
+        try:
+            update_check()
+        except Exception:
+            pass
+        time.sleep(1800)
+
+
+def _ago(ts):
+    return int(time.time() - ts) if ts else None
+
+
+def status_view():
+    now = time.time()
+    probs = []                  # [level, text]: "bad" = something is broken, "warn" = worth a look
+    try:
+        g = config_load()["modules"]["general"]["settings"]
+    except Exception:
+        g = {}
+    work = HERE.parent / "work"
+    writable = os.access(work, os.W_OK) if work.exists() else os.access(work.parent, os.W_OK)
+    if not writable:
+        probs.append(["bad", "The server can't save settings: the data folder isn't writable. Check its owner (Docker: PUID/PGID, Unraid: 99:100)."])
+    if not (g.get("lat") or g.get("lon")):
+        probs.append(["warn", "Set your location so the weather can load."])
+
+    beat = SCREEN["beat"] or {}
+    seen = SCREEN["at"]
+    if not seen:
+        probs.append(["warn", "No screen has checked in since the server started. Open /dash on your display."])
+    elif now - seen > 300:
+        probs.append(["warn", "The screen last checked in %d minutes ago." % ((now - seen) // 60)])
+    feeds = beat.get("feeds") or {}
+    if feeds.get("wxErr"):
+        probs.append(["warn", "The screen couldn't load the weather: " + str(feeds["wxErr"])[:120]])
+    recent = [e for e in SCREEN["errors"] if now - e["at"] < 3600]
+    if recent:
+        probs.append(["warn", "%d page error%s in the last hour. The diagnostics file has the details." % (len(recent), "" if len(recent) == 1 else "s")])
+
+    try:
+        src = sources_load()
+    except Exception:
+        src = {}
+    cals = []
+    for c in src.get("calendars") or []:
+        st = CAL_STATUS.get(c.get("id")) or {}
+        cals.append({"name": c.get("name") or "Calendar", "at": st.get("at") or 0, "ok": st.get("ok"), "error": st.get("error") or "", "count": st.get("count")})
+        if st.get("ok") is False:
+            probs.append(["bad", "Calendar \u201c%s\u201d didn't load: %s" % (c.get("name") or "Calendar", st.get("error"))])
+
+    lst = None
+    try:
+        nv = notes_view()
+        lst = {"name": nv.get("list") or "Grocery list", "source": nv.get("source") or "dashboard", "count": len([i for i in nv.get("items") or [] if not i.get("done")]),
+               "at": nv.get("pushedAt") or nv.get("updated") or 0, "error": nv.get("error") or ""}
+        if lst["error"]:
+            probs.append(["warn", "List: " + str(lst["error"])[:160]])
+    except Exception as e:
+        lst = {"error": str(e)[:160]}
+
+    cur, new = _vtuple(VERSION), _vtuple(LATEST["tag"])
+    update = bool(cur and new and new > cur)
+    level = "bad" if any(p[0] == "bad" for p in probs) else "warn" if probs else "ok"
+    return {
+        "version": VERSION, "repo": REPO,
+        "latest": {"tag": LATEST["tag"], "name": LATEST["name"], "url": LATEST["url"], "checkedAgo": _ago(LATEST["checked"]),
+                   "error": LATEST["error"], "on": updates_on()},
+        "update": update,
+        "server": {"startedAgo": int(now - SERVER_START), "where": _where(), "python": platform.python_version(),
+                   "tz": time.strftime("%Z"), "writable": writable},
+        "screen": {"seenAgo": _ago(seen), "fullscreen": beat.get("fs"), "wxAgo": int(now - feeds["wx"] / 1000) if feeds.get("wx") else None},
+        "calendars": [dict(c, ago=_ago(c["at"])) for c in cals],
+        "list": dict(lst, ago=_ago(lst.get("at"))) if lst else None,
+        "level": level, "problems": [p[1] for p in probs],
+    }
+
+
+# Diagnostics: one zip a person can attach to a GitHub issue. Private links, keys, the home location and
+# network addresses are removed; list items, notes and purchase history are left out entirely.
+_URL_RE = re.compile(r"(?i)\b(https?|webcal)://([^/\s\"'<>?#]+)[^\s\"'<>]*")
+_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+(?:\.[\w-]+)+\b")
+_IP_RE = re.compile(r"\b(?!127\.0\.0\.1\b)(?:\d{1,3}\.){3}\d{1,3}\b")
+_SAFE_HOSTS = ("api.open-meteo.com", "geocoding-api.open-meteo.com", "air-quality-api.open-meteo.com", "api.github.com", "github.com",
+               "stats-api.mlssoccer.com", "site.api.espn.com", "api.rainviewer.com", "tilecache.rainviewer.com", "tile.openstreetmap.org")
+
+
+def _secrets():
+    out = set()
+    try:
+        for kind, items in sources_load().items():
+            for it in items or []:
+                for f in ("url", "pushKey"):
+                    v = str(it.get(f) or "").strip()
+                    if len(v) > 5 and not (kind == "cams" and f == "url"):
+                        out.add(v)
+    except Exception:
+        pass
+    try:
+        m = config_load()["modules"]
+        g = m["general"]["settings"]
+        out.update(str(x) for x in (g.get("place"), m.get("deals", {}).get("settings", {}).get("zip")) if x and len(str(x)) > 2)
+        for k in ("lat", "lon"):
+            if g.get(k):
+                out.add(str(g[k]))
+                out.add(("%.2f" % float(g[k])))
+    except Exception:
+        pass
+    return sorted(out, key=len, reverse=True)
+
+
+def redact(text, secrets=None):
+    text = str(text)
+    for s in secrets if secrets is not None else _secrets():
+        text = text.replace(s, "<removed>")
+    home = str(Path.home())
+    if len(home) > 1:
+        text = text.replace(home, "~")
+
+    def url(m):
+        host = m.group(2).split("@")[-1]
+        name = host.split(":")[0].lower()
+        if name in _SAFE_HOSTS and "?" not in m.group(0):
+            return m.group(0)
+        if _IP_RE.fullmatch(name) or name in ("localhost", "127.0.0.1") or name.endswith(".local"):
+            return m.group(0).split("?")[0].split("#")[0]           # this server: keep the page, drop anything after ?
+        return "%s://%s/<removed>" % (m.group(1), host)
+    text = _URL_RE.sub(url, text)
+    text = _EMAIL_RE.sub("<email>", text)
+    return _IP_RE.sub("<ip>", text)
+
+
+def _tail(path, n=400, max_bytes=400_000):
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            size = f.tell()
+            f.seek(max(0, size - max_bytes))
+            lines = f.read().decode("utf-8", "replace").splitlines()
+        return "\n".join(lines[-n:]) + "\n"
+    except FileNotFoundError:
+        return "(no file)\n"
+    except Exception as e:
+        return "(couldn't read: %s)\n" % e
+
+
+def diagnostics_zip():
+    sec = _secrets()
+    R = lambda t: redact(t, sec)
+    work = HERE.parent / "work"
+    mods = config_load()["modules"]
+    g = mods["general"]["settings"]
+    for k in ("place", "lat", "lon"):
+        if g.get(k):
+            g[k] = "<removed>"
+    if mods.get("deals", {}).get("settings", {}).get("zip"):
+        mods["deals"]["settings"]["zip"] = "<removed>"
+    for it in (mods.get("tiles", {}).get("settings", {}).get("items") or []):
+        for k, v in list((it.get("settings") or {}).items()):
+            if k in ("text", "note", "body") and isinstance(v, str) and v:
+                it["settings"][k] = "<%d characters removed>" % len(v)
+    srcs = {}
+    for kind, items in sources_load().items():
+        srcs[kind] = []
+        for it in items or []:
+            o = {k: v for k, v in it.items() if k not in ("url", "pushKey")}
+            if it.get("url"):
+                o["url"] = "set (%s)" % (urlparse(it["url"].replace("webcal://", "https://")).hostname or "?")
+            if it.get("pushKey"):
+                o["pushKey"] = "set"
+            srcs[kind].append(o)
+    files = []
+    for f in sorted(work.rglob("*")) if work.exists() else []:
+        try:
+            if f.is_file():
+                st = f.stat()
+                files.append("%10d  %s  %s" % (st.st_size, time.strftime("%Y-%m-%d %H:%M", time.localtime(st.st_mtime)), f.relative_to(work)))
+        except Exception:
+            pass
+    info = {"version": VERSION, "made": time.strftime("%Y-%m-%d %H:%M:%S %Z"), "where": _where(), "python": sys.version.split()[0],
+            "os": platform.platform(), "tz": os.environ.get("TZ") or time.strftime("%Z"), "uptime_s": int(time.time() - SERVER_START)}
+    status = status_view()
+    readme = (
+        "Countertop diagnostics\n======================\n\n"
+        "Made by Countertop %s on %s. Attach this file to a bug report at https://github.com/%s/issues\n\n"
+        "What's inside:\n"
+        "  info.json        version, Python, operating system, time zone\n"
+        "  status.json      what Controls > Status shows\n"
+        "  settings.json    your dashboard settings\n"
+        "  sources.json     your calendars, lists, teams, albums and cams, without their links or sync keys\n"
+        "  heartbeat.log    the last check-ins and page errors from your screen\n"
+        "  console.log      the server's recent output (the same as `docker logs`)\n"
+        "  server.log       the end of work/server.log, if your setup writes one\n"
+        "  files.txt        the names and sizes of the files in the data folder (not their contents)\n\n"
+        "What was removed before saving: calendar, album and list links, sync keys, your place name, latitude and\n"
+        "longitude, ZIP code, email addresses, IP addresses and the paths of any other web links. Grocery and to-do\n"
+        "items, notes, photos and purchase history are not included. Open the files to check before you share them.\n"
+    ) % (VERSION, info["made"], REPO)
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("README.txt", readme)
+        z.writestr("info.json", json.dumps(info, indent=1))
+        z.writestr("status.json", R(json.dumps(status, indent=1, ensure_ascii=False)))
+        z.writestr("settings.json", R(json.dumps(mods, indent=1, ensure_ascii=False)))
+        z.writestr("sources.json", R(json.dumps(srcs, indent=1, ensure_ascii=False)))
+        z.writestr("heartbeat.log", R(_tail(LOG)))
+        z.writestr("console.log", R("\n".join(CONSOLE) + "\n"))
+        z.writestr("server.log", R(_tail(work / "server.log")))
+        z.writestr("files.txt", "\n".join(files) + "\n")
+    return buf.getvalue()
+
+
 def main():
     ap = argparse.ArgumentParser(description="Countertop dashboard server")
     ap.add_argument("--port", type=int, default=8090)
@@ -1851,12 +2329,15 @@ def main():
     ap.add_argument("--also-tls", action="store_true", help="also listen HTTPS on --tls-port sharing state")
     ap.add_argument("--tls-port", type=int, default=8443)
     a = ap.parse_args()
+    sys.stdout, sys.stderr = _Tee(sys.stdout), _Tee(sys.stderr)
+    print("Countertop %s starting (Python %s, %s)" % (VERSION, platform.python_version(), platform.system()), flush=True)
     if OLD_LOG.exists() and not LOG.exists():
         try:
             OLD_LOG.rename(LOG)
         except OSError:
             pass
     threading.Thread(target=reminders_loop, daemon=True).start()
+    threading.Thread(target=update_loop, daemon=True).start()
     ip = lan_ip()
     scheme = "https" if a.tls else "http"
     srv = ThreadingHTTPServer(("0.0.0.0", a.port), Handler)

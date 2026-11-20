@@ -32,9 +32,22 @@ jobs:
       - name: Test clean install and container replacement
         run: python3 docker/smoke-test.py countertop:smoke
 
+  version:
+    name: Version and changelog match the tag
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check VERSION and CHANGELOG.md
+        env:
+          TAG: ${{ github.ref_name }}
+        run: python3 .github/release-notes.py "$TAG"
+
   publish:
     if: github.repository == 'kizit/countertop' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v')
-    needs: smoke
+    needs: [smoke, version]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
