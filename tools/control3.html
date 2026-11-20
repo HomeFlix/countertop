@@ -494,7 +494,8 @@ function statusRows(){       // the root screen: one line, plus a notice when th
 }
 function howToUpdate(where, git){
   if (where === "Mac app") return "In the Countertop menu bar app, choose Install Countertop " + ((STATUS && STATUS.latest.tag) || "") + ". Your settings stay where they are.";
-  if (git) return "In the Countertop menu bar app, choose Install Countertop " + ((STATUS && STATUS.latest.tag) || "") + ", or run git pull in the Countertop folder and restart the server. Your settings stay in the work folder.";
+  if (git && where === "Mac") return "In the Countertop menu bar app, choose Install Countertop " + ((STATUS && STATUS.latest.tag) || "") + ", or run git pull in the Countertop folder and restart the server. Your settings stay in the work folder.";
+  if (git) return "In the Countertop folder, run git pull, then restart the server. Your settings stay in the work folder.";
   if (where === "Docker") return "Unraid: open the Docker tab, click Check for Updates, then Apply Update. Docker Compose: run docker compose pull, then docker compose up -d. Your settings stay in the data folder.";
   return "Download the new version from GitHub and replace the tools folder, then restart the server. Your settings stay in the work folder.";
 }
