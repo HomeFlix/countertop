@@ -2,7 +2,7 @@
 
 Each version gets a section here. The newest is on top. Install a version from the [releases page](https://github.com/kizit/countertop/releases); Docker and Unraid use the `ghcr.io/kizit/countertop` image with the same tag.
 
-## Unreleased
+## v0.3.0 (2026-11-20)
 
 ### New
 - **A Countertop app for Mac you can download.** Each release now includes a ready-made app with the server and everything it needs inside: no Xcode, Terminal or Python needed. It sits in the menu bar, shows whether everything is working, installs new versions with one click, and keeps your settings in Application Support.
