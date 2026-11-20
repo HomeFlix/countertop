@@ -90,7 +90,9 @@
   }
   @media (max-width:699px){ .pv{display:none} }
   .lcard img,.starterfigure img,.blankpreview{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:7px}
-  .blankpreview{background:#141a21;border:1px dashed #566170}
+  .blankpreview{position:relative;background:#141a21;border:1px dashed #566170}
+  .blankpreview i{position:absolute;border:1px dashed var(--accent);border-radius:4px;background:#202f40}
+  .gridheading{margin:24px 4px 0;color:var(--faint);font-size:13px;text-transform:uppercase;letter-spacing:.06em}
   .starterfigure{margin:0}.starterfigure figcaption{font-weight:600;padding:12px 0}
   #starterpv{display:none}
   @media (min-width:850px){
@@ -320,20 +322,27 @@ const STARTERS = {
     boxes:[starterBox("clock",0,0,19,7,{style:"Bold",countdowns:false,greeting:false}), starterBox("nextevent",19,0,29,7),
       starterBox("month",0,7,32,25), starterBox("agenda",32,7,16,25,{count:10})]
   },
-  scratch:{name:"Start from scratch", sub:"An empty page for your own tiles.", boxes:[]}
+  scratch:{name:"Start from scratch", sub:"An empty page for your own tiles.", grid:[]},
+  columns:{name:"Top row + two columns", sub:"A wide strip above two columns.", grid:[[0,0,48,8],[0,8,28,24],[28,8,20,24]]},
+  side:{name:"Big + side stack", sub:"One large box beside two smaller ones.", grid:[[0,0,32,32],[32,0,16,16],[32,16,16,16]]},
+  squares:{name:"Four squares", sub:"Four equal boxes.", grid:[[0,0,24,16],[24,0,24,16],[0,16,24,16],[24,16,24,16]]}
 };
 function starterPicture(id){
-  return id === "scratch" ? '<span class="blankpreview" aria-label="Empty dashboard"></span>' :
-    '<img src="/starters/' + id + '.jpg" width="1920" height="1080" alt="' + STARTERS[id].name + ' dashboard layout">';
+  const grid = STARTERS[id].grid;
+  if (grid) return '<span class="blankpreview" aria-hidden="true">' + grid.map(([x,y,w,h]) =>
+    '<i style="left:calc(' + x/48*100 + '% + 2px);top:calc(' + y/32*100 + '% + 2px);width:calc(' +
+    w/48*100 + '% - 4px);height:calc(' + h/32*100 + '% - 4px)"></i>').join("") + '</span>';
+  return '<img src="/starters/' + id + '.jpg" width="1920" height="1080" alt="' + STARTERS[id].name + ' dashboard layout">';
 }
 function starterPreview(id){
   return '<figure class="starterfigure"><figcaption>' + STARTERS[id].name + '</figcaption>' + starterPicture(id) + '</figure>';
 }
 function starterGallery(selected){
-  return '<div class="lcards">' + Object.entries(STARTERS).map(([id,s]) =>
+  const cards = grids => '<div class="lcards">' + Object.entries(STARTERS).filter(([,s]) => !!s.grid === grids).map(([id,s]) =>
     '<button class="lcard' + (selected === id ? ' now' : '') + '" aria-pressed="' + (selected === id) +
     '" data-act="pickstarter" data-id="' + id + '">' + starterPicture(id) +
-    '<b>' + s.name + '</b><small>' + s.sub + '</small></button>').join("") + '</div>' +
+    '<b>' + s.name + '</b><small>' + s.sub + '</small></button>').join("") + '</div>';
+  return cards(false) + '<h2 class="gridheading">Empty grids</h2>' + cards(true) +
     (selected ? '<div class="compactpreview">' + starterPreview(selected) + '</div>' : '');
 }
 function sameEverydayLayout(){
@@ -349,7 +358,7 @@ function sameEverydayLayout(){
 function installStarter(key, onMain){
   const s = STARTERS[key], pages = gpAll(), main = pages.find(p => p.id === "main");
   const uid = "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-  const page = {id:uid, name:key === "scratch" ? "Page " + (cpList().length + 2) : s.name, cols:GC, slots:[], on:true, back:0};
+  const page = {id:uid, name:s.grid ? "Page " + (cpList().length + 2) : s.name, cols:GC, slots:[], on:true, back:0};
   if (key === "everyday"){
     if (onMain && sameEverydayLayout()) return;
     const ids = {};
@@ -367,6 +376,8 @@ function installStarter(key, onMain){
       if (slot.more) copy.more = slot.more.map(tileId);
       return copy;
     });
+  } else if (s.grid){
+    page.slots = s.grid.map(([x,y,w,h], i) => ({id:uid + "s" + i,x,y,w,h,mod:null}));
   } else page.slots = s.boxes.map(({type,x,y,w,h,settings,rotate}, i) => {
     const id = uid + "s" + i;
     const ids = [type, ...rotate].map((type,j) => {
@@ -505,19 +516,9 @@ function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Ech
   delArm = id; toast("Tap Delete again to remove this " + K.one, "bad"); setTimeout(() => { if (delArm === id) delArm = ""; }, 4000);
   return false;
 }
-const PAGE_TPL = [
-  {name:"Top row + two columns", sub:"A wide strip on top, a big box and a side box below", boxes:[[0, 0, 24, 4], [0, 4, 14, 12], [14, 4, 10, 12]]},
-  {name:"Big + side stack", sub:"One large box with two smaller ones beside it", boxes:[[0, 0, 16, 16], [16, 0, 8, 8], [16, 8, 8, 8]]},
-  {name:"Four squares", sub:"Four equal boxes", boxes:[[0, 0, 12, 8], [12, 0, 12, 8], [0, 8, 12, 8], [12, 8, 12, 8]]}];
 function newPageScreen(){
-  return '<div class="big">Add page</div><p class="intro">Choose a dashboard or start from scratch. New pages use your current look.</p>' +
-    starterGallery(selectedStarter) + '<div class="saverow"><button class="pri" data-act="starterpage">Add page</button></div>' +
-    sec("Empty grids", PAGE_TPL.map((t, i) => row({t:t.name, sub:t.sub, chev:true, cls:"add", pre:tplPic(t.boxes), attrs:'data-act="new" data-id="' + i + '"'})).join(""),
-    "Then put tiles in its boxes on screen. You can move, resize, add and delete boxes too.");
-}
-function tplPic(boxes){
-  return '<svg width="60" height="40" viewBox="0 0 120 80" style="flex:none;margin-right:4px"><rect width="120" height="80" rx="6" fill="#1c2430"/>' +
-    boxes.map(b => '<rect x="' + (b[0] * 5 + 2) + '" y="' + (b[1] * 5 + 2) + '" width="' + (b[2] * 5 - 4) + '" height="' + (b[3] * 5 - 4) + '" rx="3" fill="none" stroke="#5aa9ff" stroke-width="2" stroke-dasharray="5 3"/>').join("") + '</svg>';
+  return '<div class="big">Add page</div><p class="intro">Choose a dashboard or an empty grid. New pages use your current look.</p>' +
+    starterGallery(selectedStarter) + '<div class="saverow"><button class="pri" data-act="starterpage">Add page</button></div>';
 }
 function pageScreen(id){
   const p = cpById(id); if (!p) return '<div class="big">Page not found</div>';
@@ -536,7 +537,7 @@ function pvGoPage(id){
   tryGo(); setTimeout(tryGo, 1500);
 }
 function act(a, id){
-  const L = cpList(), p = cpById(id);
+  const p = cpById(id);
   if (a === "echoedit"){ location.href = "/dash/content?edit=1"; return; }
   if (a === "pickstarter"){
     if (stack[stack.length - 1] === "wiz") WIZ.starter = id;
@@ -548,23 +549,17 @@ function act(a, id){
     return;
   }
   if (a === "starterpage" || a === "startermain"){
-    if (!STARTERS[selectedStarter]) return;
+    const starter = STARTERS[selectedStarter];
+    if (!starter) return;
     const pid = installStarter(selectedStarter, a === "startermain");
     selectedStarter = "everyday"; stack.pop(); save();
     if (pid){
       go("page:" + pid);
-      if (!ECHO && !cpById(pid).slots.length) PV.editPage = pid;
+      if (!ECHO && starter.grid) PV.editPage = pid;
     } else show();
     return;
   }
   if (/^(wiz|st)/.test(a)) return wizAct(a, id);
-  if (a === "new"){
-    const t = PAGE_TPL[+id], pid = "p" + Date.now().toString(36);
-    gpAll().push({id:pid, name:"Page " + (L.length + 2), on:true, back:0, cols:GC, slots:t.boxes.map((r, j) => ({id:"s" + j + pid, x:r[0] * U, y:r[1] * U, w:r[2] * U, h:r[3] * U, mod:null}))});
-    stack.pop(); save(); go("page:" + pid);
-    if (!ECHO) PV.editPage = pid;     // the preview reloads after saving; open the editor there
-    return;
-  }
   if (a === "toggle"){ p.on = p.on === false; save(); show(); return; }
   if (a === "edit"){ try{
       const w = pvWin(), name = id === "main" || id === "night" ? id : "c:" + id;
