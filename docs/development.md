@@ -19,7 +19,7 @@ cd countertop
 python3 tools/countertop.py --port 8091
 ```
 
-Open `http://localhost:8091/control3`. The first time you do this, the setup guide walks you through the basics. To start with a copy of your real settings instead, copy the app's data folder into `work/` first. On a Mac it's `~/Library/Application Support/Countertop` (in the app menu, **Show Settings Folder**). `work/` is ignored by git, so your settings stay out of commits.
+Open `http://localhost:8091/control`. The first time you do this, the setup guide walks you through the basics. To start with a copy of your real settings instead, copy the app's data folder into `work/` first. On a Mac it's `~/Library/Application Support/Countertop` (in the app menu, **Show Settings Folder**). `work/` is ignored by git, so your settings stay out of commits.
 
 To keep development data somewhere else, set `COUNTERTOP_DATA`:
 
@@ -32,6 +32,10 @@ Press Ctrl-C to stop the server. After you change `tools/countertop.py`, restart
 ## Preview without the real screen
 
 The preview in Controls shows the dashboard as the screen will show it. To try a change on the real screen, point the device at the development copy (`http://<this computer>:8091/dash`) and point it back at port 8090 when you're done.
+
+Select **Portrait** in Controls to preview a 1080×1920 display. To capture the wall display, tablet, calendar, night page and Controls preview with the bundled demo data, run `node demo/capture-readme.js portrait` with Playwright and Chromium installed. Set `OUT` to choose a screenshot folder.
+
+Run `node demo/capture-readme.js manual-portrait` to simulate a browser that keeps reporting 1920×1080 on a vertically mounted display. It saves the setting from a separate Controls browser, checks the open dashboard at its normal address, verifies touch gestures and persistence after a reload, and captures the native landscape framebuffer for each mount.
 
 ## Work on the Mac app
 

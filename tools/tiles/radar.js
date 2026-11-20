@@ -24,12 +24,20 @@ viewTile("radar", {
     const key = [W, H, z, g.lat, g.lon].join();
     if (this.mapKey !== key){
       TILE.fill(box.querySelector(".base"), OSM, z, z, cx, cy, W, H, "dkmap");
+      box.querySelector(".frames").replaceChildren();
+      this.frames = [];
+      this.width = W; this.height = H;
       this.mapKey = key; this.loadedAt = 0;
     }
     this.headline();
     if (Date.now() - this.loadedAt < 5 * 60e3 && this.frames.length) return this.play();
+    if (this.request && this.request.key === key) return;
+    const request = this.request = {key};
     let R;
     try{ R = await getJSON("/radar"); }catch(e){ R = null; }
+    if (this.request !== request) return;
+    this.request = null;
+    this.loadedAt = Date.now();
     if (!R || !R.past || !R.past.length){ box.querySelector(".rtime").textContent = "Radar unavailable" + (R && R.error ? " (" + R.error + ")" : ""); return; }
     const list = R.past.slice(-8).map(f => ({t:f.time * 1000, path:f.path, fc:false}))
       .concat((R.nowcast || []).slice(0, 3).map(f => ({t:f.time * 1000, path:f.path, fc:true})));
@@ -41,7 +49,7 @@ viewTile("radar", {
       TILE.fill(d, (zz, x, y) => R.host + f.path + "/256/" + zz + "/" + x + "/" + y + "/2/1_1.png", rz, z, cx, cy, W, H);
       return Object.assign(f, {el:d});
     });
-    this.loadedAt = Date.now(); this.fi = 0;
+    this.fi = 0;
     this.play();
   },
   play(){
@@ -67,5 +75,8 @@ viewTile("radar", {
     t.textContent = r.inMin > 10 ? r.pp + "% chance" : "";
   },
   hide(){ clearTimeout(this.timer); },
-  tick(){ if (Date.now() - this.loadedAt > 5 * 60e3) this.show(); else this.headline(); }
+  tick(){
+    if (this.width !== this.box.clientWidth || this.height !== this.box.clientHeight || Date.now() - this.loadedAt > 5 * 60e3) this.show();
+    else this.headline();
+  }
 });

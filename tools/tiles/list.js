@@ -16,7 +16,7 @@ Tile("list", {
     if (d.note) h += '<div class="note">📌 ' + esc(d.note) + '</div>';
     const open = (d.items || []).filter(i => !i.done);
     h += open.length ? '<div class="gl">' + open.slice(0, max).map(i => { const dl = s.saleTag !== false && dealFor(i.text);
-      return '<div class="gi"><i></i>' + esc(i.text) + (dl ? '<u>🏷 ' + esc(dl.price) + ' ' + esc(dl.store) + '</u>' : "") + '</div>'; }).join("") + '</div>' +
+      return '<div class="gi"><i></i><span>' + esc(i.text) + '</span>' + (dl ? '<u>🏷 ' + esc(dl.price) + ' ' + esc(dl.store) + '</u>' : "") + '</div>'; }).join("") + '</div>' +
       (open.length > max ? '<div class="empty">+' + (open.length - max) + ' more</div>' : "")
       : '<div class="empty">' + (d.error ? (d.source === "reminders" ? "Reminders didn't answer yet" : esc(d.error)) : "Nothing on the list 🎉") + '</div>';
     // spare room: extras that give way as the list grows

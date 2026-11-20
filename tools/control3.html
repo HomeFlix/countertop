@@ -81,7 +81,7 @@
   .pv{padding:0 16px 24px}
   .pvbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:12px 0 10px}
   .pvbar .note{color:var(--faint);font-size:13px;margin-left:auto}
-  .pvbox{position:relative;width:100%;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .pvbox{position:relative;width:100%;margin-inline:auto;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#000;box-shadow:0 10px 40px rgba(0,0,0,.45)}
   .pvbox iframe{position:absolute;left:0;top:0;border:0;transform-origin:0 0}
   @media (min-width:1100px){
     body.desk .app{display:grid;grid-template-columns:440px 1fr;align-items:start}
@@ -172,8 +172,8 @@
     <div class="pvbar">
       <span class="seg" id="pvpage"></span>
       <button id="pvedit">Edit on screen</button>
-      <span class="seg" id="pvsize"><button data-h="1080" class="on">Full screen</button><button data-h="980">With browser bar</button></span>
-      <span class="note">The Echo screen at its real size (1920×<span id="pvh">1080</span>). Click a tile to change it.</span>
+      <span class="seg" id="pvsize" role="group" aria-label="Preview size"><button data-w="1920" data-h="1080" class="on" aria-pressed="true">Full screen</button><button data-w="1920" data-h="980" aria-pressed="false">With browser bar</button><button data-w="1080" data-h="1920" aria-pressed="false">Portrait</button></span>
+      <span class="note"><span id="pvres">1920×1080</span> preview. Click a tile to change it.</span>
     </div>
     <div class="pvbox" id="pvbox"><iframe id="pvf" title="Dashboard preview" width="1920" height="1080"></iframe></div>
   </div>
@@ -186,15 +186,45 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ECHO = /[?&]echo=1/.test(location.search);
+const MOUNTS = {auto:"Automatic", left:"Portrait · left edge up", right:"Portrait · right edge up"};
+const SHELL = ECHO && window.parent !== window;
+let displayMode = "auto";
 let everyday, schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
 const KIND_ORDER = ["calendars", "lists", "teams", "albums", "cams", "homeassistant"];
 
 window.shellBusy = () => true;       // on the Echo, the shell must not reload the dashboard over Controls when a save changes the settings
 if (ECHO){
   document.documentElement.classList.add("echo");
-  $("done").textContent = "Done"; $("done").removeAttribute("target"); $("done").href = "/dash/content";
+  $("done").textContent = "Done"; $("done").removeAttribute("target");
   document.addEventListener("pointerdown", () => { try{ window.top.shellTap && window.top.shellTap(); }catch(e){} });
   setInterval(() => { try{ window.top.contentTick && window.top.contentTick(); }catch(e){} }, 20e3);
+}
+$("done").href = displayHref();
+
+function displayHref(edit){
+  const url = new URL(SHELL ? "/dash/content" : "/dash", location.origin);
+  if (edit) url.searchParams.set("edit", "1");
+  return url.href;
+}
+function applyDisplayMode(mode){
+  const changed = displayMode !== mode;
+  displayMode = mode;
+  if (changed && !ECHO){
+    const height = mode === "auto" ? 1080 : 1920;
+    pvSize($("pvsize").querySelector('[data-h="' + height + '"]'));
+  }
+}
+async function displaySet(select){
+  const mode = select.value;
+  select.disabled = true;
+  try{
+    const r = await fetch("/config", {method:"POST", keepalive:true, headers:{"Content-Type":"application/json"}, body:JSON.stringify({orientation:mode})});
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    applyDisplayMode((await r.json()).orientation);
+    if (SHELL && window.parent.shellSetOrientation) window.parent.shellSetOrientation(displayMode);
+    toast("Screen orientation saved", "ok");
+  }catch(e){ select.value = displayMode; toast("Couldn't save orientation: " + e.message, "bad"); }
+  finally{ select.disabled = false; }
 }
 
 function toast(msg, cls){
@@ -204,6 +234,7 @@ function toast(msg, cls){
 async function load(){
   try{
     const [j, s] = await Promise.all([fetch("/config?starters=1", {cache:"no-store"}).then(r => r.json()), fetch("/sources", {cache:"no-store"}).then(r => r.json())]);
+    applyDisplayMode(j.orientation || "auto");
     everyday = j.everyday; schema = j.schema; mods = j.modules; SRC = s.sources || {}; KINDS = s.kinds || {};
     if (needsSetup() && stack.length === 1) stack = ["root", "wiz"];       // a new install: walk through the basics first
     await titlesLoad; show(); statusLoad();
@@ -264,6 +295,7 @@ function rootScreen(){
     ECHO ? "Add tiles, move and resize them, and change each tile's settings. You can also hold any tile on the screen for a second." : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
   const g = mods.general ? mods.general.settings : {};
   h += sec("Setup",
+    row({t:"Screen orientation", sub:MOUNTS[displayMode], chev:true, attrs:'data-go="display"'}) +
     row({t:"Location & units", sub: g.place || (g.lat ? g.lat + ", " + g.lon : "Not set: needed for weather"), chev:true, attrs:'data-go="mod:general"'}) +
     KIND_ORDER.filter(k => KINDS[k]).map(k => { const c = (SRC[k] || []).length;
       return row({t:KINDS[k].title, sub: c ? (SRC[k] || []).map(x => x.name).join(", ") : "None yet", chev:true, attrs:'data-go="src:' + k + '"'}); }).join("") +
@@ -402,6 +434,13 @@ function starterScreen(){
     starterGallery(selectedStarter) + (selectedStarter ? '<div class="saverow"><button data-act="starterpage">Add as page</button><button class="pri" data-act="startermain">Use on Main</button></div>' : '');
 }
 
+function displayScreen(){
+  const options = Object.entries(MOUNTS).map(([mode, label]) =>
+    '<option value="' + mode + '"' + (mode === displayMode ? " selected" : "") + '>' + label + '</option>').join("");
+  return '<p class="intro">If the dashboard appears sideways, choose which edge of the landscape screen is now at the top.</p>' +
+    sec("", '<div class="row col"><label class="t" for="display-orientation">Orientation</label><select id="display-orientation">' + options + '</select></div>',
+      "Applies to every display using this dashboard.");
+}
 function pageSummary(p){
   if (!p) return "Empty";
   const t = [].concat(...(p.slots || []).map(smods)).map(tileName);
@@ -538,7 +577,7 @@ function pvGoPage(id){
 }
 function act(a, id){
   const p = cpById(id);
-  if (a === "echoedit"){ location.href = "/dash/content?edit=1"; return; }
+  if (a === "echoedit"){ location.href = displayHref(true); return; }
   if (a === "pickstarter"){
     if (stack[stack.length - 1] === "wiz") WIZ.starter = id;
     else selectedStarter = id;
@@ -593,6 +632,7 @@ function show(){
   const cur = stack[stack.length - 1];
   let h, title;
   if (cur === "root"){ h = rootScreen(); title = ""; }
+  else if (cur === "display"){ h = displayScreen(); title = "Screen orientation"; }
   else if (cur === "status"){ h = statusScreen(); title = "Status"; }
   else if (cur === "wiz"){ h = wizScreen(); title = "Set up"; }
   else if (cur === "starters"){ h = starterScreen(); title = "Premade dashboards"; }
@@ -813,6 +853,7 @@ document.addEventListener("click", e => {
 });
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
+  if (t.id === "display-orientation"){ displaySet(t); return; }
   if ((d.lk && d.lv === undefined) || d.rk || (d.fxk && d.fxv === undefined) || (d.nk && d.nv === undefined)){ lookChange(t); return; }
   if (d.sf){       // show only the fields that apply (e.g. the Reminders list name)
     const cur = stack[stack.length - 1].split(":"), K = KINDS[cur[1]]; if (!K) return;
@@ -1643,12 +1684,23 @@ document.addEventListener("click", e => {
   if (d.emopick != null) emoPick(d.emopick);
 });
 /* ---------- preview (on a computer; on the Echo the screen itself is the preview) ---------- */
-const PV = {h:1080, page:0, theme:""};
+const PV = {w:1920, h:1080, page:0, theme:""};
 function pvWin(){ try{ return $("pvf").contentWindow; }catch(e){ return null; } }
 function pvFit(){
-  const box = $("pvbox"), f = $("pvf"), k = box.clientWidth / 1920;
-  f.style.width = "1920px"; f.style.height = PV.h + "px"; f.style.transform = "scale(" + k + ")";
-  box.style.height = Math.round(PV.h * k) + "px";
+  const box = $("pvbox"), f = $("pvf"), bar = $("pvsize").closest(".pvbar");
+  const k = Math.max(0, Math.min((bar.clientWidth - 2) / PV.w,
+    PV.h > PV.w ? Math.max(240, innerHeight - bar.offsetHeight - 26) / PV.h : Infinity));
+  f.style.width = PV.w + "px"; f.style.height = PV.h + "px"; f.style.transform = "scale(" + k + ")";
+  box.style.width = Math.round(PV.w * k) + 2 + "px";
+  box.style.height = Math.round(PV.h * k) + 2 + "px";
+}
+function pvSize(b){
+  PV.w = +b.dataset.w; PV.h = +b.dataset.h; $("pvres").textContent = PV.w + "×" + PV.h;
+  for (const x of $("pvsize").children){
+    x.classList.toggle("on", x === b);
+    x.setAttribute("aria-pressed", String(x === b));
+  }
+  pvFit();
 }
 function pvCur(){ try{ return pvWin().dashPage(); }catch(e){ return 0; } }
 function pvLoad(){ PV.page = pvCur(); $("pvf").src = "/dash/content?preview=1" + (PV.theme ? "&theme=" + PV.theme : "") + (PV.night ? "&night=1" : "") + "&t=" + Date.now(); }
@@ -1685,11 +1737,10 @@ if (!ECHO){
   setInterval(() => { const b = $("pvpage").querySelector("button.on"); if (b && +b.dataset.pg !== pvCur()) pvTabs(); }, 700);   // follow swipes
   $("pvsize").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    PV.h = +b.dataset.h; $("pvh").textContent = PV.h;
-    [...$("pvsize").children].forEach(x => x.classList.toggle("on", x === b));
-    pvFit(); pvLoad();
+    pvSize(b);
   });
   addEventListener("resize", pvFit);
+  if (typeof ResizeObserver === "function") new ResizeObserver(pvFit).observe($("pvsize").closest(".pvbar"));
   pvFit(); pvLoad();
 }
 load();
