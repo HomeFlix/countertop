@@ -1190,7 +1190,7 @@ def migrate_v3(old):
         if extra:
             pages.append({"id": "more", "name": "More", "on": True, "back": 0, "cols": 48,
                           "slots": [box({"id": "x_" + m, "x": (i % 3) * 16, "y": (i // 3) * 16, "w": 16, "h": 16, "mod": m}) for i, m in enumerate(extra[:6])]})
-    if (old.get("month") or {}).get("on", True):
+    if (old.get("month") or {}).get("on", True) and not fresh:      # new installs add a Month page from Add page → Full-screen
         add("month", "month")
         pages.append({"id": "month", "name": "Month", "on": True, "back": st("month").get("back", 60), "cols": 48,
                       "slots": [{"id": "mo1", "x": 0, "y": 0, "w": 48, "h": 32, "mod": "month"}]})
