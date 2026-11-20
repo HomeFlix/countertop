@@ -33,6 +33,8 @@ jobs:
         with:
           ref: ${{ inputs.tag }}
           persist-credentials: false
+      - name: Test Home Assistant support
+        run: python3 tests/test_home_assistant.py
       - name: Build container
         run: docker build -f docker/Dockerfile -t countertop:smoke .
       - name: Test clean install and container replacement

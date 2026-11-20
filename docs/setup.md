@@ -62,6 +62,7 @@ The first time you open Controls, a short setup guide asks for your location, a 
 - **Location & units.** Search for your town and pick your temperature and time formats.
 - **Calendars.** Add an iCal link for each calendar you want to see. In iCloud Calendar, open the calendar’s information, turn on **Public Calendar**, and use **Share Link**. Google Calendar calls its link **Secret address in iCal format** in the calendar’s settings. Keep those links private.
 - **Lists.** Choose **This dashboard** to share a list across phones and screens. To show an Apple Reminders list or a list kept in another app, see [list sync](list-sync.md). Reading Reminders directly needs a Mac as the server; the iPhone Shortcut and the Mac helper work with any server.
+- **Home Assistant.** Add its address and an access token to show and switch things at home. See [Home Assistant](home-assistant.md).
 - **Optional sources.** Add teams, shared photo albums, live cams, or the stores you shop at. For deals based on purchase history, put a CSV in `work/purchases/` with `date,store,brand,item,size,price` and an optional `regular` column. Without purchase history, deals can still match the list.
 
 From Controls, choose **Edit dashboard on screen** to arrange your tiles. For ideas, browse the [tile gallery](screenshots/tile-gallery.png) or see the [dashboard editor](screenshots/editor.png) and [tile picker](screenshots/tile-store.png).
@@ -74,7 +75,7 @@ Weather and some optional tiles depend on public data feeds. Their availability 
 
 ## When something goes wrong
 
-**Controls → Status** shows whether the screen is checking in, when the weather, calendars and list last loaded, and anything that needs a look. To report a bug, press **Download diagnostics** there and attach the file to a [bug report](https://github.com/kizit/countertop/issues/new?template=bug_report.yml). The file holds your settings, version and recent logs. Calendar, album and list links, sync keys, your location, ZIP code and network addresses are removed, and list items aren't included. Open it to check before you share it.
+**Controls → Status** shows whether the screen is checking in, when the weather, calendars and list last loaded, and anything that needs a look. To report a bug, press **Download diagnostics** there and attach the file to a [bug report](https://github.com/kizit/countertop/issues/new?template=bug_report.yml). The file holds your settings, version and recent logs. Calendar, album and list links, sync keys, Home Assistant tokens, your location, ZIP code and network addresses are removed, and list items aren't included. Open it to check before you share it.
 
 <details>
 <summary>How the dashboard works</summary>
