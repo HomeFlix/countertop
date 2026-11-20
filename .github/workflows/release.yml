@@ -1,0 +1,74 @@
+name: Release
+
+# Publish a new version from the Actions tab: Release > Run workflow.
+# It sets the version, turns the changelog's "Unreleased" notes into the release notes,
+# publishes the release, then builds and attaches the Docker image and both Mac apps.
+
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "fix (0.3.1 to 0.3.2), feature (0.3.1 to 0.4.0), or an exact version like 1.0.0"
+        required: true
+        default: fix
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Publish the release
+    if: github.repository == 'kizit/countertop' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.prep.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set the version and changelog
+        id: prep
+        env:
+          KIND: ${{ inputs.kind }}
+        run: |
+          set -euo pipefail
+          tag=$(python3 .github/prepare-release.py "$KIND")
+          python3 .github/release-notes.py "$tag" > "$RUNNER_TEMP/notes.md"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Releasing $tag"
+      - name: Commit and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.prep.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release $TAG"
+          git push origin HEAD:main
+          gh release create "$TAG" --target "$(git rev-parse HEAD)" --title "Countertop $TAG" \
+            --notes-file "$RUNNER_TEMP/notes.md" --repo "$GITHUB_REPOSITORY"
+
+  # A release made inside a workflow doesn't start other workflows by itself, so start them here.
+  container:
+    name: Docker image
+    needs: release
+    uses: ./.github/workflows/container.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: read
+      packages: write
+
+  mac:
+    name: Mac apps
+    needs: release
+    uses: ./.github/workflows/mac-app.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    permissions:
+      contents: write

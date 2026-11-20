@@ -6,6 +6,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  workflow_call:            # from the Release workflow
+    inputs:
+      tag:
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -29,6 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag }}
           persist-credentials: false
 
       - name: Build the app with the server and Python inside
@@ -68,7 +74,7 @@ jobs:
           if curl -fs http://127.0.0.1:8090/status >/dev/null; then echo "server still running after quit"; exit 1; fi
 
       - name: Keep the build (pull requests)
-        if: github.event_name != 'release'
+        if: github.event_name != 'release' && !inputs.tag
         uses: actions/upload-artifact@v4
         with:
           name: Countertop-mac-${{ matrix.name }}
@@ -76,8 +82,8 @@ jobs:
           retention-days: 14
 
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.tag
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: gh release upload "$TAG" dist/*.zip --clobber --repo "$GITHUB_REPOSITORY"

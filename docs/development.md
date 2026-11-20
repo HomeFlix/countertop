@@ -41,4 +41,4 @@ Only one Countertop app can run at a time, and both use port 8090. On a Mac wher
 
 ## Ship a change
 
-Open a pull request against `main`. Once it's merged, a release puts it in front of everyone, including your own everyday copy. See [releasing](releasing.md).
+Open a pull request against `main`, and add a line under **## Unreleased** in `CHANGELOG.md` if people will notice the change. Once it is merged, a release puts it in front of everyone, including your own everyday copy. See [releasing](releasing.md).

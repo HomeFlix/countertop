@@ -7,6 +7,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  workflow_call:            # from the Release workflow
+    inputs:
+      tag:
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -26,6 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag }}
           persist-credentials: false
       - name: Test Home Assistant support
         run: python3 tests/test_home_assistant.py
@@ -36,19 +42,20 @@ jobs:
 
   version:
     name: Version and changelog match the tag
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.tag
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag }}
           persist-credentials: false
       - name: Check VERSION and CHANGELOG.md
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: python3 .github/release-notes.py "$TAG"
 
   publish:
-    if: github.repository == 'kizit/countertop' && (github.event_name == 'release' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v')
+    if: github.repository == 'kizit/countertop' && (inputs.tag || ((github.event_name == 'release' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/v')))
     needs: [smoke, version]
     runs-on: ubuntu-24.04
     permissions:
@@ -57,6 +64,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.tag }}
           persist-credentials: false
       - name: Set up QEMU
         uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
@@ -71,7 +79,7 @@ jobs:
       - name: Set image tags
         id: tags
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           echo "version=ghcr.io/kizit/countertop:$TAG" >> "$GITHUB_OUTPUT"
           if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -91,4 +99,4 @@ jobs:
             org.opencontainers.image.source=https://github.com/kizit/countertop
             org.opencontainers.image.description=Self-hosted household dashboard for Echo Show and browser displays
             org.opencontainers.image.licenses=MIT
-            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.version=${{ inputs.tag || github.ref_name }}
