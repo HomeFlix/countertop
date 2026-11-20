@@ -8,13 +8,19 @@
 </p>
 
 <p align="center">
-  <a href="#make-it-yours">Make it yours</a> ·
-  <a href="#what-it-can-do">What it can do</a> ·
-  <a href="#get-started">Get started</a>
+  Runs on a Mac, a Linux computer, or a Docker or Unraid server in your home. Your calendars, lists, and settings stay there.
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/overview.gif" alt="Countertop's blue family dashboard showing the week, weather, and groceries as autumn leaves drift across the screen" width="100%" />
+  <a href="#make-it-yours">Make it yours</a> ·
+  <a href="#what-it-can-do">What it can do</a> ·
+  <a href="#it-follows-your-day">It follows your day</a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="#questions">Questions</a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/overview.gif" alt="Countertop's blue family dashboard showing the week, weather, and groceries as autumn leaves drift behind the tiles" width="100%" />
 </p>
 
 ## Make it yours
@@ -42,22 +48,68 @@ Press and hold a tile to start editing right on the screen. Drag tiles where you
   </tr>
 </table>
 
-Give a busy week its own page, schedule a different look for weekends, or wind down with a dim clock that shows tomorrow’s first event. Open any of the three layouts to see it full size. They all use the same fictional household data.
+Open any of the three layouts to see it full size. They all use the same fictional household data.
 
 ## What it can do
 
-- **See the whole family’s plans.** Put multiple calendars together and switch between a quick look at the week and a full month.
-- **Share the grocery list.** Add something from your phone’s browser and it shows up on the kitchen screen.
-- **Answer “What’s for dinner?”** Tap a dinner idea to see its ingredients and steps, or check what’s on sale.
-- **Make room for the fun stuff.** Add family photos, your team’s next match, or a countdown to something you’re looking forward to.
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/phone-to-kitchen.gif" alt="On a phone, someone types Maple syrup into the kitchen list and taps Add. A moment later it appears on the grocery tile of the kitchen screen." width="100%" />
+      <strong>Share the grocery list.</strong> Add something from your phone’s browser and it shows up on the kitchen screen within half a minute. No app to install.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/screenshots/month.png"><img src="docs/screenshots/month.png" alt="A full month calendar with family and school events in two colors" width="100%" /></a>
+      <strong>See the whole family’s plans.</strong> Put several calendars together, then switch between a quick look at the week and a full month.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="docs/screenshots/recipe.png"><img src="docs/screenshots/recipe.png" alt="A dinner idea opened full screen with large ingredients and numbered steps" width="100%" /></a>
+      <strong>Answer “What’s for dinner?”</strong> Tap a dinner idea for ingredients and steps big enough to read while you cook. In the US, it can also show which things on your list are on sale this week.
+    </td>
+    <td width="50%" valign="top">
+      <a href="docs/screenshots/tile-gallery.png"><img src="docs/screenshots/tile-gallery.png" alt="Twelve example tiles: agenda, forecast, countdown, next event, stocks, sun and moon, soccer team, world clocks, planes overhead, space photo, dad joke, and on this day" width="100%" /></a>
+      <strong>Make room for the fun stuff.</strong> Choose from more than 30 tiles, such as photos from a shared iCloud album, your soccer team’s next match, countdowns, planes overhead, and a dad joke.
+    </td>
+  </tr>
+</table>
 
-### See rain coming
+A box on the screen can hold several tiles that take turns, so dinner, deals, and a kitchen tip can share one spot without crowding the screen. Birthdays on the calendar set off confetti.
+
+*All pictures show fictional data.*
+
+## It follows your day
+
+The sky behind your tiles follows the sun, from sunrise to sunset. At bedtime, a dim clock with your next event takes over. It moves a little each minute so nothing burns into the screen, and a tap brings the dashboard back for a moment.
+
+<img src="docs/screenshots/day-to-night.gif" alt="The same dashboard at sunrise, midday, and sunset, with the sky changing color behind the tiles, then the dim bedtime clock showing tomorrow's dentist appointment." width="100%" />
+
+Effects match the weather outside: rain, snow, fog, passing clouds, sun rays, and stars on clear nights. Falling leaves and holiday touches arrive at the right time of year. There are 25 effects in all, and you can turn each one on, off, or schedule it.
+
+<img src="docs/screenshots/weather-effects.gif" alt="A close-up of the weather corner as it changes from rain to snow to a sunny day to a clear night, with the matching effect drifting behind the tiles." width="100%" />
 
 When rain is close, the radar can take over the space that normally shows your hourly forecast. Once the rain passes, that space goes back to the forecast.
 
 <img src="docs/screenshots/radar-takeover.gif" alt="The dashboard shows its hourly forecast, then an approaching rain forecast triggers an animated radar map in the same tile." width="100%" />
 
+You can also schedule whole looks by time of day, day of the week, or date, for example a calmer look on weekends or a festive one in December.
+
 *Shown with fictional weather and map data.*
+
+## Set it and forget it
+
+- **Stays on.** The dashboard keeps the Echo Show awake and full screen.
+- **Updates itself.** Changes you make from Controls show up on the screen without touching it.
+- **Recovers on its own.** It refreshes once a night and reloads if a page ever gets stuck.
+
+## Good to know
+
+- **You need a computer that stays on.** Countertop runs on a Mac, a Linux computer, or a Docker or Unraid server on your home network.
+- **Designed for the Echo Show 15.** Layouts are made for its 1920×1080 screen in the Silk browser. A tablet or monitor with a modern browser works too.
+- **Apple Reminders sync needs a Mac.** The built-in grocery list works everywhere.
+- **Some features are limited.** Store deals use US weekly ads by ZIP code. Sports cover soccer leagues such as MLS, NWSL, the Premier League, and the Champions League. Photos come from shared iCloud albums.
+- **Keep it on your home network.** Anyone who can reach the dashboard can open Controls.
 
 ## Get started
 
@@ -65,6 +117,34 @@ When rain is close, the radar can take over the space that normally shows your h
 2. **Open it on your screen.** Use the dashboard address from setup. On an Echo Show 15, say **“Alexa, open Silk,”** open that address, and tap the page once to start full screen.
 3. **Add your own details.** Open **Controls** from a computer on the same home network, then set your location and connect your calendars. Start with a few favorite tiles and arrange the rest whenever you like.
 
-Countertop lives on your home network. Keep it there, since anyone who can reach the dashboard can open Controls.
+## Questions
 
-[Setup tips and more details](docs/setup.md) · [MIT license](LICENSE)
+<details>
+<summary><strong>Does Alexa still work?</strong></summary>
+
+Yes. Countertop is a web page in the Silk browser, so Alexa keeps listening as usual.
+</details>
+
+<details>
+<summary><strong>Do I need to install anything on the Echo Show?</strong></summary>
+
+No. There’s nothing to sideload and no developer mode. You open a web address in Silk and bookmark it.
+</details>
+
+<details>
+<summary><strong>What happens after a power cut or an Echo update?</strong></summary>
+
+Countertop starts again with your computer or server. If the Echo Show goes back to its home screen, open Silk again and tap the page once.
+</details>
+
+<details>
+<summary><strong>Can I use a tablet or a spare monitor instead?</strong></summary>
+
+Yes. Any screen with a modern browser works. Layouts are designed for a wide 16:9 screen, so a landscape tablet or monitor looks best.
+</details>
+
+---
+
+[Setup tips and more details](docs/setup.md) · [Docker and Unraid](docs/install-docker-unraid.md) · [MIT license](LICENSE)
+
+<sub>Countertop is an independent project. Echo, Echo Show, Alexa, and Silk are trademarks of Amazon.com, Inc.</sub>

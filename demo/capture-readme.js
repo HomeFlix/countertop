@@ -1,6 +1,6 @@
 // Capture the personalization gallery and feature GIFs without replacing the overview.
 // Needs Node, Playwright with Chromium, Python 3, and ffmpeg on PATH (or FFMPEG).
-// Run from any directory: node demo/capture-readme.js [stills|designer|radar]
+// Run from any directory: node demo/capture-readme.js [stills|designer|radar|phone|daynight|weather]
 const assert = require("node:assert/strict");
 const { spawn, execFileSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -74,12 +74,58 @@ function configFor(scene) {
     ];
   }
 
+  if (scene === "phone") {
+    look.settings.fx = "Off";
+    set("grocery", { saleTag: false });
+    main.slots = [
+      tile("clock", 0, 0, 20, 8),
+      tile("weather", 36, 0, 12, 8),
+      tile("week", 0, 8, 48, 7),
+      tile("hours", 0, 15, 24, 17),
+      tile("grocery", 24, 15, 14, 17),
+      tile("dinner", 38, 15, 10, 11),
+      tile("hometeam", 38, 26, 10, 6),
+    ];
+  }
+
+  if (scene === "daynight" || scene === "weather") {
+    // Weather effects only, so each clip shows one thing.
+    const seasonal = ["leaves", "halloween", "thanks", "xmas", "winter", "newyear", "valentine", "spring", "july4", "summer",
+      "gust", "bats", "turkey", "santa", "flurry", "fireworks", "heartburst", "butterflies", "confetti"];
+    effects.settings.items = [
+      { id: "rain", on: true, amount: "Lots" },
+      { id: "snow", on: true, amount: "Lots" },
+      { id: "fog", on: true, amount: "Lots" },
+      { id: "sun", on: true },
+      { id: "stars", on: true, amount: "Lots" },
+      ...seasonal.map(id => ({ id, on: false })),
+    ];
+  }
+  if (scene === "weather") {
+    // See-through tiles so the weather shows behind them, and the forecast in place of the
+    // radar (the demo has no radar map for these clips).
+    Object.assign(look.settings, { tiles: "See-through", opacity: 40 });
+    const stack = main.slots.find(slot => slot.mod === "radar");
+    Object.assign(stack, { mod: "hours", more: [] });
+  }
+
   if (scene === "designer" || scene === "radar") look.settings.fx = "Off";
   return config;
 }
 
-function setup({ demoOrigin, scene, time }) {
+function setup({ demoOrigin, scene, time, wx, label, labelX }) {
   window.__DEMO_SAVE_CONFIG = scene === "designer";
+  window.__DEMO_REAL_NOTES = scene === "phone";
+  if (wx) window.__DEMO_WX = wx;
+  if (label) window.addEventListener("DOMContentLoaded", () => {
+    // A caption for the reel, drawn over the empty middle of the header.
+    const tag = document.createElement("div");
+    tag.textContent = label;
+    tag.style.cssText = "position:fixed;z-index:99999;left:" + (labelX || "50%") + ";top:70px;transform:translateX(-50%);padding:14px 34px;" +
+      "border-radius:999px;background:rgba(10,14,20,.72);color:#fff;font:600 44px/1 system-ui,sans-serif;letter-spacing:.5px;" +
+      "box-shadow:0 6px 24px rgba(0,0,0,.35);pointer-events:none";
+    document.body.append(tag);
+  });
   if (scene === "radar") {
     const seconds = new Date(time).getTime() / 1000;
     const frames = Array.from({ length: 8 }, (_, i) => ({
@@ -110,17 +156,19 @@ function setup({ demoOrigin, scene, time }) {
   });
 }
 
-async function prepare(browser, base, scratch, scene, time, video = false) {
+async function prepare(browser, base, scratch, scene, time, video = false, opts = {}) {
   fs.writeFileSync(path.join(scratch, "work", "dashboard.json"), JSON.stringify(configFor(scene)));
+  const view = opts.viewport || size;
   const context = await browser.newContext({
-    viewport: size,
+    viewport: view,
+    ...(opts.mobile ? { isMobile: true, hasTouch: true } : {}),
     timezoneId: "America/Denver",
     locale: "en-US",
-    ...(video ? { recordVideo: { dir: scratch, size } } : {}),
+    ...(video ? { recordVideo: { dir: scratch, size: view } } : {}),
   });
   await context.addInitScript({
-    content: "window.__DEMO_TIME = " + JSON.stringify(time) + ";\n" + fixtures +
-      "\n(" + setup + ")(" + JSON.stringify({ demoOrigin, scene, time }) + ");",
+    content: "window.__DEMO_TIME = " + JSON.stringify(time) + ";\n" +
+      "(" + setup + ")(" + JSON.stringify({ demoOrigin, scene, time, wx: opts.wx, label: opts.label, labelX: opts.labelX }) + ");\n" + fixtures,
   });
   await context.route("**/*", async route => {
     const url = new URL(route.request().url());
@@ -142,11 +190,11 @@ async function prepare(browser, base, scratch, scene, time, video = false) {
   const page = await context.newPage();
   const start = performance.now();
   await page.clock.setFixedTime(new Date(time));
-  await page.goto(demoOrigin + "/dash/content");
-  await page.locator('[data-mod="weather"] [data-part="temp"]').waitFor();
+  await page.goto(demoOrigin + (opts.path || "/dash/content"));
+  await page.locator(opts.ready || '[data-mod="weather"] [data-part="temp"]').first().waitFor();
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(1250);
-  return { page, context, offset: (performance.now() - start) / 1000 };
+  return { page, context, start, offset: (performance.now() - start) / 1000 };
 }
 
 async function captureStills(browser, base, scratch) {
@@ -256,14 +304,120 @@ async function captureVideo(browser, base, scratch, scene, action, name) {
   await context.close();
   execFileSync(process.env.FFMPEG || "ffmpeg", [
     "-v", "error", "-y", "-ss", offset.toFixed(3), "-t", duration.toFixed(3), "-i", await video.path(), "-vf",
-    "fps=12,scale=960:540:flags=lanczos,split[a][b];[a]palettegen=max_colors=192:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
+    "fps=10,scale=960:540:flags=lanczos,split[a][b];[a]palettegen=max_colors=160:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
     "-loop", "0", path.join(output, name + ".gif"),
   ], { stdio: "inherit" });
 }
 
+const GIF_PALETTE = "split[a][b];[a]palettegen=max_colors=" + (process.env.GIF_COLORS || 128) + ":stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle";
+
+// One short clip of the dashboard at a given time and weather. Returns the video and the part to keep.
+async function clip(browser, base, scratch, scene, time, seconds, opts) {
+  const { page, context, start } = await prepare(browser, base, scratch, scene, time, true, opts);
+  await page.waitForTimeout(1500);              // let effects fill the screen
+  const from = (performance.now() - start) / 1000;
+  await page.waitForTimeout(seconds * 1000);
+  const video = page.video();
+  await context.close();
+  const file = path.join(scratch, scene + "-" + Math.random().toString(36).slice(2) + ".webm");
+  fs.renameSync(await video.path(), file);
+  return { file, from, seconds };
+}
+
+// Joins clips with short cross-fades into one looping GIF.
+function reel(clips, name, fade = 0.5, crop = "") {
+  const args = ["-v", "error", "-y"];
+  clips.forEach(c => args.push("-ss", c.from.toFixed(3), "-t", c.seconds.toFixed(3), "-i", c.file));
+  const parts = clips.map((c, i) => "[" + i + ":v]fps=" + (process.env.GIF_FPS || 8) + "," + crop + "scale=960:540:flags=lanczos,setpts=PTS-STARTPTS,format=yuv420p[v" + i + "]");
+  let last = "v0", at = 0;
+  for (let i = 1; i < clips.length; i++) {
+    at += clips[i - 1].seconds - fade;
+    parts.push("[" + last + "][v" + i + "]xfade=transition=fade:duration=" + fade + ":offset=" + at.toFixed(3) + "[x" + i + "]");
+    last = "x" + i;
+  }
+  parts.push("[" + last + "]" + GIF_PALETTE);
+  args.push("-filter_complex", parts.join(";"), "-loop", "0", path.join(output, name + ".gif"));
+  execFileSync(process.env.FFMPEG || "ffmpeg", args, { stdio: "inherit" });
+}
+
+async function dayNight(browser, base, scratch) {
+  const at = t => "2026-11-19T" + t + ":00-07:00";
+  const clips = [];
+  for (const [t, label] of [["07:05", "Sunrise"], ["12:30", "Midday"], ["16:35", "Sunset"]])
+    clips.push(await clip(browser, base, scratch, "daynight", at(t), 2, { label }));
+  clips.push(await clip(browser, base, scratch, "daynight", at("22:15"), 2.2, { label: "Bedtime", ready: ".m-nightclock, [data-mod=\"nightclock\"]" }));
+  reel(clips, "day-to-night");
+}
+
+async function weatherReel(browser, base, scratch) {
+  const clips = [];
+  for (const [t, wx, label] of [
+    ["10:10", { code: 63, day: true, temp: 44 }, "Rain"],
+    ["13:40", { code: 73, day: true, temp: 29 }, "Snow"],
+    ["11:30", { code: 0, day: true, temp: 58 }, "Sunny"],
+    ["20:30", { code: 0, day: false, temp: 41 }, "Clear night"],
+  ]) clips.push(await clip(browser, base, scratch, "weather", "2026-11-19T" + t + ":00-07:00", 1.8, { wx, label, labelX: "1200px" }));
+  // Full size, top right quarter: the weather corner, where thin rain and snow stay visible.
+  reel(clips, "weather-effects", 0.5, "crop=960:540:960:0,");
+}
+
+// A phone adds to the list; the kitchen screen picks it up. Both pages are recorded at once
+// and placed side by side.
+async function phoneList(browser, base, scratch) {
+  fs.writeFileSync(path.join(scratch, "work", "notes.json"), JSON.stringify({ note: "", updated: 0,
+    items: ["Milk", "Eggs", "Sourdough bread", "Coffee beans", "Bananas", "Spinach"].map((text, i) => ({ id: "n" + i, text, done: false })) }));
+  const dash = await prepare(browser, base, scratch, "phone", morning, true);
+  const phone = await prepare(browser, base, scratch, "phone", morning, true,
+    { viewport: { width: 390, height: 844 }, mobile: true, path: "/list", ready: "#items li[data-id]" });
+  await phone.page.addStyleTag({ content: "#tap{position:fixed;z-index:9;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;" +
+    "background:rgba(255,255,255,.55);border:2px solid #fff;pointer-events:none;opacity:0;transition:opacity .15s}" });
+  await phone.page.evaluate(() => { const d = document.createElement("div"); d.id = "tap"; document.body.append(d); });
+  const tap = async selector => {
+    const b = await phone.page.locator(selector).boundingBox();
+    await phone.page.evaluate(([x, y]) => { const t = document.getElementById("tap");
+      Object.assign(t.style, { left: x + "px", top: y + "px", opacity: 1 }); setTimeout(() => t.style.opacity = 0, 380); },
+      [b.x + b.width / 2, b.y + b.height / 2]);
+    await phone.page.tap(selector);
+  };
+  const t0 = performance.now();
+  await phone.page.waitForTimeout(1200);
+  await tap("#item");
+  await phone.page.waitForTimeout(300);
+  await phone.page.keyboard.type("Maple syrup", { delay: 85 });
+  await phone.page.waitForTimeout(350);
+  await tap("#add button");
+  await phone.page.locator("#items li", { hasText: "Maple syrup" }).waitFor();
+  await phone.page.waitForTimeout(900);
+  // The dashboard checks the list every 30 seconds; ask now so the clip stays short.
+  await dash.page.evaluate(() => loadNotes());
+  await dash.page.locator('[data-mod="grocery"]', { hasText: "Maple syrup" }).waitFor();
+  await phone.page.waitForTimeout(3000);
+  const seconds = (performance.now() - t0) / 1000;
+  const files = [];
+  for (const side of [dash, phone]) {
+    const video = side.page.video();
+    await side.context.close();
+    files.push({ file: await video.path(), from: (t0 - side.start) / 1000 });
+  }
+  // Kitchen screen at 1280x720 and the phone at 333x720 on a dark backdrop, then scaled to 960 wide.
+  const filter = [
+    "[0:v]fps=10,scale=1280:720:flags=lanczos,setpts=PTS-STARTPTS[d]",
+    "[1:v]fps=10,scale=333:720:flags=lanczos,setpts=PTS-STARTPTS,pad=345:732:6:6:color=0x3a414c[p]",
+    "color=c=0x0d1117:s=1700x780:r=10[bg]",
+    "[bg][d]overlay=24:30:shortest=1[a]",
+    "[a][p]overlay=1330:24[b]",
+    "[b]scale=960:-2:flags=lanczos," + GIF_PALETTE,
+  ].join(";");
+  execFileSync(process.env.FFMPEG || "ffmpeg", ["-v", "error", "-y",
+    "-ss", files[0].from.toFixed(3), "-t", seconds.toFixed(3), "-i", files[0].file,
+    "-ss", files[1].from.toFixed(3), "-t", seconds.toFixed(3), "-i", files[1].file,
+    "-filter_complex", filter, "-loop", "0", path.join(output, "phone-to-kitchen.gif")], { stdio: "inherit" });
+}
+
 async function main() {
   const which = process.argv[2];
-  assert.ok(!which || ["stills", "designer", "radar"].includes(which), "Use stills, designer or radar");
+  const scenes = ["stills", "designer", "radar", "phone", "daynight", "weather"];
+  assert.ok(!which || scenes.includes(which), "Use one of: " + scenes.join(", "));
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "countertop-demo-"));
   fs.mkdirSync(output, { recursive: true });
   fs.cpSync(path.join(root, "tools"), path.join(scratch, "tools"), { recursive: true });
@@ -286,6 +440,9 @@ async function main() {
     if (!which || which === "stills") await captureStills(browser, base, scratch);
     if (!which || which === "designer") await captureVideo(browser, base, scratch, "designer", designer, "clock-designer");
     if (!which || which === "radar") await captureVideo(browser, base, scratch, "radar", radar, "radar-takeover");
+    if (!which || which === "phone") await phoneList(browser, base, scratch);
+    if (!which || which === "daynight") await dayNight(browser, base, scratch);
+    if (!which || which === "weather") await weatherReel(browser, base, scratch);
   } finally {
     if (browser) await browser.close();
     server.kill();

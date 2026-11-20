@@ -48,8 +48,9 @@
       D.time.push(k); D.temperature_2m_max.push([58, 52, 49, 55, 61, 57, 38, 44, 50, 54, 56][i]); D.temperature_2m_min.push([34, 37, 31, 30, 35, 36, 27, 25, 29, 33, 34][i]);
       D.weather_code.push(c); D.precipitation_probability_max.push(c === 61 ? 60 : c === 71 ? 70 : 5);
       D.sunrise.push(k + "T06:53"); D.sunset.push(k + "T16:39"); });
-    const h = now.getHours();
-    return {current:{temperature_2m:H.temperature_2m[30], weather_code:1, is_day: h >= 7 && h < 17 ? 1 : 0}, hourly:H, daily:D};
+    const h = now.getHours(), wx = window.__DEMO_WX || {};       // a recording can ask for other weather
+    return {current:{temperature_2m:wx.temp != null ? wx.temp : H.temperature_2m[30], weather_code:wx.code != null ? wx.code : 1,
+      is_day: wx.day != null ? (wx.day ? 1 : 0) : h >= 7 && h < 17 ? 1 : 0}, hourly:H, daily:D};
   }
 
   // ---- calendar: a busy, ordinary family month ----
@@ -137,7 +138,7 @@
     if (/icanhazdadjoke/.test(u)) return JOKE;
     const p = u.replace(/^https?:\/\/[^/]+/, "");
     if (/^\/events/.test(p)) return events();
-    if (/^\/notes/.test(p)) return notes;
+    if (/^\/notes/.test(p)) return window.__DEMO_REAL_NOTES ? undefined : notes;   // the phone recording uses the demo server's list
     if (/^\/sales/.test(p)) return sales;
     if (/^\/team/.test(p)) return team();
     if (/^\/dinner/.test(p)) return dinner;
@@ -157,7 +158,8 @@
     const method = (opt && opt.method) || (input && input.method) || "GET";
     // Only the clock recording saves config, against its own disposable server.
     const saveDemoDesign = window.__DEMO_SAVE_CONFIG && new URL(u, location.href).pathname === "/config";
-    if (method !== "GET" && /\/(config|sources|notes|report)\b/.test(u) && !saveDemoDesign) return Promise.resolve(new Response('{"ok":true}', {headers:{"Content-Type":"application/json"}}));
+    const realNotes = window.__DEMO_REAL_NOTES && new URL(u, location.href).pathname === "/notes";
+    if (method !== "GET" && !realNotes && /\/(config|sources|notes|report)\b/.test(u) && !saveDemoDesign) return Promise.resolve(new Response('{"ok":true}', {headers:{"Content-Type":"application/json"}}));
     const d = method === "GET" ? route(u) : undefined;
     if (d !== undefined) return Promise.resolve(new Response(JSON.stringify(d), {headers:{"Content-Type":"application/json"}}));
     return realFetch(input, opt);
