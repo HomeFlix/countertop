@@ -352,7 +352,7 @@
     body:not(.editing) .cgrid{inset:clamp(12px,2.4vw,26px) clamp(12px,2.4vw,26px) 36px;
       grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:var(--portrait-rows,none);gap:clamp(8px,1.5vw,16px)}
     body:not(.editing) .cgrid > .slot{grid-column:var(--portrait-col);grid-row:var(--portrait-row);overflow:hidden}
-    body:not(.editing) .cgrid > .slot.empty{display:none}
+    body:not(.editing) .cgrid > .slot.empty,body:not(.editing) .cgrid > .slot.idle{display:none}
     body:not(.editing) .m-week{grid-auto-flow:row;gap:clamp(6px,1.1vw,12px);min-width:0}
     body:not(.editing) .m-week .day{min-width:0;min-height:0;padding:clamp(6px,1.15vw,14px)}
     body:not(.editing) .day .w{gap:clamp(2px,.7vw,8px);font-size:clamp(16px,2.4vw,26px)}
@@ -1400,7 +1400,7 @@ function render(...ids){
   for (const id of (ids.length ? ids : Object.keys(MOUNTED))){
     const el = MOUNTED[id], m = MODULES[id]; if (!el || !m) continue;
     const alone = !el.parentNode || !el.parentNode.classList.contains("stack");
-    if (alone){ const v = tileHas(id) || (EDIT && EDIT.on); el.hidden = !v; if (!v) continue; }
+    if (alone){ const v = tileHas(id) || (EDIT && EDIT.on); if (el.hidden !== !v){ el.hidden = !v; portraitFlow(el.closest(".cgrid")); } if (!v) continue; }
     if (el.classList.contains("stk-off") && !m.drawHidden) continue;      // not its turn: draw when it comes up
     try{
       m.render(el);
@@ -1875,8 +1875,8 @@ const NARROW = 7 * U;    // a box this narrow (or narrower) gets the compact loo
 function placeSlot(d, s){ d.style.setProperty("--slot-col", (s.x + 1) + " / span " + s.w); d.style.setProperty("--slot-row", (s.y + 1) + " / span " + s.h);
   const n = s.w <= NARROW;
   if (d.classList.contains("narrow") !== n){ d.classList.toggle("narrow", n); if (d.isConnected) live(s).forEach(id => render(id)); } }
-function portraitRows(slots){
-  const boxes = slots.filter(s => live(s).length).sort((a, b) => a.y - b.y || a.x - b.x);
+function portraitRows(slots, showing){
+  const boxes = slots.filter(s => live(s).length && showing(s)).sort((a, b) => a.y - b.y || a.x - b.x);
   const rows = [];
   for (const box of boxes){
     const types = live(box).map(id => MODULES[id].type);
@@ -1887,6 +1887,7 @@ function portraitRows(slots){
     // Pair neighboring boxes from the same band. A wide box starts its own row.
     if (!wide && last && !last.wide && last.boxes.length === 1 && box.y < first.y + first.h){
       last.boxes.push(box);
+      last.boxes.sort((a, b) => a.x - b.x);       // a box that starts a little higher can still sit on the right
       last.height = Math.max(last.height, height);
     } else rows.push({boxes:[box], wide, height});
   }
@@ -1906,14 +1907,28 @@ function gridEl(sec, pg){
     if (L.length > 1){ d.classList.add("stack"); const dots = document.createElement("div"); dots.className = "stkdots"; dots.innerHTML = L.map(() => "<i></i>").join(""); d.appendChild(dots);
       dots.addEventListener("click", e => { if (EDIT.on) return; e.stopPropagation(); stackNext(d); }); }
   }
-  const rows = portraitRows(slots);
+  g._slots = slots; g._boxes = boxes;
+  portraitFlow(g);
+  return SLOT;
+}
+// Portrait: a box with nothing to show right now (say, radar waiting for rain) gives its row to the others
+function slotShowing(d){
+  return EDIT.on || !d.querySelector(":scope > [data-mod]") ||
+    [...d.children].some(c => c.dataset.mod && !c.hidden && !c.classList.contains("stk-off"));
+}
+function portraitFlow(g){
+  if (!g || !g._boxes) return;
+  const key = g._slots.map(s => slotShowing(g._boxes.get(s)) ? 1 : 0).join("");
+  if (g._flow === key) return;
+  g._flow = key;
+  const rows = portraitRows(g._slots, s => slotShowing(g._boxes.get(s)));
+  for (const [s, d] of g._boxes) d.classList.toggle("idle", !slotShowing(d));
   g.style.setProperty("--portrait-rows", rows.map(r => "minmax(0," + r.height + "fr)").join(" "));
   rows.forEach(({boxes: row}, y) => row.forEach((box, x) => {
-    const style = boxes.get(box).style;
+    const style = g._boxes.get(box).style;
     style.setProperty("--portrait-col", row.length === 1 ? "1 / -1" : String(x + 1));
     style.setProperty("--portrait-row", y + 1);
   }));
-  return SLOT;
 }
 function slotById(id){ for (const p of pgItems()) for (const s of p.slots || []) if (s.id === id) return s; return null; }
 // Tiles in one box take turns. A tile with nothing to show (has() false) skips its turn; a tile whose
@@ -1937,6 +1952,7 @@ function stackTick(){
       const oe = old && MOUNTED[old];
       if (oe && oe._shownT && old !== cur){ oe._shownT = 0; const m = MODULES[old]; if (m && m.hide) try{ m.hide(oe); }catch(e){} }
       if (cur) render(cur);           // drawn fresh when its turn comes
+      portraitFlow(d.closest(".cgrid"));
     }
     const dots = d.querySelector(".stkdots");
     if (dots) [...dots.children].forEach((x, i) => x.classList.toggle("on", ids[i] === cur));
