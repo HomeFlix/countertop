@@ -155,6 +155,32 @@ class HomeAssistantTest(unittest.TestCase):
         code, _ = self.json("/ha/call", {"entity": "lock.front_door"})
         self.assertEqual(code, 403)
 
+        # an allowed action with data: only known scalar keys are passed on
+        code, j = self.json("/ha/call", {"entity": "light.kitchen", "action": "turn_on",
+                                         "data": {"brightness_pct": 40, "rgb_color": [1, 2, 3], "flash": "long"}})
+        self.assertEqual(code, 200, j)
+        self.assertEqual(CALLS[-1], ("/api/services/light/turn_on", {"entity_id": "light.kitchen", "brightness_pct": 40}))
+        # an action the domain doesn't have
+        code, _ = self.json("/ha/call", {"entity": "light.kitchen", "action": "set_temperature", "data": {"temperature": 20}})
+        self.assertEqual(code, 403)
+        # a lock shown on a tile still can't be unlocked from the screen
+        n = len(CALLS)
+        for action in ("unlock", "lock", "open"):
+            code, _ = self.json("/ha/call", {"entity": "lock.front_door", "action": action})
+            self.assertEqual(code, 403, action)
+        self.assertEqual(len(CALLS), n)
+
+        # the Sensor tile: a reading can be refreshed, unless the tile is set to only show things
+        mods["tiles"]["settings"]["items"].append({"id": "t_sen", "type": "hasensor", "settings": {"entity": "sensor.outside"}})
+        self.json("/config", {"modules": mods})
+        code, j = self.json("/ha/call", {"entity": "sensor.outside", "action": "update_entity"})
+        self.assertEqual(code, 200, j)
+        self.assertEqual(CALLS[-1], ("/api/services/homeassistant/update_entity", {"entity_id": "sensor.outside"}))
+        mods["tiles"]["settings"]["items"][-1]["settings"]["taps"] = False
+        self.json("/config", {"modules": mods})
+        code, _ = self.json("/ha/call", {"entity": "sensor.outside", "action": "update_entity"})
+        self.assertEqual(code, 403)
+
         # an update with the token left blank keeps the saved one
         self.json("/sources", {"kind": "homeassistant", "op": "update", "item": {"id": src["id"], "name": "House", "url": self.ha_url, "token": ""}})
         _, j = self.json("/ha/states?ids=light.kitchen")
