@@ -216,6 +216,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(ha_entities(parse_qs(urlparse(self.path).query).get("src", [""])[0]))
         elif p == "/notes":
             self._json(notes_view())
+        elif p == "/daily":
+            self._json(daily_view())
         elif p == "/list":
             self._send(200, (HERE / "list.html").read_bytes(), "text/html; charset=utf-8")
         elif re.fullmatch(r"/starters/[a-z]+\.jpg", p) and (HERE / p[1:]).is_file():
@@ -264,6 +266,8 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/lists/push":
             code, out = list_push(body)
             self._json(out, code)
+        elif p == "/daily":
+            self._json(daily_apply(body))
         elif p == "/notes":
             if pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(notes_view())          # the list is kept in another app: read-only here
@@ -1010,6 +1014,78 @@ def notes_apply(body):
         tmp.replace(NOTES)
         return d
 
+
+# ---------- daily to-do list (work/daily.json): kept on this dashboard itself, ticks cleared at midnight ----------
+DAILY = WORK / "daily.json"
+DAILY_LOCK = threading.Lock()
+
+
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _daily_save(d):
+    DAILY.parent.mkdir(parents=True, exist_ok=True)
+    tmp = DAILY.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
+    tmp.replace(DAILY)
+
+
+def daily_load():
+    """Reads the daily list; when the calendar day has changed since the last save, the ticks are cleared
+    (the items themselves stay) — that's the 00:00 reset."""
+    try:
+        d = json.loads(DAILY.read_text())
+        if not isinstance(d, dict) or not isinstance(d.get("items"), list):
+            d = {"items": []}
+    except Exception:
+        d = {"items": []}
+    d.setdefault("items", [])
+    if d.get("date") != _today():
+        d = {"date": _today(), "updated": int(time.time()),
+             "items": [{"id": i.get("id") or uuid.uuid4().hex[:8], "text": str(i.get("text") or ""), "done": False}
+                       for i in d["items"] if str(i.get("text") or "").strip()]}
+        try:
+            _daily_save(d)
+        except Exception:
+            pass
+    return d
+
+
+def daily_view():
+    with DAILY_LOCK:
+        d = daily_load()
+    return {"date": d.get("date"), "items": d["items"], "updated": d.get("updated", 0)}
+
+
+def daily_apply(body):
+    op = str(body.get("op") or "")
+    with DAILY_LOCK:
+        d = daily_load()
+        items = d["items"]
+        if op == "add":
+            text = " ".join(str(body.get("text") or "").split())[:80]
+            if text and len(items) < 80 and not any(i["text"].lower() == text.lower() and not i.get("done") for i in items):
+                items.append({"id": uuid.uuid4().hex[:8], "text": text, "done": False})
+        elif op == "toggle":
+            for i in items:
+                if i["id"] == body.get("id"):
+                    i["done"] = not i.get("done")
+        elif op == "remove":
+            d["items"] = [i for i in items if i["id"] != body.get("id")]
+        elif op == "reset":                     # clear every tick right now (same as the midnight reset)
+            for i in items:
+                i["done"] = False
+        elif op == "clear":                     # empty the whole list
+            d["items"] = []
+        else:
+            return daily_view()
+        d["updated"] = int(time.time())
+        try:
+            _daily_save(d)
+        except Exception:
+            pass
+        return {"date": d.get("date"), "items": d["items"], "updated": d["updated"]}
 
 # ---------- module platform: config schema, stored settings, team schedule, shared photo album ----------
 CONFIG_FILE = WORK / "dashboard.json"
