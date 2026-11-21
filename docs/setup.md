@@ -28,7 +28,7 @@ That builds Countertop.app into `~/Applications`. It runs the server from this f
 
 ## Run it on Linux
 
-With Git and Python 3 installed:
+With Git and Python 3.9 or newer installed:
 
 ```sh
 git clone https://github.com/kizit/countertop.git

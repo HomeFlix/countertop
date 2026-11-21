@@ -180,9 +180,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(planes_near(parse_qs(urlparse(self.path).query).get("r", ["15"])[0]))
         elif p == "/stocks":
             self._json(stocks(parse_qs(urlparse(self.path).query).get("s", [""])[0]))
-        elif p == "/reddit":
-            q = parse_qs(urlparse(self.path).query)
-            self._json(reddit_pics(q.get("sub", [""])[0], q.get("t", ["day"])[0]))
         elif p == "/meals":
             q = parse_qs(urlparse(self.path).query)
             self._json(meal_ideas(q.get("meal", ["dinner"])[0], q.get("diet", ["Anything"])[0], q.get("src", [""])[0]))
@@ -1104,7 +1101,7 @@ def config_defaults():
 
 # ---------- v3: every tile is an instance of a tile type (tools/tiles/*.js) placed in a grid box ----------
 # Older settings files had one fixed module per tile, a classic column layout and bundle tiles (big tile,
-# little thing). They are converted once, on load; the old file is kept as work/dashboard.pre-v3.json.
+# little thing). They are converted once, on load (CONFIG_UPGRADES); the old file is copied to work/backups first.
 MAIN_CLASSIC = {"clock": [0, 0, 14, 8], "weather": [37, 0, 11, 8], "week": [0, 8, 48, 5], "stage": [0, 13, 27, 19],
                 "grocery": [27, 13, 11, 12], "dinner": [38, 13, 10, 12], "city": [27, 25, 11, 7], "fun": [38, 25, 10, 7]}
 OLD_ON = {"photos": False, "today": False, "sales": False, "hourly": False}
@@ -1305,34 +1302,122 @@ def dashboard_orientation(saved=None):
     return mode if mode in ORIENTATIONS else "auto"
 
 
+# ---------- keeping settings safe ----------
+# dashboard.json carries a "schema" number. Each upgrade below runs once, in order, for files saved
+# before it existed; add a step (and bump CONFIG_SCHEMA) whenever the stored shape changes.
+CONFIG_SCHEMA = 2
+BACKUP_DIR = WORK / "backups"
+BACKUP_KEEP = 12              # rolling copies of dashboard.json, newest kept
+BACKUP_EVERY = 15 * 60        # at most one routine copy per 15 minutes (Controls saves on every change)
+CONFIG_PROBLEM = {}           # set when a settings file couldn't be read: shown in Controls > Status
+
+
+def _upgrade_v3(m):
+    return (m, False) if "tiles" in m else (migrate_v3(m), True)
+
+
+def _upgrade_looks(m):
+    return m, migrate_looks(m)
+
+
+CONFIG_UPGRADES = [(1, _upgrade_v3), (2, _upgrade_looks)]
+
+
+def config_backup(force=False):
+    """Copy the current dashboard.json into work/backups. Routine copies are spaced out; force is for
+    just before an upgrade rewrites the file. Call with CONFIG_LOCK held or before taking it."""
+    try:
+        if not CONFIG_FILE.exists():
+            return None
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        have = sorted(BACKUP_DIR.glob("dashboard-*.json"))
+        if have and not force and time.time() - have[-1].stat().st_mtime < BACKUP_EVERY:
+            return None
+        dest = BACKUP_DIR / ("dashboard-%s.json" % time.strftime("%Y%m%d-%H%M%S"))
+        n = 1
+        while dest.exists():
+            n += 1
+            dest = BACKUP_DIR / ("dashboard-%s-%d.json" % (time.strftime("%Y%m%d-%H%M%S"), n))
+        dest.write_bytes(CONFIG_FILE.read_bytes())
+        for old in sorted(BACKUP_DIR.glob("dashboard-*.json"))[:-BACKUP_KEEP]:
+            old.unlink()
+        return dest
+    except OSError as e:
+        print("settings backup failed: %s" % e, flush=True)
+        return None
+
+
+def _parse_config(raw):
+    saved = json.loads(raw)
+    if not isinstance(saved, dict):
+        raise ValueError("settings file is not a JSON object")
+    return saved
+
+
+def config_read():
+    """The saved settings file as a dict ({} for a new install), or None when it exists but can't be used.
+
+    A file that can't be read is never written over: it is renamed to dashboard.broken-<time>.json and
+    the newest readable backup is put back in its place."""
+    try:
+        return _parse_config(CONFIG_FILE.read_text())
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, UnicodeDecodeError):
+        pass
+    with CONFIG_LOCK:
+        try:                                    # another request may have dealt with it meanwhile
+            return _parse_config(CONFIG_FILE.read_text())
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError, UnicodeDecodeError) as e:
+            why = str(e)[:200]
+        kept = CONFIG_FILE.with_name("dashboard.broken-%s.json" % time.strftime("%Y%m%d-%H%M%S"))
+        try:
+            CONFIG_FILE.rename(kept)
+        except OSError as e:
+            CONFIG_PROBLEM.update(at=time.time(), why=why, kept="", restored="", stuck=str(e)[:200])
+            print("settings file can't be read (%s) or moved aside (%s); using defaults without saving" % (why, e), flush=True)
+            return None
+        restored, data = "", {}
+        for b in sorted(BACKUP_DIR.glob("dashboard-*.json"), reverse=True) if BACKUP_DIR.exists() else []:
+            try:
+                data = _parse_config(b.read_text())
+            except (OSError, ValueError, UnicodeDecodeError):
+                continue
+            tmp = CONFIG_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False))
+            tmp.replace(CONFIG_FILE)
+            restored = b.name
+            break
+        CONFIG_PROBLEM.update(at=time.time(), why=why, kept=kept.name, restored=restored, stuck="")
+        print("settings file couldn't be read (%s): kept it as %s; %s" % (
+            why, kept.name, "restored backups/" + restored if restored else "no backup to restore, starting fresh"), flush=True)
+        return data
+
+
 def config_load():
     merged = config_defaults()
-    try:
-        saved = json.loads(CONFIG_FILE.read_text())
-    except Exception:
-        saved = {}
-    smods = saved.get("modules") or {}
-    if "tiles" not in smods:
-        with CONFIG_LOCK:
+    saved = config_read()
+    can_save = saved is not None
+    saved = saved or {}
+    smods = saved.get("modules") if isinstance(saved.get("modules"), dict) else {}
+    have = saved.get("schema") if isinstance(saved.get("schema"), int) else 0
+    if have < CONFIG_SCHEMA:
+        changed = False
+        for n, step in CONFIG_UPGRADES:
+            if have < n:
+                smods, did = step(smods)
+                changed = changed or did
+        if can_save and not (CONFIG_PROBLEM.get("upgrade_unsaved") and not changed):
+            if changed:
+                config_backup(force=True)
             try:
-                bak = CONFIG_FILE.with_name("dashboard.pre-v3.json")
-                if CONFIG_FILE.exists() and not bak.exists():
-                    bak.write_text(CONFIG_FILE.read_text())
-            except Exception:
-                pass
-        smods = migrate_v3(smods)
-        try:
-            config_save({"modules": smods}, quiet=True)
-        except Exception:
-            pass
-    if migrate_looks(smods):
-        try:
-            bak = CONFIG_FILE.with_name("dashboard.before-looks.json")
-            if CONFIG_FILE.exists() and not bak.exists():
-                bak.write_text(CONFIG_FILE.read_text())
-            config_save({"modules": smods}, quiet=True)
-        except Exception:
-            pass
+                config_save({"modules": smods}, quiet=True)
+                CONFIG_PROBLEM.pop("upgrade_unsaved", None)
+            except Exception as e:             # a read-only data folder: Status already says so; don't retry every load
+                CONFIG_PROBLEM["upgrade_unsaved"] = True
+                print("couldn't save upgraded settings: %s" % e, flush=True)
     for mid, c in smods.items():
         if mid not in merged or not isinstance(c, dict):
             continue
@@ -1364,7 +1449,9 @@ def config_save(body, quiet=False):
                 saved = {}
         if orientation_edit:
             saved["orientation"] = body["orientation"]
+        saved["schema"] = CONFIG_SCHEMA
         saved["saved"] = int(time.time())
+        config_backup()
         tmp = CONFIG_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(saved, indent=1, ensure_ascii=False))
         tmp.replace(CONFIG_FILE)
@@ -1844,96 +1931,6 @@ def _stock_one(sym):
 def stocks(syms):
     L = [x for x in (_stock_one(s) for s in syms.split(",")[:12]) if x]
     return {"stocks": L}
-
-
-# ---------- subreddit pictures: top image posts (safe for work only), cached 30 minutes ----------
-REDDIT_CACHE = {}
-
-
-REDDIT_UA = "macos:home-dashboard:v1.0 (personal kitchen display; picture tile, about two requests a day)"
-
-
-def _reddit_get(url):
-    # identifies itself honestly, as Reddit asks of scripts; no browser disguise
-    with urlopen(Request(url, headers={"User-Agent": REDDIT_UA}), timeout=12) as r:
-        return r.read(6_000_000).decode("utf-8", "replace")
-
-
-def _reddit_from_json(txt):
-    posts = []
-    for ch in (json.loads(txt).get("data") or {}).get("children") or []:
-        d = ch.get("data") or {}
-        if d.get("over_18") or d.get("spoiler") or d.get("is_video"):
-            continue
-        url = d.get("url_overridden_by_dest") or d.get("url") or ""
-        prev = ((d.get("preview") or {}).get("images") or [{}])[0]
-        res = [x for x in (prev.get("resolutions") or []) if x.get("width", 0) >= 1000]
-        img = (res[0]["url"] if res else (prev.get("source") or {}).get("url")) if prev else None
-        if not img and re.search(r"\.(jpe?g|png|webp)$", url, re.I):
-            img = url
-        if img:
-            posts.append({"title": d.get("title") or "", "img": img, "by": d.get("author") or "", "score": d.get("score") or 0,
-                          "link": "https://www.reddit.com" + (d.get("permalink") or "")})
-    return posts
-
-
-def _reddit_from_rss(txt):
-    # Reddit's public Atom feed; it has no adult flag per post, so titles marked NSFW or spoiler are skipped
-    import html as _html
-    posts = []
-    for e in re.findall(r"<entry>(.*?)</entry>", txt, re.S):
-        title = _html.unescape((re.search(r"<title>(.*?)</title>", e, re.S) or [None, ""])[1])
-        if re.search(r"\bnsfw\b|\bspoiler\b", title, re.I):
-            continue
-        body = _html.unescape((re.search(r"<content[^>]*>(.*?)</content>", e, re.S) or [None, ""])[1])
-        m = re.search(r'href="(https://i\.redd\.it/[^"]+\.(?:jpe?g|png|webp))"', body) or re.search(r'href="(https://i\.imgur\.com/[^"]+\.(?:jpe?g|png))"', body)
-        if not m:
-            continue
-        who = re.search(r"<name>/?u/([^<]+)</name>", e)
-        link = re.search(r'<link href="([^"]+)"', e)
-        posts.append({"title": title, "img": m.group(1), "by": who.group(1) if who else "", "score": 0, "link": link.group(1) if link else ""})
-    return posts
-
-
-def reddit_pics(sub, period="day"):
-    """Top pictures from a subreddit, fetched at most every 12 hours (an hour after a failure) and kept
-    in work/reddit_cache.json so a server restart doesn't fetch again. The tile rotates through them."""
-    sub = re.sub(r"[^A-Za-z0-9_]", "", sub or "")[:40]
-    period = period if period in ("hour", "day", "week", "month", "year", "all") else "day"
-    if not sub:
-        return {"posts": [], "error": "no subreddit"}
-    key = sub.lower() + "|" + period
-    f = WORK / "reddit_cache.json"
-    if not REDDIT_CACHE:
-        try:
-            REDDIT_CACHE.update(json.loads(f.read_text()))
-        except Exception:
-            pass
-    c = REDDIT_CACHE.get(key)
-    if c and time.time() - c["at"] < (12 * 3600 if c["data"]["posts"] else 3600):
-        return c["data"]
-    out = {"sub": sub, "posts": [], "error": None}
-    errs = []
-    try:
-        out["posts"] = _reddit_from_json(_reddit_get("https://www.reddit.com/r/%s/top.json?t=%s&limit=40&raw_json=1" % (sub, period)))[:20]
-    except Exception as e:
-        errs.append("json: " + str(e)[:80])
-        try:
-            out["posts"] = _reddit_from_rss(_reddit_get("https://www.reddit.com/r/%s/top/.rss?t=%s&limit=40" % (sub, period)))[:20]
-        except Exception as e2:
-            errs.append("rss: " + str(e2)[:80])
-    if errs and not out["posts"]:
-        out["error"] = "Reddit refused the request (" + "; ".join(errs) + ")"
-    elif not out["posts"]:
-        out["error"] = "no pictures found (is the name right?)"
-    if not out["posts"] and c and c["data"]["posts"]:
-        out = dict(c["data"], stale=True)            # keep showing the last good pictures
-    REDDIT_CACHE[key] = {"at": time.time(), "data": out}
-    try:
-        f.write_text(json.dumps(REDDIT_CACHE))
-    except Exception:
-        pass
-    return out
 
 
 ISS_CACHE = {"at": 0, "now": None, "track_at": 0, "track": []}
@@ -2638,6 +2635,13 @@ def status_view():
         probs.append(["bad", "The server can't save settings: the data folder isn't writable. Check its owner (Docker: PUID/PGID, Unraid: 99:100)."])
     if not (g.get("lat") or g.get("lon")):
         probs.append(["warn", "Set your location so the weather can load."])
+    if CONFIG_PROBLEM.get("stuck"):
+        probs.append(["bad", "The settings file can't be read, and the server couldn't move it aside, so changes aren't being saved. "
+                             "Check the data folder: " + CONFIG_PROBLEM["stuck"]])
+    elif CONFIG_PROBLEM.get("kept"):
+        probs.append(["warn", "The settings file couldn't be read, so it was kept as %s in the data folder and %s." % (
+            CONFIG_PROBLEM["kept"], "your last backup (%s) was put back" % CONFIG_PROBLEM["restored"]
+            if CONFIG_PROBLEM["restored"] else "Countertop started fresh. No backup was found")])
 
     beat = SCREEN["beat"] or {}
     seen = SCREEN["at"]
