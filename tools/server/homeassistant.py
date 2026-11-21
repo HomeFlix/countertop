@@ -7,6 +7,7 @@ import threading
 import time
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+from server.actions import TILE_ACTIONS
 
 
 # ---------- Home Assistant (Setup > Home Assistant; the Home and Sensor tiles) ----------
@@ -182,58 +183,13 @@ def ha_entities(sid):
     return {"error": c["error"], "entities": [{"id": o["id"], "name": o["name"], "domain": o["domain"], "state": o["state"], "unit": o["unit"]} for o in L]}
 
 
-# Locks, alarm panels and garage doors, gates and doors (covers) can let someone in, so the screen shows their
-# state but doesn't control them.
-HA_SECURE_DOMAINS = {"lock", "alarm_control_panel"}
-HA_SECURE_COVERS = {"garage", "gate", "door"}
-
-
-def ha_secure(src, entity):
-    dom = entity.split(".")[0]
-    if dom in HA_SECURE_DOMAINS:
-        return True
-    if dom != "cover":
-        return False
-    st = ha_states(src)["states"].get(entity) or {}
-    return st.get("dc", "") in HA_SECURE_COVERS or not st      # a cover we can't see yet counts as secure
-
-
-def _ha_allowed(sid, entity):
-    """The dashboard may only control entities a Home or Sensor tile on the dashboard is set up to show:
-    anyone on the network can reach this server."""
-    try:
-        items = config_load()["modules"]["tiles"]["settings"].get("items") or []
-    except Exception:
-        items = []
-    first = (ha_source("") or {}).get("id")
-    for it in items:
-        s = it.get("settings") or {}
-        if it.get("type") == "ha":
-            if s.get("taps") is False:
-                continue
-            if (s.get("src") or first) != sid:
-                continue
-            if entity in (s.get("entities") or []):
-                return True
-        elif it.get("type") == "hasensor":
-            if s.get("taps") is False:
-                continue
-            if (s.get("src") or first) != sid:
-                continue
-            if s.get("entity") == entity or s.get("control") == entity:
-                return True
-    return False
-
-
-def ha_call(body):
-    src = ha_source(str(body.get("src") or ""))
-    entity = str(body.get("entity") or "")
-    if not src:
-        return 400, {"error": "Home Assistant isn't set up"}
+def ha_run(src, entity, action, data):
+    """Call one Home Assistant service for one entity: the domain's allowlist (HA_ACTIONS) and the scalar-only data
+    keys (HA_DATA_KEYS) apply. Whether this tile may do it at all is checked first, in the tile action."""
     if not re.fullmatch(r"[a-z_]+\.[a-z0-9_]+", entity):
         return 403, {"error": "Bad entity id"}
     dom = entity.split(".")[0]
-    action = str(body.get("action") or "").strip() or HA_DEFAULT.get(dom, "")
+    action = str(action or "").strip() or HA_DEFAULT.get(dom, "")
     if not re.fullmatch(r"[a-z_]+", action):
         return 403, {"error": "That action isn't allowed here"}
     if action == HA_REFRESH:
@@ -245,11 +201,6 @@ def ha_call(body):
         svc_dom = dom
     if action not in allowed:
         return 403, {"error": "That action isn't allowed here"}
-    if not _ha_allowed(src.get("id"), entity):
-        return 403, {"error": "Add it to a Home or Sensor tile first"}
-    if action != HA_REFRESH and ha_secure(src, entity):
-        return 403, {"error": "Locks, garage doors and alarms can't be controlled from the screen"}
-    data = body.get("data")
     payload = {"entity_id": entity}
     if isinstance(data, dict):
         for k, v in data.items():
@@ -260,9 +211,60 @@ def ha_call(body):
     except Exception as e:
         return 502, {"error": _ha_error(e, src)}
     log_entry({"t": time.strftime("%H:%M:%S"), "kind": "ha", "task": action, "result": entity,
-               "data": {k: payload[k] for k in payload if k != "entity_id"}})
+               "data": {k: ("<set>" if k == "code" else payload[k]) for k in payload if k != "entity_id"}})
     c = ha_states(src, force=True)
     return 200, {"ok": True, "action": action, "state": c["states"].get(entity)}
+
+
+# Locks, alarm panels and garage doors, gates and doors (covers) can let someone in. A tile controls them only when
+# "Allow locks, garage doors and alarms" is on in its settings, and asks for a second tap unless it's set to one.
+HA_SECURE_DOMAINS = {"lock", "alarm_control_panel"}
+HA_SECURE_COVERS = {"garage", "gate", "door"}
+
+
+def ha_secure(src, entity):
+    dom = entity.split(".")[0]
+    if dom in HA_SECURE_DOMAINS:
+        return True
+    if dom != "cover":
+        return False
+    st = (ha_states(src).get("states") or {}).get(entity) or {}
+    return st.get("dc", "") in HA_SECURE_COVERS or not st      # a cover we can't see yet counts as secure
+
+
+def ha_tile_entities(tile):
+    s = tile.get("settings") or {}
+    if tile.get("type") == "ha":
+        return [e for e in (s.get("entities") or []) if isinstance(e, str)]
+    if tile.get("type") == "hasensor":
+        return [e for e in (s.get("entity"), s.get("control")) if isinstance(e, str) and e]
+    return []
+
+
+def act_ha_call(tile, args):
+    """this.act("ha.call", {entity, action, data, confirm}) from a Home or Sensor tile."""
+    s = tile.get("settings") or {}
+    entity = str(args.get("entity") or "")
+    if entity not in ha_tile_entities(tile):
+        return 403, {"error": "Add it to this tile first"}
+    src = ha_source(str(s.get("src") or ""))
+    if not src:
+        return 400, {"error": "Home Assistant isn't set up"}
+    action = str(args.get("action") or "")
+    if s.get("taps") is False:
+        return 403, {"error": "This tile is set to only show things"}
+    if action != HA_REFRESH:                       # refreshing a reading changes nothing in the house
+        if ha_secure(src, entity):
+            if not s.get("secure"):
+                return 403, {"error": "Turn on \"Allow locks, garage doors and alarms\" in this tile's settings first"}
+            if s.get("confirm") != "One tap":
+                what = (tile.get("id"), entity, action or HA_DEFAULT.get(entity.split(".")[0], ""))
+                if not confirm_take(args.get("confirm"), what):
+                    return 200, {"confirm": confirm_make(what), "seconds": CONFIRM_SECONDS}
+    return ha_run(src, entity, action, args.get("data"))
+
+
+TILE_ACTIONS["ha.call"] = act_ha_call
 
 
 def ha_test(body):
@@ -283,6 +285,6 @@ def ha_test(body):
 
 
 # names used only inside functions: imported last, so these modules can use each other
-from server.config import config_load  # noqa: E402
+from server.actions import CONFIRM_SECONDS, confirm_make, confirm_take  # noqa: E402
 from server.core import VERSION, log_entry  # noqa: E402
 from server.sources import sources_load  # noqa: E402

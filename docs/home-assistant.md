@@ -24,11 +24,13 @@ Choose **Edit dashboard on screen**, add a tile from the **Home** group, and pic
 
 Doors left open, locks left unlocked and water sensors that are wet are shown in orange.
 
-## What can't be changed from the screen
+## Locks, garage doors and alarms
 
-Locks, alarm panels and garage doors, gates and doors are shown but can't be changed from the screen, because a kitchen screen is within reach of guests and kids. Taps only reach things that a Home or Sensor tile on your dashboard shows, with "Let the screen control" turned on. Anything else on your network that tries to switch something through Countertop is refused.
+Locks, alarm panels, and garage doors, gates and doors (covers) are shown on every tile, but a tile can only change them when **Allow locks, garage doors and alarms** is on in its settings. It's off by default, because a kitchen screen is within reach of guests and kids.
 
-Turn off **Let taps switch lights and run scenes** in a Home tile's settings to make it display only.
+With it on, **Locks, garage doors and alarms need** picks **Two taps** (the default: the first tap shows "Tap again to unlock Front door", and the second within six seconds does it) or **One tap**. The server checks both settings, so a tile can't skip them.
+
+Every tile can only reach the things it shows, following its own settings. Turn off **Let the screen control these things** to make a tile display only. Settings are open to anyone on your home network, so these settings guard against accidental taps, not against someone on your Wi-Fi.
 
 ## How it works
 

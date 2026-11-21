@@ -42,6 +42,23 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {"raw": raw[:4000].decode("utf-8", "replace")}
 
+    def _immich_image(self, sid, asset):
+        """One photo from an Immich album set up in Sources: this server holds the API key, and only
+        assets that are in the album are served. The screen gets plain image links, nothing else."""
+        src = next((a for a in (sources_load().get("albums") or [])
+                    if a.get("id") == sid and (a.get("kind") or "") == "Immich"), None)
+        cache = PHOTO_CACHES.get("immich:" + sid) or {}
+        if not src or asset not in (cache.get("assets") or set()):
+            return self._send(404, b"not found")
+        try:
+            req = Request(src["server"].rstrip("/") + "/api/assets/%s/thumbnail?size=preview" % asset,
+                          headers={"x-api-key": src.get("apiKey") or "", "Accept": "image/*"})
+            with urlopen(req, timeout=25) as r:
+                self._send(200, r.read(30_000_000), r.headers.get("Content-Type", "image/jpeg"),
+                           {"Cache-Control": "public, max-age=86400"})
+        except Exception:
+            self._send(404, b"not found")
+
     def do_GET(self):
         p = self.path.split("?")[0]
         if p in ("/", "/index.html"):
@@ -80,6 +97,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(team_matches(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
         elif p == "/photos":
             self._json(album_photos(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
+        elif re.fullmatch(r"/photos/immich/[\w-]+/[\w-]+\.jpg", p):
+            self._immich_image(p.split("/")[-2], p.rsplit("/", 1)[-1][:-4])
         elif p == "/tiles.js":
             # every tile type is one file in tools/tiles; adding a file adds a tile, no build step
             parts = []
@@ -203,8 +222,8 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(tiledata.apply(p[len("/tile-data/"):], body, live_tiles()))
             except tiledata.TileDataError as e:
                 self._json({"error": str(e)}, e.code)
-        elif p == "/ha/call":
-            code, out = ha_call(body)
+        elif p.startswith("/tile-act/"):
+            code, out = tile_act(p[len("/tile-act/"):], body)
             self._json(out, code)
         elif p == "/sources/test":
             self._json(recipes_test(body.get("item") or {}) if body.get("kind") == "recipes" else ha_test(body))
@@ -334,17 +353,18 @@ def main():
 
 
 # names used only inside functions: imported last, so these modules can use each other
+from server.actions import tile_act  # noqa: E402
 from server.config import CONFIG_FILE, SCHEMA, SERVER_START, config_load, config_save, dashboard_orientation, live_tiles  # noqa: E402
 from server.core import CAL_STATUS, HERE, ICS_CACHE, LOG, OLD_LOG, SCREEN, WORK, _Tee, lan_ip, log_entry  # noqa: E402
 from server.feeds.calendar import SAMPLE_ICS, parse_ics  # noqa: E402
 from server.feeds.cams import live_cams  # noqa: E402
 from server.feeds.meals import meal_ideas, recipes_test  # noqa: E402
-from server.feeds.photos import album_photos  # noqa: E402
+from server.feeds.photos import PHOTO_CACHES, album_photos  # noqa: E402
 from server.feeds.sales import _flipp, purchases_library, sales_view  # noqa: E402
 from server.feeds.sky import iss_now, planes_near, radar_frames, space_picture  # noqa: E402
 from server.feeds.sports import team_matches  # noqa: E402
 from server.feeds.stocks import stocks  # noqa: E402
-from server.homeassistant import ha_call, ha_entities, ha_test, ha_view  # noqa: E402
+from server.homeassistant import ha_entities, ha_test, ha_view  # noqa: E402
 from server.library import trial_add, trial_apply, trial_screen, trial_stop, trial_version  # noqa: E402
 from server.lists import list_push, local_list_apply, local_list_source, local_list_view, notes_apply, notes_view, pushed_list, reminders_apply, reminders_list_name, reminders_loop  # noqa: E402
 from server.sources import SOURCES_FILE, SOURCE_KINDS, sources_apply, sources_load, sources_public  # noqa: E402

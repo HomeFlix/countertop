@@ -1348,6 +1348,7 @@ function tileData(m, url, maxAge){
 // this.store   the tile's own data, kept by the server per tile (adding a second tile of a kind starts it empty)
 // this.fetch   data from a web address, cached (same as tileData)
 // this.feed    shared data the dashboard already loads: weather, events, notes, teams, albums, sales
+// this.act     ask the server to do something the tile is set up to do (ha.call)
 // tap(e, el) / submit(e, el, form) in a tile's definition get taps and form submits, except while editing or previewing
 const TDATA = {rev:0, ready:false, tiles:{}};
 const tileQuiet = () => EDIT.on || PREVIEW || !!SOLO || STILL || !!TRIAL_ID || !!TRIAL;   // looking, not using: nothing is written
@@ -1355,7 +1356,16 @@ const TILE_API = {
   api:0,
   get store(){ return tileStore(this); },
   fetch(url, maxAge){ return tileData(this, url, maxAge == null ? 300 : maxAge); },
-  feed(name){ return STATE[{weather:"wx", air:"aqi"}[name] || name]; }
+  feed(name){ return STATE[{weather:"wx", air:"aqi"}[name] || name]; },
+  // ask the server to do something for this tile (tools/countertop.py TILE_ACTIONS); resolves with its answer,
+  // rejects with its error. Nothing happens while editing or previewing.
+  async act(action, args){
+    if (tileQuiet()) throw new Error("Not while editing or previewing");
+    const r = await fetch("/tile-act/" + encodeURIComponent(this.id), {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action, args:args || {}})});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(j.error || ("error " + r.status));
+    return j;
+  }
 };
 function tileUsesStore(m){ return (m.uses || []).includes("store"); }
 function tileStore(m){
