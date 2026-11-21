@@ -558,6 +558,9 @@
   html.preview,html.preview body{cursor:default}
   html.preview .card.pv-hl{outline:3px solid #7cb7ff;outline-offset:3px}
   body.fs #hint{display:none}
+#trialbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:14px;padding:8px 8px 8px 18px;border-radius:99px;
+  background:rgba(12,15,20,.82);color:#fff;font-size:18px;box-shadow:0 6px 24px rgba(0,0,0,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#trialbar button{font:inherit;font-size:16px;font-weight:600;border:0;border-radius:99px;padding:6px 16px;background:#fff;color:#111;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1326,7 +1329,7 @@ function funDue(el, s){ if (el._funAt && Date.now() - el._funAt < Math.max(15, s
 const TYPES = {}, MODULES = {};
 const CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
 function Tile(type, def){
-  TYPES[type] = Object.assign({type, cat:"Fun", size:[12, 8, 8, 6], card:true, feeds:[], settings:{}}, def);
+  TYPES[type] = Object.assign(Object.create(TILE_API), {type, cat:"Fun", size:[12, 8, 8, 6], card:true, feeds:[], settings:{}}, def);
   if (def.css){ const st = document.createElement("style"); st.dataset.tile = type; st.textContent = def.css; document.head.appendChild(st); }     // a tile's own look
 }
 // data a tile fetches for itself (stocks, planes...): returns what it has now, refreshes in the background
@@ -1340,6 +1343,79 @@ function tileData(m, url, maxAge){
       .finally(() => { c.busy = false; c.at = Date.now(); if (MODULES[m.id] === m) render(m.id); });
   }
   return c.data;
+}
+/* ---------- the tile API (docs/tile-api.md): what every tile can use through `this` ---------- */
+// this.store   the tile's own data, kept by the server per tile (adding a second tile of a kind starts it empty)
+// this.fetch   data from a web address, cached (same as tileData)
+// this.feed    shared data the dashboard already loads: weather, events, notes, teams, albums, sales
+// tap(e, el) / submit(e, el, form) in a tile's definition get taps and form submits, except while editing or previewing
+const TDATA = {rev:0, ready:false, tiles:{}};
+const tileQuiet = () => EDIT.on || PREVIEW || !!SOLO || STILL || !!TRIAL_ID || !!TRIAL;   // looking, not using: nothing is written
+const TILE_API = {
+  api:0,
+  get store(){ return tileStore(this); },
+  fetch(url, maxAge){ return tileData(this, url, maxAge == null ? 300 : maxAge); },
+  feed(name){ return STATE[{weather:"wx", air:"aqi"}[name] || name]; }
+};
+function tileUsesStore(m){ return (m.uses || []).includes("store"); }
+function tileStore(m){
+  const id = m.id, write = (ops, unless) => tileWrite(id, ops, unless);
+  return {
+    get ready(){ return TDATA.ready || !!SOLO; },
+    get(){ return SOLO ? JSON.parse(JSON.stringify(m.demoData || {})) : (TDATA.tiles[id] || {}); },
+    set:(key, value) => write([{op:"set", key, value}]),
+    push:(key, item) => write([{op:"push", key, item:Object.assign({id:tileItemId()}, item)}]),
+    update:(key, itemId, fields) => write([{op:"update", key, id:itemId, fields}]),
+    remove:(key, itemId) => write([{op:"remove", key, id:itemId}]),
+    updateAll:(key, fields) => write([{op:"updateAll", key, fields}]),
+    removeWhere:(key, fields) => write([{op:"removeWhere", key, fields}]),
+    change:(ops, unless) => write(ops, unless)          // several operations at once, all or nothing; skipped when the data already has `unless`
+  };
+}
+function tileItemId(){ return Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 7); }
+// the same operations the server applies (tools/server/tiledata.py), so a tap shows at once
+function tileApply(data, op){
+  const list = k => Array.isArray(data[op.key]) ? data[op.key] : (data[op.key] = []);
+  const match = (x, f) => x && Object.keys(f).every(k => x[k] === f[k]);
+  if (op.op === "set"){ if (op.value == null) delete data[op.key]; else data[op.key] = op.value; }
+  else if (op.op === "push") list().push(op.item);
+  else if (op.op === "update") list().forEach(x => { if (x && x.id === op.id) Object.assign(x, op.fields); });
+  else if (op.op === "updateAll") list().forEach(x => { if (x) Object.assign(x, op.fields); });
+  else if (op.op === "remove") data[op.key] = list().filter(x => !(x && x.id === op.id));
+  else if (op.op === "removeWhere") data[op.key] = list().filter(x => !match(x, op.fields));
+}
+async function tileWrite(id, ops, unless){
+  if (tileQuiet()) return null;
+  const was = TDATA.tiles[id] || {};
+  if (unless && Object.keys(unless).every(k => JSON.stringify(was[k]) === JSON.stringify(unless[k]))) return was;
+  const mine = JSON.parse(JSON.stringify(was));
+  try{ ops.forEach(op => tileApply(mine, op)); TDATA.tiles[id] = mine; render(id); }catch(e){}
+  try{
+    const r = await fetch("/tile-data/" + encodeURIComponent(id), {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(unless ? {ops, unless} : {ops})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    TDATA.tiles[id] = j.data;
+  }catch(e){
+    TDATA.tiles[id] = was; reportErr("tile data " + id, String(e.message || e));
+  }
+  render(id);
+  return TDATA.tiles[id];
+}
+async function loadTileData(){
+  if (SOLO || !Object.values(MODULES).some(tileUsesStore)) return;
+  try{
+    const j = await getJSON("/tile-data?since=" + (TDATA.ready ? TDATA.rev : 0));
+    const ids = Object.keys(j.tiles || {});
+    Object.assign(TDATA.tiles, j.tiles || {}); TDATA.rev = j.rev || 0;
+    const first = !TDATA.ready; TDATA.ready = true;
+    render(...(first ? Object.keys(MODULES).filter(id => tileUsesStore(MODULES[id])) : ids).filter(id => MOUNTED[id]));
+  }catch(e){}
+}
+function tileHooks(el, m){
+  if (el._hooked || !(m.tap || m.submit)) return;
+  el._hooked = true;
+  if (m.tap) el.addEventListener("click", e => { if (!EDIT.on && !PREVIEW && MODULES[m.id] === m) m.tap(e, el); });
+  if (m.submit) el.addEventListener("submit", e => { e.preventDefault(); if (!EDIT.on && !PREVIEW && MODULES[m.id] === m) m.submit(e, el, e.target); });
 }
 function tileItems(){ const t = CFG && CFG.tiles; if (!t) return []; t.settings = t.settings || {}; return (t.settings.items = t.settings.items || []); }
 function tileItem(id){ return tileItems().find(t => t.id === id); }
@@ -1403,7 +1479,7 @@ function render(...ids){
     if (alone){ const v = tileHas(id) || (EDIT && EDIT.on); if (el.hidden !== !v){ el.hidden = !v; portraitFlow(el.closest(".cgrid")); } if (!v) continue; }
     if (el.classList.contains("stk-off") && !m.drawHidden) continue;      // not its turn: draw when it comes up
     try{
-      m.render(el);
+      m.render(el); tileHooks(el, m);
       if (!el._shownT){ el._shownT = Date.now(); if (m.show) m.show(el); }
       if (el.parentNode && el.parentNode.classList.contains("slot")){ slotFit(el, m); if (m.card && !m.noFit) cardFit(el); }
     }catch(e){ reportErr("tile " + id, e.message || String(e)); }
@@ -1544,7 +1620,7 @@ async function loadPhotos(){
   for (const id in MOUNTED) if (MODULES[id] && MODULES[id].type === "photos"){ MOUNTED[id]._layers = null; MOUNTED[id]._shown = null; }
   renderFeed("photos"); themePhotos();
 }
-const FEEDS = [[loadWeather, 600], [loadAqi, 1800], [loadEvents, 300], [loadNotes, 30], [loadTeams, 600], [loadPhotos, 1800], [loadSales, 1800]];
+const FEEDS = [[loadWeather, 600], [loadAqi, 1800], [loadEvents, 300], [loadNotes, 30], [loadTeams, 600], [loadPhotos, 1800], [loadSales, 1800], [loadTileData, 15]];
 
 /* ---------- pages ---------- */
 let pageTimer = null, PAGE = 0;
@@ -1610,7 +1686,7 @@ const FORCE_NIGHT = /[?&]night=1/.test(location.search);
 const hr12 = h => new Date(2000, 0, 1, +h || 0).toLocaleTimeString([], {hour:"numeric"});
 const NIGHT = {mode:"day", peekUntil:0};
 function isNight(h){
-  if (SOLO || !nightGrid()) return false;
+  if (SOLO || TRIAL_ID || TRIAL || !nightGrid()) return false;      // a layout being previewed or tried shows its own page, day or night
   if (FORCE_NIGHT) return true;
   const s = S("night"), a = +s.start, b = +s.end;
   if (!ON("night") || a === b) return false;
@@ -1729,10 +1805,29 @@ if (!FRAMED && !PREVIEW){
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden){ loadWeather(); loadEvents(); loadNotes(); } });
 
+/* ---------- a layout from the Library, shown for a few minutes ("Try it on the screen") or in its live preview (?trial=<id>) ---------- */
+const TRIAL_ID = (location.search.match(/[?&]trial=(\w+)/) || [])[1] || "";
+let TRIAL = null;
+function trialBanner(t){
+  TRIAL = {name:t.name, end:Date.now() + t.left * 1000};
+  const b = document.createElement("div"); b.id = "trialbar";
+  b.innerHTML = '<span></span><button type="button">Stop</button>';
+  b.querySelector("button").addEventListener("click", () => {
+    fetch("/trial/stop", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"}).finally(() => location.reload());
+  });
+  document.body.appendChild(b);
+  const draw = () => {
+    const s = Math.max(0, Math.round((TRIAL.end - Date.now()) / 1000));
+    b.firstChild.textContent = "Trying " + TRIAL.name + " · your layout comes back in " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    if (s <= 0){ clearInterval(tm); setTimeout(() => location.reload(), FRAMED ? 6000 : 500); }    // the shell usually reloads first
+  };
+  const tm = setInterval(draw, 1000); draw();
+}
 /* ---------- boot (runs after /tiles.js has defined the tile types) ---------- */
 let SOURCES = {};
 async function boot(){
-  try{ const j = await getJSON("/config"); CFG = j.modules; SCH = {}; SOURCES = j.sources || {}; for (const k in CFG) SCH[k] = (j.schema || {})[k] || {}; }
+  try{ const j = await getJSON("/config" + (TRIAL_ID ? "?trial=" + encodeURIComponent(TRIAL_ID) : "")); CFG = j.modules; SCH = {}; SOURCES = j.sources || {}; for (const k in CFG) SCH[k] = (j.schema || {})[k] || {};
+    if (j.trial) trialBanner(j.trial); }
   catch(e){ reportErr("config", String(e)); setTimeout(boot, 15e3); return; }
   if (SOLO) demoConfig();             // ?solo=<type>: one tile of that type with made-up data (examples in the tile list)
   tilesSetup();
@@ -2077,7 +2172,12 @@ function selectTile(id){
   if (name !== EDIT.page) goEditPage(name); else { stackTick(); edPaint(true); }
 }
 function editEnter(sel){
-  if (EDIT.on || SOLO) return;
+  if (EDIT.on || SOLO || TRIAL_ID) return;
+  if (TRIAL){        // not while a layout is being tried: Save would keep it. Point at the banner instead.
+    const b = document.getElementById("trialbar");
+    if (b && b.animate) b.animate([{transform:"translateX(-50%) scale(1.12)"}, {transform:"translateX(-50%) scale(1)"}], 450);
+    return;
+  }
   const cur = pageList()[PAGE] || "main";
   EDIT.on = true; EDIT.focus = null; EDIT.orig = JSON.stringify(CFG); EDIT.hist = []; EDIT.fut = []; EDIT.panel = null; EDIT.sel = null; EDIT.tile = null;
   EDIT.page = gridOf(cur) ? cur : "main";
@@ -3039,8 +3139,6 @@ function demoJSON(u){
     return {planes:[P("SWA1234", "Boeing 737-800", 2, 1, 9800, 80), P("DAL88", "Airbus A321", -6, 4, 24000, 260), P("N512CP", "Cessna 172", 1, -3, 2500, 10), P("UAL301", "Boeing 787-9", 9, -7, 35000, 300)], error:null}; }
   if (/^\/stocks/.test(u)){ const q = (sym, name, price, prev) => ({sym, name, price, prev, spark:[...Array(40)].map((_, i) => +(prev + (price - prev) * i / 39 + Math.sin(i / 3) * prev * .002).toFixed(2))});
     return {stocks:[q("^GSPC", "S&P 500", 5932.1, 5901.4), q("^DJI", "Dow Jones", 43210.5, 43350.2), q("ACME", "Acme Corp", 182.44, 179.9)]}; }
-  if (/^\/reddit/.test(u)){ const svg = c => "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000"><defs><linearGradient id="a" x2="0" y2="1"><stop offset="0" stop-color="' + c + '"/><stop offset="1" stop-color="#1b2a3a"/></linearGradient></defs><rect width="1600" height="1000" fill="url(#a)"/><path d="M0 760 L380 420 L640 640 L980 300 L1600 820 L1600 1000 L0 1000Z" fill="#20303f"/></svg>');
-    return {posts:[{title:"Sunrise over the ridge after a cold night [4000x2667]", img:svg("#f4a259"), by:"hiker", score:5100}, {title:"Fog in the valley this morning", img:svg("#8fb8de"), by:"walker", score:3900}], error:null}; }
   return undefined;     // anything else (meal ideas, cams, radar, space) holds nothing personal
 }
 // one tile of the asked-for type on a page of its own, made-up data, no personal settings

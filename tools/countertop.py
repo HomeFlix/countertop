@@ -35,6 +35,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from server import tiledata          # noqa: E402  (tools/server/: the server's parts, split out of this file over time)
+
 VERSION = "0.5.0"                 # bump with each release; CHANGELOG.md says what changed
 REPO = "kizit/countertop"
 HERE = Path(__file__).resolve().parent
@@ -141,6 +144,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
         elif p == "/config":
             cfg = config_load()
+            tid = parse_qs(urlparse(self.path).query).get("trial", [""])[0]
+            if tid:
+                trial_apply(cfg, tid)          # a live preview in the Library
+            elif self.path == "/config":
+                live = trial_screen()          # "Try it on the screen" from the Library
+                if live:
+                    trial_apply(cfg, live["id"])
+                    cfg["trial"] = {"name": live["name"], "left": max(1, int(live["until"] - time.time()))}
             if self.path == "/config?starters=1":
                 defaults = migrate_v3({})
                 main = next(p for p in defaults["pages"]["settings"]["items"] if p["id"] == "main")
@@ -172,9 +183,6 @@ class Handler(BaseHTTPRequestHandler):
             self._json(planes_near(parse_qs(urlparse(self.path).query).get("r", ["15"])[0]))
         elif p == "/stocks":
             self._json(stocks(parse_qs(urlparse(self.path).query).get("s", [""])[0]))
-        elif p == "/reddit":
-            q = parse_qs(urlparse(self.path).query)
-            self._json(reddit_pics(q.get("sub", [""])[0], q.get("t", ["day"])[0]))
         elif p == "/meals":
             q = parse_qs(urlparse(self.path).query)
             self._json(meal_ideas(q.get("meal", ["dinner"])[0], q.get("diet", ["Anything"])[0], q.get("src", [""])[0]))
@@ -201,7 +209,8 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
             # include the server's start time, so a restart also reloads the dashboard (it reads /config at boot)
-            self._json({"v": v + SERVER_START, "orientation": dashboard_orientation()})
+            # a layout tried on the screen changes it too, when it starts and when it ends
+            self._json({"v": v + SERVER_START + trial_version(), "orientation": dashboard_orientation()})
         elif p == "/status":
             if parse_qs(urlparse(self.path).query).get("check"):
                 update_check(force=True)
@@ -214,16 +223,20 @@ class Handler(BaseHTTPRequestHandler):
             self._json(ha_view(q.get("src", [""])[0], q.get("ids", [""])[0].split(",")))
         elif p == "/ha/entities":
             self._json(ha_entities(parse_qs(urlparse(self.path).query).get("src", [""])[0]))
+        elif p == "/tile-data":
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                since = int((q.get("since") or ["0"])[0])
+            except ValueError:
+                since = 0
+            self._json(tiledata.changed(since, live_tiles()))
         elif p == "/notes":
             q = parse_qs(urlparse(self.path).query)
             lid = (q.get("list") or [""])[0].strip()
             if lid and local_list_source(lid):
-                force = (q.get("daily") or [""])[0]
-                self._json(local_list_view(lid, True if force in ("1", "true", "yes") else None))
+                self._json(local_list_view(lid))
             else:
                 self._json(notes_view())
-        elif p == "/daily":
-            self._json(daily_view())
         elif p == "/list":
             self._send(200, (HERE / "list.html").read_bytes(), "text/html; charset=utf-8")
         elif re.fullmatch(r"/starters/[a-z]+\.jpg", p) and (HERE / p[1:]).is_file():
@@ -259,11 +272,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(config_save(body))
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p == "/trial":
+            try:
+                self._json(trial_add(body))
+            except Exception as e:
+                self._json({"error": str(e)}, 400)
+        elif p == "/trial/stop":
+            trial_stop()
+            self._json({"ok": True})
         elif p == "/sources":
             try:
                 self._json({"sources": sources_apply(body), "kinds": SOURCE_KINDS})
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p.startswith("/tile-data/"):
+            try:
+                self._json(tiledata.apply(p[len("/tile-data/"):], body, live_tiles()))
+            except tiledata.TileDataError as e:
+                self._json({"error": str(e)}, e.code)
         elif p == "/ha/call":
             code, out = ha_call(body)
             self._json(out, code)
@@ -272,12 +298,10 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/lists/push":
             code, out = list_push(body)
             self._json(out, code)
-        elif p == "/daily":
-            self._json(daily_apply(body))
         elif p == "/notes":
             lid = str(body.get("list") or "").strip()
             if lid and local_list_source(lid):
-                self._json(local_list_apply(lid, body, True if body.get("daily") else None))
+                self._json(local_list_apply(lid, body))
             elif pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(notes_view())          # the list is kept in another app: read-only here
             elif reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
@@ -1039,79 +1063,6 @@ def notes_apply(body):
         return d
 
 
-# ---------- daily to-do list (work/daily.json): kept on this dashboard itself, ticks cleared at midnight ----------
-DAILY = WORK / "daily.json"
-DAILY_LOCK = threading.Lock()
-
-
-def _today():
-    return datetime.now().strftime("%Y-%m-%d")
-
-
-def _daily_save(d):
-    DAILY.parent.mkdir(parents=True, exist_ok=True)
-    tmp = DAILY.with_suffix(".tmp")
-    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
-    tmp.replace(DAILY)
-
-
-def daily_load():
-    """Reads the daily list; when the calendar day has changed since the last save, the ticks are cleared
-    (the items themselves stay) — that's the 00:00 reset."""
-    try:
-        d = json.loads(DAILY.read_text())
-        if not isinstance(d, dict) or not isinstance(d.get("items"), list):
-            d = {"items": []}
-    except Exception:
-        d = {"items": []}
-    d.setdefault("items", [])
-    if d.get("date") != _today():
-        d = {"date": _today(), "updated": int(time.time()),
-             "items": [{"id": i.get("id") or uuid.uuid4().hex[:8], "text": str(i.get("text") or ""), "done": False}
-                       for i in d["items"] if str(i.get("text") or "").strip()]}
-        try:
-            _daily_save(d)
-        except Exception:
-            pass
-    return d
-
-
-def daily_view():
-    with DAILY_LOCK:
-        d = daily_load()
-    return {"date": d.get("date"), "items": d["items"], "updated": d.get("updated", 0)}
-
-
-def daily_apply(body):
-    op = str(body.get("op") or "")
-    with DAILY_LOCK:
-        d = daily_load()
-        items = d["items"]
-        if op == "add":
-            text = " ".join(str(body.get("text") or "").split())[:80]
-            if text and len(items) < 80 and not any(i["text"].lower() == text.lower() and not i.get("done") for i in items):
-                items.append({"id": uuid.uuid4().hex[:8], "text": text, "done": False})
-        elif op == "toggle":
-            for i in items:
-                if i["id"] == body.get("id"):
-                    i["done"] = not i.get("done")
-        elif op == "remove":
-            d["items"] = [i for i in items if i["id"] != body.get("id")]
-        elif op == "reset":                     # clear every tick right now (same as the midnight reset)
-            for i in items:
-                i["done"] = False
-        elif op == "clear":                     # empty the whole list
-            d["items"] = []
-        else:
-            return daily_view()
-        d["updated"] = int(time.time())
-        try:
-            _daily_save(d)
-        except Exception:
-            pass
-        return {"date": d.get("date"), "items": d["items"], "updated": d["updated"]}
-
-
 # ---------- lists kept on this dashboard, one entry per list (work/lists.json) ----------
 # A list set up in Sources as "This dashboard" is edited right on the List tile. Its ticks can be
 # cleared automatically when the day changes (the items stay), so it works as a daily checklist.
@@ -1144,6 +1095,10 @@ def local_list_source(list_id):
     return None
 
 
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 def _local_list(rec, daily):
     """The 00:00 reset: on a new calendar day the ticks are cleared, the items stay."""
     today = _today()
@@ -1156,10 +1111,15 @@ def _local_list(rec, daily):
     return rec
 
 
-def _local_daily(L, daily):
-    """A list can clear its own ticks overnight (Sources: "Clear the ticks every day at 00:00").
-    An explicit True/False from the caller (the daily tile API) overrides that."""
-    return bool(L.get("daily")) if daily is None else bool(daily)
+def _local_record(all_, list_id):
+    """A list's saved items. Before lists had their own entries here, every list kept on this dashboard showed
+    the items in work/notes.json, so a list with no entry yet starts from those (notes.json is left as it was)."""
+    rec = all_.get(list_id)
+    if isinstance(rec, dict):
+        return rec
+    old = notes_load()
+    return {"items": [dict(i) for i in old.get("items") or [] if isinstance(i, dict)],
+            "note": old.get("note") or "", "updated": old.get("updated") or 0}
 
 
 def _local_view(L, rec):
@@ -1168,25 +1128,25 @@ def _local_view(L, rec):
             "daily": bool(L.get("daily")), "readonly": False}
 
 
-def local_list_view(list_id, daily=None):
+def local_list_view(list_id):
     L = local_list_source(list_id) or {"id": list_id, "name": "List"}
     with LISTS_LOCK:
         all_ = _lists_load()
-        rec = all_.get(list_id)
-        was = rec.get("date") if isinstance(rec, dict) else None
-        rec = _local_list(rec or {"items": []}, _local_daily(L, daily))
+        rec = _local_record(all_, list_id)
+        was = rec.get("date")
+        rec = _local_list(rec, bool(L.get("daily")))
         if list_id not in all_ or was != rec.get("date"):
             all_[list_id] = rec
             _lists_save(all_)
     return _local_view(L, rec)
 
 
-def local_list_apply(list_id, body, daily=None):
+def local_list_apply(list_id, body):
     op = str(body.get("op") or "")
     L = local_list_source(list_id) or {"id": list_id, "name": "List"}
     with LISTS_LOCK:
         all_ = _lists_load()
-        rec = _local_list(all_.get(list_id) or {"items": []}, _local_daily(L, daily))
+        rec = _local_list(_local_record(all_, list_id), bool(L.get("daily")))
         items = rec["items"]
         if op == "add":
             text = " ".join(str(body.get("text") or "").split())[:80]
@@ -1289,7 +1249,7 @@ def config_defaults():
 
 # ---------- v3: every tile is an instance of a tile type (tools/tiles/*.js) placed in a grid box ----------
 # Older settings files had one fixed module per tile, a classic column layout and bundle tiles (big tile,
-# little thing). They are converted once, on load; the old file is kept as work/dashboard.pre-v3.json.
+# little thing). They are converted once, on load (CONFIG_UPGRADES); the old file is copied to work/backups first.
 MAIN_CLASSIC = {"clock": [0, 0, 14, 8], "weather": [37, 0, 11, 8], "week": [0, 8, 48, 5], "stage": [0, 13, 27, 19],
                 "grocery": [27, 13, 11, 12], "dinner": [38, 13, 10, 12], "city": [27, 25, 11, 7], "fun": [38, 25, 10, 7]}
 OLD_ON = {"photos": False, "today": False, "sales": False, "hourly": False}
@@ -1490,34 +1450,123 @@ def dashboard_orientation(saved=None):
     return mode if mode in ORIENTATIONS else "auto"
 
 
+# ---------- keeping settings safe ----------
+# dashboard.json carries a "schema" number. Each upgrade below runs once, in order, for files saved
+# before it existed; add a step (and bump CONFIG_SCHEMA) whenever the stored shape changes.
+CONFIG_SCHEMA = 2
+BACKUP_DIR = WORK / "backups"
+BACKUP_KEEP = 12              # rolling copies of dashboard.json, newest kept
+BACKUP_EVERY = 15 * 60        # at most one routine copy per 15 minutes (Controls saves on every change)
+tiledata.init(WORK, BACKUP_DIR)
+CONFIG_PROBLEM = {}           # set when a settings file couldn't be read: shown in Controls > Status
+
+
+def _upgrade_v3(m):
+    return (m, False) if "tiles" in m else (migrate_v3(m), True)
+
+
+def _upgrade_looks(m):
+    return m, migrate_looks(m)
+
+
+CONFIG_UPGRADES = [(1, _upgrade_v3), (2, _upgrade_looks)]
+
+
+def config_backup(force=False):
+    """Copy the current dashboard.json into work/backups. Routine copies are spaced out; force is for
+    just before an upgrade rewrites the file. Call with CONFIG_LOCK held or before taking it."""
+    try:
+        if not CONFIG_FILE.exists():
+            return None
+        BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+        have = sorted(BACKUP_DIR.glob("dashboard-*.json"))
+        if have and not force and time.time() - have[-1].stat().st_mtime < BACKUP_EVERY:
+            return None
+        dest = BACKUP_DIR / ("dashboard-%s.json" % time.strftime("%Y%m%d-%H%M%S"))
+        n = 1
+        while dest.exists():
+            n += 1
+            dest = BACKUP_DIR / ("dashboard-%s-%d.json" % (time.strftime("%Y%m%d-%H%M%S"), n))
+        dest.write_bytes(CONFIG_FILE.read_bytes())
+        for old in sorted(BACKUP_DIR.glob("dashboard-*.json"))[:-BACKUP_KEEP]:
+            old.unlink()
+        return dest
+    except OSError as e:
+        print("settings backup failed: %s" % e, flush=True)
+        return None
+
+
+def _parse_config(raw):
+    saved = json.loads(raw)
+    if not isinstance(saved, dict):
+        raise ValueError("settings file is not a JSON object")
+    return saved
+
+
+def config_read():
+    """The saved settings file as a dict ({} for a new install), or None when it exists but can't be used.
+
+    A file that can't be read is never written over: it is renamed to dashboard.broken-<time>.json and
+    the newest readable backup is put back in its place."""
+    try:
+        return _parse_config(CONFIG_FILE.read_text())
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError, UnicodeDecodeError):
+        pass
+    with CONFIG_LOCK:
+        try:                                    # another request may have dealt with it meanwhile
+            return _parse_config(CONFIG_FILE.read_text())
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError, UnicodeDecodeError) as e:
+            why = str(e)[:200]
+        kept = CONFIG_FILE.with_name("dashboard.broken-%s.json" % time.strftime("%Y%m%d-%H%M%S"))
+        try:
+            CONFIG_FILE.rename(kept)
+        except OSError as e:
+            CONFIG_PROBLEM.update(at=time.time(), why=why, kept="", restored="", stuck=str(e)[:200])
+            print("settings file can't be read (%s) or moved aside (%s); using defaults without saving" % (why, e), flush=True)
+            return None
+        restored, data = "", {}
+        for b in sorted(BACKUP_DIR.glob("dashboard-*.json"), reverse=True) if BACKUP_DIR.exists() else []:
+            try:
+                data = _parse_config(b.read_text())
+            except (OSError, ValueError, UnicodeDecodeError):
+                continue
+            tmp = CONFIG_FILE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(data, indent=1, ensure_ascii=False))
+            tmp.replace(CONFIG_FILE)
+            restored = b.name
+            break
+        CONFIG_PROBLEM.update(at=time.time(), why=why, kept=kept.name, restored=restored, stuck="")
+        print("settings file couldn't be read (%s): kept it as %s; %s" % (
+            why, kept.name, "restored backups/" + restored if restored else "no backup to restore, starting fresh"), flush=True)
+        return data
+
+
 def config_load():
     merged = config_defaults()
-    try:
-        saved = json.loads(CONFIG_FILE.read_text())
-    except Exception:
-        saved = {}
-    smods = saved.get("modules") or {}
-    if "tiles" not in smods:
-        with CONFIG_LOCK:
+    saved = config_read()
+    can_save = saved is not None
+    saved = saved or {}
+    smods = saved.get("modules") if isinstance(saved.get("modules"), dict) else {}
+    have = saved.get("schema") if isinstance(saved.get("schema"), int) else 0
+    if have < CONFIG_SCHEMA:
+        changed = False
+        for n, step in CONFIG_UPGRADES:
+            if have < n:
+                smods, did = step(smods)
+                changed = changed or did
+        if can_save and not (CONFIG_PROBLEM.get("upgrade_unsaved") and not changed):
+            if changed:
+                config_backup(force=True)
             try:
-                bak = CONFIG_FILE.with_name("dashboard.pre-v3.json")
-                if CONFIG_FILE.exists() and not bak.exists():
-                    bak.write_text(CONFIG_FILE.read_text())
-            except Exception:
-                pass
-        smods = migrate_v3(smods)
-        try:
-            config_save({"modules": smods}, quiet=True)
-        except Exception:
-            pass
-    if migrate_looks(smods):
-        try:
-            bak = CONFIG_FILE.with_name("dashboard.before-looks.json")
-            if CONFIG_FILE.exists() and not bak.exists():
-                bak.write_text(CONFIG_FILE.read_text())
-            config_save({"modules": smods}, quiet=True)
-        except Exception:
-            pass
+                config_save({"modules": smods}, quiet=True)
+                CONFIG_PROBLEM.pop("upgrade_unsaved", None)
+            except Exception as e:             # a read-only data folder: Status already says so; don't retry every load
+                CONFIG_PROBLEM["upgrade_unsaved"] = True
+                print("couldn't save upgraded settings: %s" % e, flush=True)
     for mid, c in smods.items():
         if mid not in merged or not isinstance(c, dict):
             continue
@@ -1549,11 +1598,114 @@ def config_save(body, quiet=False):
                 saved = {}
         if orientation_edit:
             saved["orientation"] = body["orientation"]
+        saved["schema"] = CONFIG_SCHEMA
         saved["saved"] = int(time.time())
+        config_backup()
         tmp = CONFIG_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(saved, indent=1, ensure_ascii=False))
         tmp.replace(CONFIG_FILE)
+        live = _tile_ids(saved.get("modules"))
+        if live is not None:              # a save without a tile list (orientation only) leaves tile data alone
+            tiledata.sync(live)
     return None if quiet else config_load()
+
+
+def _tile_ids(mods):
+    """Tile id -> tile type for every tile in a saved modules dict (None when it has no tile list)."""
+    try:
+        items = mods["tiles"]["settings"]["items"]
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(items, list):
+        return None
+    return {t["id"]: str(t.get("type") or "") for t in items if isinstance(t, dict) and isinstance(t.get("id"), str)}
+
+
+LIVE_TILES = {"mtime": None, "ids": {}}
+
+
+def live_tiles():
+    """The tiles on the saved dashboard (id -> type); a layout being previewed or tried isn't saved, so its tiles aren't here."""
+    try:
+        mt = CONFIG_FILE.stat().st_mtime_ns
+    except OSError:
+        return {}
+    if LIVE_TILES["mtime"] != mt:
+        try:
+            LIVE_TILES["ids"] = _tile_ids(json.loads(CONFIG_FILE.read_text()).get("modules")) or {}
+        except (OSError, ValueError, AttributeError):
+            LIVE_TILES["ids"] = {}
+        LIVE_TILES["mtime"] = mt
+    return LIVE_TILES["ids"]
+
+
+# ---------- Library: preview a layout without saving it ----------
+# Controls sends a page list, tiles and look; the dashboard asks for /config?trial=<id> to draw them (the live
+# preview on a layout's page), or gets them from plain /config for a few minutes ("Try it on the screen").
+# Nothing here is written to disk, and everything else (sources, settings, the night page's hours) stays as saved.
+TRIALS = {}
+TRIAL_SCREEN = {"id": "", "until": 0.0}
+TRIAL_LOCK = threading.Lock()
+
+
+def trial_add(body):
+    if not isinstance(body, dict):
+        raise ValueError("expected a layout")
+    pages, tiles, look = body.get("pages"), body.get("tiles"), body.get("look")
+    if not isinstance(pages, list) or not isinstance(tiles, list) or not isinstance(look or {}, dict):
+        raise ValueError("expected pages, tiles and look")
+    if not any(isinstance(x, dict) and x.get("id") == "main" for x in pages):
+        raise ValueError("the layout has no main page")
+    if len(json.dumps(body)) > 2_000_000:
+        raise ValueError("that layout is too big")
+    tid = uuid.uuid4().hex[:12]
+    with TRIAL_LOCK:
+        TRIALS[tid] = {"pages": pages, "tiles": tiles, "look": look or {}, "name": str(body.get("name") or "Layout")[:80], "at": time.time()}
+        for old in sorted(TRIALS, key=lambda k: TRIALS[k]["at"])[:-12]:
+            if old != TRIAL_SCREEN["id"]:
+                del TRIALS[old]
+        out = {"id": tid}
+        if body.get("screen"):
+            try:
+                secs = int(body.get("seconds") or 120)
+            except (TypeError, ValueError):
+                secs = 120
+            TRIAL_SCREEN.update(id=tid, until=time.time() + max(10, min(600, secs)))
+            out["until"] = int(TRIAL_SCREEN["until"])
+    return out
+
+
+def trial_screen():
+    with TRIAL_LOCK:
+        tid = TRIAL_SCREEN["id"]
+        if not tid or time.time() >= TRIAL_SCREEN["until"] or tid not in TRIALS:
+            return None
+        return {"id": tid, "name": TRIALS[tid]["name"], "until": TRIAL_SCREEN["until"]}
+
+
+def trial_stop():
+    with TRIAL_LOCK:
+        TRIAL_SCREEN.update(id="", until=0.0)
+
+
+def trial_version():
+    live = trial_screen()
+    return int(live["id"][:6], 16) % 100000 + 1 if live else 0
+
+
+def trial_apply(cfg, tid):
+    with TRIAL_LOCK:
+        t = TRIALS.get(tid)
+    if not t:
+        return cfg
+    m = cfg["modules"]
+    m["pages"]["settings"]["items"] = t["pages"]
+    m["tiles"]["settings"]["items"] = t["tiles"]
+    look = m["look"]["settings"]
+    for k, v in t["look"].items():
+        if k in look and k not in ("items", "rules"):
+            look[k] = v
+    return cfg
 
 
 def setting(mid, key):
@@ -1960,96 +2112,6 @@ def _stock_one(sym):
 def stocks(syms):
     L = [x for x in (_stock_one(s) for s in syms.split(",")[:12]) if x]
     return {"stocks": L}
-
-
-# ---------- subreddit pictures: top image posts (safe for work only), cached 30 minutes ----------
-REDDIT_CACHE = {}
-
-
-REDDIT_UA = "macos:home-dashboard:v1.0 (personal kitchen display; picture tile, about two requests a day)"
-
-
-def _reddit_get(url):
-    # identifies itself honestly, as Reddit asks of scripts; no browser disguise
-    with urlopen(Request(url, headers={"User-Agent": REDDIT_UA}), timeout=12) as r:
-        return r.read(6_000_000).decode("utf-8", "replace")
-
-
-def _reddit_from_json(txt):
-    posts = []
-    for ch in (json.loads(txt).get("data") or {}).get("children") or []:
-        d = ch.get("data") or {}
-        if d.get("over_18") or d.get("spoiler") or d.get("is_video"):
-            continue
-        url = d.get("url_overridden_by_dest") or d.get("url") or ""
-        prev = ((d.get("preview") or {}).get("images") or [{}])[0]
-        res = [x for x in (prev.get("resolutions") or []) if x.get("width", 0) >= 1000]
-        img = (res[0]["url"] if res else (prev.get("source") or {}).get("url")) if prev else None
-        if not img and re.search(r"\.(jpe?g|png|webp)$", url, re.I):
-            img = url
-        if img:
-            posts.append({"title": d.get("title") or "", "img": img, "by": d.get("author") or "", "score": d.get("score") or 0,
-                          "link": "https://www.reddit.com" + (d.get("permalink") or "")})
-    return posts
-
-
-def _reddit_from_rss(txt):
-    # Reddit's public Atom feed; it has no adult flag per post, so titles marked NSFW or spoiler are skipped
-    import html as _html
-    posts = []
-    for e in re.findall(r"<entry>(.*?)</entry>", txt, re.S):
-        title = _html.unescape((re.search(r"<title>(.*?)</title>", e, re.S) or [None, ""])[1])
-        if re.search(r"\bnsfw\b|\bspoiler\b", title, re.I):
-            continue
-        body = _html.unescape((re.search(r"<content[^>]*>(.*?)</content>", e, re.S) or [None, ""])[1])
-        m = re.search(r'href="(https://i\.redd\.it/[^"]+\.(?:jpe?g|png|webp))"', body) or re.search(r'href="(https://i\.imgur\.com/[^"]+\.(?:jpe?g|png))"', body)
-        if not m:
-            continue
-        who = re.search(r"<name>/?u/([^<]+)</name>", e)
-        link = re.search(r'<link href="([^"]+)"', e)
-        posts.append({"title": title, "img": m.group(1), "by": who.group(1) if who else "", "score": 0, "link": link.group(1) if link else ""})
-    return posts
-
-
-def reddit_pics(sub, period="day"):
-    """Top pictures from a subreddit, fetched at most every 12 hours (an hour after a failure) and kept
-    in work/reddit_cache.json so a server restart doesn't fetch again. The tile rotates through them."""
-    sub = re.sub(r"[^A-Za-z0-9_]", "", sub or "")[:40]
-    period = period if period in ("hour", "day", "week", "month", "year", "all") else "day"
-    if not sub:
-        return {"posts": [], "error": "no subreddit"}
-    key = sub.lower() + "|" + period
-    f = WORK / "reddit_cache.json"
-    if not REDDIT_CACHE:
-        try:
-            REDDIT_CACHE.update(json.loads(f.read_text()))
-        except Exception:
-            pass
-    c = REDDIT_CACHE.get(key)
-    if c and time.time() - c["at"] < (12 * 3600 if c["data"]["posts"] else 3600):
-        return c["data"]
-    out = {"sub": sub, "posts": [], "error": None}
-    errs = []
-    try:
-        out["posts"] = _reddit_from_json(_reddit_get("https://www.reddit.com/r/%s/top.json?t=%s&limit=40&raw_json=1" % (sub, period)))[:20]
-    except Exception as e:
-        errs.append("json: " + str(e)[:80])
-        try:
-            out["posts"] = _reddit_from_rss(_reddit_get("https://www.reddit.com/r/%s/top/.rss?t=%s&limit=40" % (sub, period)))[:20]
-        except Exception as e2:
-            errs.append("rss: " + str(e2)[:80])
-    if errs and not out["posts"]:
-        out["error"] = "Reddit refused the request (" + "; ".join(errs) + ")"
-    elif not out["posts"]:
-        out["error"] = "no pictures found (is the name right?)"
-    if not out["posts"] and c and c["data"]["posts"]:
-        out = dict(c["data"], stale=True)            # keep showing the last good pictures
-    REDDIT_CACHE[key] = {"at": time.time(), "data": out}
-    try:
-        f.write_text(json.dumps(REDDIT_CACHE))
-    except Exception:
-        pass
-    return out
 
 
 ISS_CACHE = {"at": 0, "now": None, "track_at": 0, "track": []}
@@ -2754,6 +2816,13 @@ def status_view():
         probs.append(["bad", "The server can't save settings: the data folder isn't writable. Check its owner (Docker: PUID/PGID, Unraid: 99:100)."])
     if not (g.get("lat") or g.get("lon")):
         probs.append(["warn", "Set your location so the weather can load."])
+    if CONFIG_PROBLEM.get("stuck"):
+        probs.append(["bad", "The settings file can't be read, and the server couldn't move it aside, so changes aren't being saved. "
+                             "Check the data folder: " + CONFIG_PROBLEM["stuck"]])
+    elif CONFIG_PROBLEM.get("kept"):
+        probs.append(["warn", "The settings file couldn't be read, so it was kept as %s in the data folder and %s." % (
+            CONFIG_PROBLEM["kept"], "your last backup (%s) was put back" % CONFIG_PROBLEM["restored"]
+            if CONFIG_PROBLEM["restored"] else "Countertop started fresh. No backup was found")])
 
     beat = SCREEN["beat"] or {}
     seen = SCREEN["at"]
