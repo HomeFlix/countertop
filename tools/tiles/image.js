@@ -3,7 +3,7 @@ Tile("image", {
   title:"Picture from a link", cat:"Photos & video", size:[16, 12, 6, 4], noFit:true,
   desc:"Any picture on the web, by its link: a traffic or ski-hill webcam snapshot, a chart, a comic. It reloads on the schedule you pick.",
   settings:{
-    url:{type:"text", label:"Picture link", placeholder:"https://…/snapshot.jpg", help:"A link that opens a picture by itself (ends in .jpg, .png, .gif or .webp, or a webcam's snapshot link)", default:""},
+    url:{type:"text", share:false, label:"Picture link", placeholder:"https://…/snapshot.jpg", help:"A link that opens a picture by itself (ends in .jpg, .png, .gif or .webp, or a webcam's snapshot link)", default:""},
     every:{type:"int", label:"Reload every (minutes, 0 = never)", default:10, min:0, max:1440},
     fit:{type:"choice", label:"Fit", choices:["Fill the box", "Show all of it"], default:"Fill the box"},
     caption:{type:"text", label:"Caption", default:""}
