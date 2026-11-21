@@ -27,7 +27,7 @@ To keep development data somewhere else, set `COUNTERTOP_DATA`:
 COUNTERTOP_DATA=~/countertop-dev-data python3 tools/countertop.py --port 8091
 ```
 
-Press Ctrl-C to stop the server. After you change `tools/countertop.py`, restart it. Changes to the pages and tiles in `tools/` take effect the next time you reload them.
+Press Ctrl-C to stop the server. After you change `tools/countertop.py` or anything in `tools/server/`, restart it. Changes to the pages and tiles in `tools/` take effect the next time you reload them.
 
 ## Preview without the real screen
 
@@ -50,9 +50,10 @@ Only one Countertop app can run at a time, and both use port 8090. On a Mac wher
 Countertop needs Python 3.9 or newer, with nothing else to install. The same checks run on every pull request:
 
 ```sh
-python3 -m unittest discover -s tests     # server: settings, calendars, Home Assistant, meal ideas
+python3 -m unittest discover -s tests     # server: settings, tile data, calendars, Home Assistant, meal ideas
 node tests/check-js.js                    # every script in the pages and tiles parses
 node tests/browser-check.js               # the pages open with the demo data and log no errors (needs Playwright)
+node tests/tile-data-check.js            # two Daily to-do tiles keep separate lists on a real screen (needs Playwright)
 ```
 
 Repeating calendar events use python-dateutil when it's installed and a built-in expander when it isn't, so the calendar tests run against both. When you change how settings are stored, add a step to `CONFIG_UPGRADES` in `tools/countertop.py`, bump `CONFIG_SCHEMA`, and add a test with a settings file in the old shape.
