@@ -3,7 +3,7 @@ Tile("countdown", {
   title:"Countdown", cat:"Time", every:600, size:[12, 8, 8, 5],
   desc:"Days until the dates you care about: a trip, a birthday, the last day of school. The nearest one is big; the next few are listed under it. Past dates drop off on their own.",
   settings:{
-    dates:{type:"list", label:"Dates", help:"One per line: name, then the date. For example: Beach trip, 2027-06-14", placeholder:"Beach trip, 2027-06-14", default:[]},
+    dates:{type:"list", share:false, label:"Dates", help:"One per line: name, then the date. For example: Beach trip, 2027-06-14", placeholder:"Beach trip, 2027-06-14", default:[]},
     yearly:{type:"bool", label:"Dates without a year come back every year", default:true},
     more:{type:"int", label:"How many more to list", default:3, min:0, max:6}
   },
