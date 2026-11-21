@@ -2874,7 +2874,8 @@ def immich_album_photos(src):
                                   "date": ex.get("dateTimeOriginal") or "",
                                   "w": int(ex.get("exifImageWidth") or 0),
                                   "h": int(ex.get("exifImageHeight") or 0)})
-        cache.update(at=time.time(), key=ck, data=out, assets={a["id"] for a in assets})
+        cache.update(at=time.time(), key=ck, data=out,
+                     assets={a["id"] for a in assets if (a.get("type") or "").upper() == "IMAGE"})     # only what the screen is shown
     except Exception as e:
         if cache["key"] == ck and cache["data"] is not None:
             out = dict(cache["data"], error=str(getattr(e, "reason", e))[:200])       # keep showing what we had
