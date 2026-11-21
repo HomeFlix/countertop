@@ -75,6 +75,13 @@
   .saverow{display:flex;gap:10px;margin-top:16px}
   .saverow button{flex:1;padding:13px;border-radius:12px;background:var(--group);font-weight:600}
   .saverow button.pri{background:var(--accent);color:#06121f}
+  /* a list's items (Controls → Lists) */
+  .lladd{display:flex;gap:8px}
+  .lladd input{flex:1;min-width:0}
+  .lladd button{flex:none;padding:10px 14px;font-size:15px}
+  .ll-x{flex:none;background:none;border:0;color:var(--dim);font-size:24px;line-height:1;padding:4px 10px;cursor:pointer}
+  .ll-x:active{color:var(--bad)}
+  .llb{flex:none;font-size:14px;padding:6px 12px;border-radius:10px;background:var(--group);color:var(--dim);cursor:pointer}
   #pvedit{background:var(--accent);color:#06121f;font-weight:600;border-radius:9px;padding:6px 14px;font-size:14px}
   #pvedit.on{background:#2a313b;color:var(--dim)}
   /* preview */
@@ -166,6 +173,79 @@
   .wizdots i{flex:1;height:4px;border-radius:2px;background:#2a313a}
   .wizdots i.done{background:#3d6a99} .wizdots i.on{background:var(--accent)}
   .saverow button[data-act="wizback"],.saverow button[data-act="wizskip"]{flex:.6}
+  /* Library: full screen over Controls */
+  #lib{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;grid-template-columns:220px minmax(0,1fr)}
+  #lib[hidden]{display:none}
+  body.libopen{overflow:hidden}
+  .lrail{border-right:1px solid var(--line);padding:max(12px,env(safe-area-inset-top)) 12px 20px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+  .lrail h1{font-size:26px;margin:10px 10px 14px}
+  .lrail button{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-radius:10px;text-align:left;font-size:16px}
+  .lrail button:hover{background:var(--group)}
+  .lrail button.on{background:var(--hl);color:var(--accent);font-weight:600}
+  .lrail button small{color:var(--faint);font-size:13px;font-weight:400;margin-left:8px}
+  .lrail .lback{color:var(--accent);padding-left:4px}
+  .lsep{color:var(--faint);font-size:12px;letter-spacing:.08em;text-transform:uppercase;margin:16px 12px 4px}
+  .lmain{overflow:auto;padding:max(18px,env(safe-area-inset-top)) 28px 60px;min-width:0}
+  .lmain > .lback{color:var(--accent);font-size:16px;margin:2px 0 12px;display:inline-block}
+  .ltop{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  .ltop input[type=search]{flex:1;min-width:200px;font:inherit;color:var(--fg);background:#232a33;border:1px solid var(--line);border-radius:10px;padding:9px 14px;outline:none}
+  .lbtn{background:#232a33;border-radius:10px;padding:10px 16px;font-weight:500;white-space:nowrap;text-align:center;cursor:pointer;display:inline-block}
+  .lbtn:hover{background:#2c3440}
+  .lbtn.pri{background:var(--accent);color:#06121f;font-weight:600}
+  .lbtn.ghost{background:none;color:var(--accent);box-shadow:inset 0 0 0 1px var(--line)}
+  .lbtn.red{color:var(--bad)}
+  .lchips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+  .lchip{padding:6px 13px;border-radius:99px;background:var(--group);color:var(--dim);font-size:14px}
+  .lchip.on{background:var(--fg);color:#111}
+  .lh{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:6px 0 10px}
+  .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-bottom:26px}
+  .lgrid.tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+  .lc{background:var(--group);border-radius:14px;overflow:hidden;text-align:left;display:flex;flex-direction:column;position:relative}
+  .lc:hover{box-shadow:0 0 0 2px #2e3b4b}
+  .lc > img,.lc > .lpic,.lc > .blankpreview{border-radius:0;width:100%;height:auto;aspect-ratio:16/9;display:block;object-fit:cover}
+  .lc .lpic.page{font-size:5px}
+  .lc .tx{padding:10px 12px 12px;display:block}
+  .lc b{display:block;font-size:16px;font-weight:600}
+  .lc small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
+  .lc small.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .lbadge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:3px 8px;border-radius:99px}
+  .ltag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#1b3326;color:var(--ok);margin-top:6px}
+  .lempty{color:var(--faint);padding:18px;background:var(--group);border-radius:14px;margin-bottom:26px}
+  .tp{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;background:#0b0e12}
+  .tp.big{border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .tp iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
+  .tpname{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:15px}
+  .ldet{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:26px;align-items:start}
+  .ldet > div > .tp{border-radius:14px}
+  .lbig{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 10px 40px rgba(0,0,0,.45)}
+  .lbig.port{aspect-ratio:9/16;max-height:78vh;width:auto;margin:auto}
+  .lbig > .lpic,.lbig > img,.lbig > .blankpreview{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;font-size:12px;border-radius:0;object-fit:cover}
+  .lbig iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none;opacity:0;transition:opacity .5s}
+  .lbig iframe.on{opacity:1}
+  .ltitle{font-size:30px;font-weight:700;margin:0 0 4px}
+  .lname{font-size:26px !important;font-weight:700;padding:4px 10px !important;margin-bottom:4px}
+  .lsub{color:var(--dim);font-size:15px}
+  .ldesc{color:var(--dim);margin:12px 0 14px;max-width:780px}
+  .lpanel{background:var(--group);border-radius:14px;padding:6px 16px;margin-bottom:12px}
+  .lpanel h3{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);font-weight:500;margin:10px 0 2px}
+  .lpanel.lwide{max-width:760px}
+  .lrow{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+  .lpanel > .lrow:first-child,.lpanel > h3 + .lrow{border-top:0}
+  .lrow.col{flex-direction:column;align-items:stretch}
+  .lrow .t{flex:1;min-width:0} .lrow small{display:block;color:var(--dim);font-size:13px;margin-top:1px}
+  .lok{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:#232a33;color:var(--ok);font-size:14px}
+  .lok.warn{color:#ffb84d}
+  .lact{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 10px} .lact .lbtn{flex:1}
+  .lnote{color:var(--faint);font-size:13px;margin:6px 0}
+  .lfield{display:block;color:var(--dim);font-size:13px;margin-bottom:12px}
+  .lfield input,.lfield select,.lfield textarea{display:block;width:100%;margin-top:4px}
+  #lib textarea.code{min-height:0;font-size:12px;word-break:break-all;white-space:pre-wrap}
+  @media (max-width:820px){
+    #lib{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
+    .lrail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}
+    .lrail h1,.lsep{display:none} .lrail button{white-space:nowrap}
+    .ldet{grid-template-columns:1fr} .lmain{padding:14px 14px 60px}
+  }
 </style>
 </head>
 <body>
@@ -189,6 +269,7 @@
     <div class="pvbox" id="pvbox"><iframe id="pvf" title="Dashboard preview" width="1920" height="1080"></iframe></div>
   </div>
 </div>
+<div id="lib" hidden></div>
 <div id="toast" style="opacity:0"></div>
 <script>
 "use strict";
@@ -324,8 +405,8 @@ function rootScreen(){
     row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-go="newpage"'}),
     "Swipe left and right on the screen to move between pages." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
   h += sec("", row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
-    row({t:"Saved layouts", sub: SV.length ? SV.map(p => p.name).join(", ") : "None yet", chev:true, attrs:'data-go="saved"'}),
-    "The night page takes over the screen overnight. Saved layouts keep earlier versions of Main so you can bring them back.");
+    row({t:"Library", sub:(SV.length ? SV.length + (SV.length === 1 ? " saved layout" : " saved layouts") + " · " : "") + "Premade layouts, every tile, sharing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
+    "The night page takes over the screen overnight. The Library keeps your saved layouts, every premade layout and every tile, and shares a layout as a file.");
   h += sec("Look", row({t:"Looks", sub:"Colors, background, tiles, text size · now: " + lookName(curLook()), chev:true, attrs:'data-go="looks"'}) +
     row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
     row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}));
@@ -388,6 +469,10 @@ const starterGroup = s => s.grid ? "grid" : s.full ? "full" : "dash";
 let galTab = "dash", galLook = null;     // galLook: null = the default for where it's going
 // one choice in the gallery: a starter, or "saved:<page id>" for a saved layout
 function choiceOf(id){
+  if (id === "import"){        // a layout opened in Library › Import a file
+    const I = LIB.imp; if (!I) return null;
+    return {name:I.name, sub:I.desc, look:I.look, boxes:I.boxes, imported:true, page:{slots:I.boxes.map(b => ({x:b.x, y:b.y, w:b.w, h:b.h, mod:b.tiles.length ? "t" : null}))}};
+  }
   if (id && id.startsWith("saved:")){ const p = savedById(id.slice(6)); return p && {name:p.name, sub:pageShort(p), page:p, saved:true, look:p.look}; }
   return STARTERS[id] || null;
 }
@@ -471,27 +556,32 @@ function installStarter(key, onMain, withLook = onMain){
   const c = choiceOf(key); if (!c) return;
   const pages = gpAll(), main = pages.find(p => p.id === "main"), uid = newUid();
   const page = {id:uid, name:c.grid ? "Page " + (cpList().length + 2) : c.pageName || c.name, cols:GC, slots:[], on:true, back:c.back || 0};
-  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); };
+  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved || c.imported ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); };
   if (c.saved) page.slots = cloneSlots(c.page.slots, uid);
   else if (key === "everyday"){
     if (onMain && sameEverydayLayout()){ applyLook(); return; }
     page.slots = cloneSlots(everyday.page.slots, uid, everyday.tiles);
   } else if (c.grid){
     page.slots = c.grid.map(([x,y,w,h], i) => ({id:uid + "s" + i,x,y,w,h,mod:null}));
-  } else page.slots = c.boxes.map(({type,x,y,w,h,settings,rotate,name}, i) => {
-    const id = uid + "s" + i;
-    const ids = [type, ...rotate].map((type,j) => {
+  } else page.slots = c.boxes.map((box, i) => {
+    const id = uid + "s" + i, {x, y, w, h} = box;
+    // a starter box names one type (plus types that take turns); a shared layout's box lists its tiles in full
+    const list = box.tiles || [{type:box.type, settings:box.settings, name:box.name}].concat((box.rotate || []).map(type => ({type})));
+    const ids = list.map((t, j) => {
       const tid = id + "t" + j;
-      const values = j ? {} : {...settings};
-      if (type === "list" && firstList()) values.list = firstList().id;
-      if (type === "photos" && (SRC.albums || [])[0]) values.album = SRC.albums[0].id;
-      const tile = {id:tid,type,settings:values};
-      if (name && !j) tile.name = name;
+      const values = JSON.parse(JSON.stringify(t.settings || {}));
+      if (c.imported) libFill(t.type, values);
+      else {
+        if (t.type === "list" && firstList()) values.list = firstList().id;
+        if (t.type === "photos" && (SRC.albums || [])[0]) values.album = SRC.albums[0].id;
+      }
+      const tile = {id:tid, type:t.type, settings:values};
+      if (t.name) tile.name = t.name;
       tileList().push(tile);
       return tid;
     });
-    const slot = {id,x,y,w,h,mod:ids[0]};
-    if (rotate.length){ slot.more = ids.slice(1); slot.every = 45; }
+    const slot = {id, x, y, w, h, mod:ids[0] || null};
+    if (ids.length > 1){ slot.more = ids.slice(1); slot.every = box.every || 45; }
     return slot;
   });
   if (!onMain){ applyLook(); pages.push(page); return page.id; }
@@ -590,6 +680,7 @@ function srcItemScreen(k, id){
     const hide = F.when && Object.keys(F.when).some(w => (x[w] || (K.fields[w].choices || [])[0]) !== F.when[w]);
     let inp;
     if (F.type === "color") inp = row({t:F.label, sub:F.help, post:'<input type="color" ' + a + ' value="' + esc(x[f] || "#7cb7ff") + '">'});
+    else if (F.type === "bool") inp = row({t:F.label, sub:F.help, post: sw(!!x[f], a + ' data-swt="1"')});
     else if (F.type === "choice"){
       const ch = F.choices.map(c => Array.isArray(c) ? c : [c, c]), cur = x[f] || ch[0][0];
       inp = '<div class="row col"><div class="t"><b>' + esc(F.label) + '</b></div><select ' + a + '>' + ch.map(([v, l]) => '<option value="' + esc(v) + '"' + (v === cur ? " selected" : "") + '>' + esc(l) + '</option>').join("") + '</select>' + help + '</div>';
@@ -600,6 +691,14 @@ function srcItemScreen(k, id){
     rows += '<div data-fw="' + f + '"' + (hide ? " hidden" : "") + '>' + inp + '</div>';
   }
   h += sec("", rows);
+  if (k === "lists" && id !== "new" && (x.kind || "This dashboard") === "This dashboard")
+    h += sec("Items",
+      '<div class="row col"><div class="t"><b>Add an item</b></div>' +
+      '<div class="lladd"><input type="text" id="lladd" maxlength="80" placeholder="Something to do…" autocapitalize="sentences" spellcheck="false">' +
+      '<button class="pri" data-ladd="1" data-sid="' + esc(id) + '">Add</button></div></div>' +
+      '<div id="llitems" data-sid="' + esc(id) + '"><div class="row"><div class="t"><small>Loading…</small></div></div></div>' +
+      '<div class="row" id="llbar" hidden><div class="t"><small id="llcount"></small></div><button class="llb" data-llop="reset" data-sid="' + esc(id) + '">Untick all</button></div>',
+      "The same list as the List tile on the dashboard. " + (x.daily ? "The ticks are cleared every day at 00:00; the items stay." : "Switch on “Clear the ticks every day at 00:00” above to use it as a daily checklist."));
   if (k === "homeassistant") h += sec("", '<button class="btnrow blue" data-sact="test" data-k="' + k + '" data-id="' + id + '">Test connection</button><div class="row" id="hatest" hidden></div>',
     "Checks the address and token without saving. Leave the token blank to test the one already saved.");
   if (k === "recipes") h += sec("", '<button class="btnrow blue" data-sact="test" data-k="' + k + '" data-id="' + id + '">Test the key</button><div class="row" id="hatest" hidden></div>',
@@ -613,7 +712,10 @@ async function srcAction(act, k, id){
   const K = KINDS[k], item = {id: id === "new" ? undefined : id};
   if (act === "test") return srcTest(k, id);
   if (act === "save"){
-    document.querySelectorAll("[data-sf]").forEach(el => { const v = el.value.trim(); if (!(K.fields[el.dataset.sf].secret && !v)) item[el.dataset.sf] = v; });
+    document.querySelectorAll("[data-sf]").forEach(el => {
+      if (el.classList.contains("sw")){ item[el.dataset.sf] = el.classList.contains("on"); return; }
+      const v = el.value.trim(); if (!(K.fields[el.dataset.sf].secret && !v)) item[el.dataset.sf] = v;
+    });
     if (!item.name){ toast("Give it a name first", "bad"); return; }
     const uw = document.querySelector('[data-fw="url"]');
     if (id === "new" && K.fields.url && K.fields.url.secret && !item.url && uw && !uw.hidden){ toast("Paste the link first", "bad"); return; }
@@ -637,6 +739,53 @@ async function srcTest(k, id){
       : '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(j.error || "Unknown problem") + '</small></div>';
   }catch(e){ out.innerHTML = '<div class="t"><b style="color:var(--bad)">Didn\'t connect</b><small>' + esc(e.message) + '</small></div>'; }
 }
+
+/* ---------- a list kept on this dashboard: its items, edited right here in Controls → Lists ----------
+   The same storage as the List tile (/notes?list=<id>): add, tick, delete — and when the list is set to
+   clear its ticks every day at 00:00, that reset applies here too. */
+let llBusy = false;
+function llRender(d, sid){
+  const el = document.getElementById("llitems"); if (!el) return;
+  const items = d.items || [];
+  el.innerHTML = items.length ? items.map(i =>
+    '<div class="row"><div class="t"><b' + (i.done ? ' style="text-decoration:line-through;opacity:.5"' : "") + '>' + esc(i.text) + '</b></div>' +
+    sw(!!i.done, 'data-litog="' + esc(i.id) + '" data-sid="' + esc(sid) + '"') +
+    '<button class="ll-x" data-lidel="' + esc(i.id) + '" data-sid="' + esc(sid) + '" aria-label="Delete">×</button></div>').join("")
+    : '<div class="row"><div class="t"><small>Nothing on the list yet</small></div></div>';
+  const bar = document.getElementById("llbar");
+  if (bar){
+    const done = items.filter(i => i.done).length;
+    bar.hidden = !items.length;
+    const c = document.getElementById("llcount");
+    if (c) c.textContent = done + " / " + items.length + " done" + (d.daily ? " · ticks reset at 00:00" : "");
+  }
+}
+async function llCall(sid, body){
+  llBusy = true;                    // a tap always goes through; only the poll steps aside
+  try{
+    const r = await fetch("/notes", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(Object.assign({list:sid}, body))});
+    llRender(await r.json(), sid);
+  }catch(e){}
+  llBusy = false;
+}
+function llAdd(sid){
+  const inp = document.getElementById("lladd");
+  if (!inp || !sid) return;
+  const text = inp.value.trim();
+  if (!text) return;
+  inp.value = "";
+  llCall(sid, {op:"add", text});
+}
+async function llRefresh(){
+  const el = document.getElementById("llitems"); if (!el || llBusy) return;
+  const sid = el.dataset.sid; if (!sid) return;
+  llBusy = true;
+  try{
+    const d = await (await fetch("/notes?list=" + encodeURIComponent(sid), {cache:"no-store"})).json();
+    if (document.getElementById("llitems") && document.getElementById("llitems").dataset.sid === sid) llRender(d, sid);
+  }catch(e){}
+  llBusy = false;
+}
 let delArm = "";
 function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Echo can't show them reliably)
   if (delArm === id) return true;
@@ -656,7 +805,8 @@ function mainScreen(){
   h += sec("Layout", '<div class="row">' + pagePic(main, null, "pthumb") + '<div class="t"><b>' + nt + (nt === 1 ? " tile" : " tiles") + " in " + nb + (nb === 1 ? " box" : " boxes") + '</b><small>' + esc(pageSummary(main)) + '</small></div></div>' +
     (ECHO ? "" : '<button class="btnrow blue" data-act="edit" data-id="main">Edit Main on screen</button>') +
     row({t:"Change layout", sub:"Use a premade dashboard, an empty grid or a saved layout", chev:true, attrs:'data-go="starters"'}) +
-    row({t:"Save a copy", sub:"Keep this layout in Saved layouts, and carry on editing Main", chev:true, attrs:'data-act="savemain"'}),
+    row({t:"Save a copy", sub:"Keep this layout in My layouts, and carry on editing Main", chev:true, attrs:'data-act="savemain"'}) +
+    row({t:"Browse the Library", sub:"Your saved layouts, every premade layout, sharing and importing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
     ECHO ? "To change tiles, press Done and hold any tile on the screen." : "");
   return h;
 }
@@ -689,6 +839,7 @@ function pvGoPage(id){
 function act(a, id){
   const p = cpById(id);
   if (a === "echoedit"){ location.href = displayHref(true); return; }
+  if (a === "lib"){ libOpen(id); return; }
   if (a === "pickstarter"){
     if (stack[stack.length - 1] === "wiz") WIZ.starter = id;
     else selectedStarter = id;
@@ -783,6 +934,7 @@ function show(){
   else if (cur.startsWith("fx:")){ h = fxScreen(cur.slice(3)); title = (FXLIB.BY[cur.slice(3)] || {}).name || "Effect"; }
   else { const m = cur.slice(4); h = schema[m] ? modScreen(m) : ""; title = schema[m] ? schema[m].title : ""; }
   $("screen").innerHTML = h;
+  if (document.getElementById("llitems")) llRefresh();      // a list's items, ready to edit
   const choice = cur === "newpage" || cur === "starters" ? selectedStarter :
     cur === "wiz" && WIZ.step === 4 ? WIZ.starter || (sameEverydayLayout() ? "everyday" : "") : "";
   $("starterpv").innerHTML = choice && choiceOf(choice) ? starterPreview(choice) : "";
@@ -808,6 +960,7 @@ async function statusLoad(check){
   if (cur === "root" || cur === "status") show();
 }
 setInterval(() => { if (!document.hidden) statusLoad(); }, 60e3);
+setInterval(() => { if (!document.hidden && document.getElementById("llitems")) llRefresh(); }, 10e3);   // a list's items, while its screen is open
 const LVL = {ok:["#4cd27a", "Everything's working"], warn:["#ffc850", "Needs a look"], bad:["#ff6b6b", "Something isn't working"]};
 const ISSUES = "https://github.com/kizit/countertop/issues/new?template=bug_report.yml";
 function agoText(s){
@@ -1004,14 +1157,26 @@ document.addEventListener("pointerdown", e => {
 });
 document.addEventListener("click", e => {
   if (e.target.closest("[data-grip]") || (dragged && performance.now() - dragged < 300)) return;
-  const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-go]"); if (!t) return;
+  const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-swt],[data-ladd],[data-litog],[data-lidel],[data-llop],[data-go]"); if (!t) return;
   if (lookClick(t)) return;
+  if (t.dataset.swt){ const v = !t.classList.contains("on"); t.classList.toggle("on", v); t.setAttribute("aria-checked", v); return; }
+  if (t.dataset.ladd){ llAdd(t.dataset.sid); return; }
+  if (t.dataset.litog){ llCall(t.dataset.sid, {op:"toggle", id:t.dataset.litog}); return; }
+  if (t.dataset.lidel){ llCall(t.dataset.sid, {op:"remove", id:t.dataset.lidel}); return; }
+  if (t.dataset.llop){ llCall(t.dataset.sid, {op:"reset"}); return; }
   if (t.dataset.act){ act(t.dataset.act, t.dataset.id); return; }
   if (t.dataset.sact){ srcAction(t.dataset.sact, t.dataset.k, t.dataset.id); return; }
   if (t.dataset.loc){ Object.assign(mods.general.settings, JSON.parse(t.dataset.loc)); save(); show(); return; }
   if (t.dataset.on){ const m = t.dataset.on; mods[m].on = !mods[m].on; show(); save(); return; }
   if (t.dataset.t === "bool"){ const d = t.dataset, v = !mods[d.m].settings[d.k]; mods[d.m].settings[d.k] = v; t.classList.toggle("on", v); t.setAttribute("aria-checked", v); save(); return; }
   if (t.dataset.go){ go(t.dataset.go); return; }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target && e.target.id === "lladd"){
+    e.preventDefault();
+    const el = document.getElementById("llitems");
+    llAdd(el ? el.dataset.sid : "");
+  }
 });
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
@@ -1848,6 +2013,458 @@ document.addEventListener("click", e => {
   if (d.emouse != null){ const inp = document.querySelector("[data-emoin]"); if (inp && inp.value.trim()) emoPick(inp.value); return; }
   if (d.emopick != null) emoPick(d.emopick);
 });
+/* ---------- Library: every layout (saved and built in) and every tile type, full screen over Controls ----------
+   A layout can be tried on the screen for two minutes, or shared as a small .countertop file or share code.
+   Shared layouts are plain data: which calendars, lists and other sources a tile uses, and settings marked
+   share:false in a tile file (your own text, picture links), are left out; whoever opens the file picks their own. */
+const LIB = {view:"layouts", item:"", q:"", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
+const LIB_CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
+let DEFS = {};            // tile type -> its definition (title, cat, desc, size, settings), read from the tile files
+const defsLoad = fetch("/tiles.js").then(r => r.text()).then(txt => {
+  const keep = (t, d) => { DEFS[t] = Object.assign({cat:"Fun", size:[12, 8, 8, 6], settings:{}}, d); };
+  for (const part of txt.split(/\/\* ---- tiles\/[\w.-]+ ---- \*\//)){        // one file at a time, so one odd file can't hide the rest
+    if (part.trim()) try{ new Function("Tile", "viewTile", part)(keep, keep); }catch(e){}
+  }
+}).catch(() => {});
+const libEl = () => $("lib");
+function libOpen(view){
+  LIB.view = view || "layouts"; LIB.item = ""; LIB.q = ""; LIB.chip = "all";
+  libEl().hidden = false; document.body.classList.add("libopen");
+  defsLoad.then(libShow); libShow();
+}
+function libClose(){
+  libEl().hidden = true; document.body.classList.remove("libopen");
+  LIB.item = ""; LIB.pvKey = ""; const f = libEl().querySelector(".lbig iframe"); if (f) f.src = "about:blank";
+}
+function libGo(view, item){ LIB.view = view; LIB.item = item || ""; libShow(); libEl().querySelector(".lmain").scrollTop = 0; }
+
+// the layouts on offer: [key, choice]; keys are starter ids, "saved:<page id>" or "import"
+const libBuiltIn = () => Object.entries(STARTERS).filter(([, s]) => !s.grid && (!s.needs || schema[s.needs]));
+const libSaved = () => savedList().map(p => ["saved:" + p.id, choiceOf("saved:" + p.id)]);
+function libMatch(c){
+  const q = LIB.q.trim().toLowerCase();
+  return !q || (c.name + " " + (c.sub || "")).toLowerCase().includes(q);
+}
+function libPic(key){
+  const c = choiceOf(key);
+  if (c && c.page) return pagePic(c.page, c.look ? Object.assign(lookVals(curLook()), c.look) : null, "page");
+  return starterPicture(key);
+}
+function libCard(key, c, badge){
+  return '<button class="lc" data-l="open" data-id="' + esc(key) + '">' + libPic(key) + (badge ? '<span class="lbadge">' + esc(badge) + '</span>' : "") +
+    '<span class="tx"><b>' + esc(c.name) + '</b><small>' + esc(c.sub || "") + '</small></span></button>';
+}
+function libRail(){
+  const item = (v, label, n) => '<button data-l="view" data-id="' + v + '"' + (LIB.view === v ? ' class="on"' : "") + '>' + label + (n != null ? '<small>' + n + '</small>' : "") + '</button>';
+  return '<button class="lback" data-l="close">‹ Controls</button><h1>Library</h1>' +
+    item("layouts", "Layouts", libBuiltIn().length + savedList().length) + item("tiles", "Tiles", Object.keys(DEFS).length || "") +
+    '<div class="lsep">Yours</div>' + item("mine", "My layouts", savedList().length) +
+    '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file");
+}
+function libLayouts(){
+  const mineOnly = LIB.view === "mine";
+  let h = '<div class="ltop"><input type="search" data-l="q" placeholder="Search layouts" value="' + esc(LIB.q) + '">' +
+    '<button class="lbtn" data-l="view" data-id="import">Import a file</button><button class="lbtn pri" data-l="savemain">Save current Main</button></div>';
+  if (!mineOnly) h += '<div class="lchips">' + [["all", "All"], ["mine", "Saved"], ["dash", "Dashboards"], ["full", "Full screen"]].map(([k, l]) =>
+    '<button class="lchip' + (LIB.chip === k ? " on" : "") + '" data-l="chip" data-id="' + k + '">' + l + '</button>').join("") + '</div>';
+  const S = libSaved().filter(([, c]) => libMatch(c));
+  if (mineOnly || LIB.chip === "all" || LIB.chip === "mine"){
+    h += '<div class="lh">My layouts</div>';
+    h += S.length ? '<div class="lgrid">' + S.map(([k, c]) => libCard(k, c, c.page.at ? new Date(c.page.at).toLocaleDateString(undefined, {month:"short", day:"numeric"}) : "")).join("") + '</div>'
+      : '<div class="lempty">' + (LIB.q ? "No saved layouts match." : "Nothing saved yet. Save current Main keeps a copy here, and so does changing Main's layout.") + '</div>';
+  }
+  if (!mineOnly) for (const [g, label] of [["dash", "Built in"], ["full", "Full screen"]]){
+    if (LIB.chip !== "all" && LIB.chip !== g) continue;
+    const L = libBuiltIn().filter(([, s]) => starterGroup(s) === g && libMatch(s));
+    if (L.length) h += '<div class="lh">' + label + '</div><div class="lgrid">' + L.map(([k, c]) => libCard(k, c, g === "full" ? "Full screen" : "")).join("") + '</div>';
+  }
+  return h;
+}
+function libTiles(){
+  let h = '<div class="ltop"><input type="search" data-l="q" placeholder="Search tiles" value="' + esc(LIB.q) + '"></div>';
+  const cats = LIB_CATS.concat([...new Set(Object.values(DEFS).map(d => d.cat))].filter(c => !LIB_CATS.includes(c)));
+  h += '<div class="lchips">' + ["All"].concat(cats.filter(c => Object.values(DEFS).some(d => d.cat === c))).map(c =>
+    '<button class="lchip' + ((LIB.chip === "all" ? "All" : LIB.chip) === c ? " on" : "") + '" data-l="chip" data-id="' + esc(c === "All" ? "all" : c) + '">' + esc(c) + '</button>').join("") + '</div>';
+  if (!Object.keys(DEFS).length) return h + '<div class="lempty">Loading the tiles…</div>';
+  const q = LIB.q.trim().toLowerCase();
+  for (const c of cats){
+    if (LIB.chip !== "all" && LIB.chip !== c) continue;
+    const L = Object.entries(DEFS).filter(([t, d]) => d.cat === c && t !== "nightclock" && (!q || (d.title + " " + (d.desc || "")).toLowerCase().includes(q)));
+    if (!L.length) continue;
+    h += '<div class="lh">' + esc(c) + '</div><div class="lgrid tiles">' + L.map(([t, d]) => {
+      const used = tileList().filter(x => x.type === t).length;
+      return '<button class="lc ltile" data-l="open" data-id="tile:' + t + '">' + libTileShot(t, d) +
+        '<span class="tx"><b>' + esc(d.title || t) + '</b><small class="clamp">' + esc(d.desc || "") + '</small>' + (used ? '<span class="ltag">In use</span>' : "") + '</span></button>';
+    }).join("") + '</div>';
+  }
+  return h;
+}
+// a live example of a tile with made-up data (the dashboard's ?solo=<type>), its own box scaled to fit the card
+function libTileShot(t, d, big){
+  const [w, h] = d.size || [12, 8];
+  if (ECHO && !big) return '<span class="tp"><span class="tpname">' + esc(d.title || t) + '</span></span>';
+  return '<span class="tp' + (big ? " big" : "") + '"><iframe tabindex="-1" aria-hidden="true" data-w="' + w + '" data-h="' + h + '" data-src="/dash/content?preview=1&solo=' + t + (big ? "" : "&still=1") + '"></iframe></span>';
+}
+function libFitShots(){
+  const root = libEl().querySelector(".lmain");
+  if (libFitShots.io) libFitShots.io.disconnect();
+  const io = libFitShots.io = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting && !e.target.src){ e.target.src = e.target.dataset.src; io.unobserve(e.target); } }), {root, rootMargin:"300px"}) : null;
+  libEl().querySelectorAll(".tp iframe").forEach(f => {
+    const box = f.parentNode, rw = (+f.dataset.w || 12) * 40, rh = (+f.dataset.h || 8) * 33.75;
+    const k = Math.min(box.clientWidth / rw, box.clientHeight / rh);
+    f.style.transform = "translate(" + (box.clientWidth - rw * k) / 2 + "px," + (box.clientHeight - rh * k) / 2 + "px) scale(" + k + ")";
+    if (!f.src){ if (io) io.observe(f); else f.src = f.dataset.src; }
+  });
+}
+function libTileItem(t){
+  const d = DEFS[t]; if (!d) return '<div class="lempty">That tile isn\'t available.</div>';
+  const S = d.settings || {}, kinds = [...new Set(Object.values(S).filter(s => s.type === "source").map(s => s.kind))];
+  const labels = Object.values(S).filter(s => s.label && s.type !== "source").map(s => s.label);
+  const used = tileList().filter(x => x.type === t).length, sz = d.size || [12, 8, 8, 6];
+  return '<button class="lback" data-l="view" data-id="tiles">‹ Tiles</button><div class="ldet"><div>' + libTileShot(t, d, true) + '</div><div>' +
+    '<h2 class="ltitle">' + esc(d.title || t) + '</h2><div class="lsub">' + esc(d.cat) + ' · built in</div>' +
+    '<p class="ldesc">' + esc(d.desc || "") + '</p>' +
+    '<div class="lpanel">' + (kinds.length ? '<div class="lrow"><div class="t">Uses your ' + esc(kinds.map(k => (KINDS[k] ? KINDS[k].title : k).toLowerCase()).join(" and ")) + '<small>Set up once in Controls, then pick them in the tile\'s settings</small></div></div>' : "") +
+      '<div class="lrow"><div class="t">Sizes<small>Starts at ' + sz[0] + ' × ' + sz[1] + ' on the 48 × 32 grid, and can be as small as ' + (sz[2] || sz[0]) + ' × ' + (sz[3] || sz[1]) + '</small></div></div>' +
+      (labels.length ? '<div class="lrow"><div class="t">Settings<small>' + esc(labels.slice(0, 8).join(" · ")) + (labels.length > 8 ? " …" : "") + '</small></div></div>' : "") +
+      '<div class="lrow"><div class="t">' + (used ? "On your dashboard" : "Not on your dashboard yet") + '<small>' + (used ? used + (used === 1 ? " tile" : " tiles") + " of this kind" : "Add it to any box in the editor") + '</small></div></div></div>' +
+    '<div class="lact"><button class="lbtn pri" data-l="edit">' + (ECHO ? "Edit the screen" : "Add it on screen") + '</button></div>' +
+    '<p class="lnote">In the editor, pick a box (or draw a new one), then choose ' + esc(d.title || t) + ' from Add to this box.</p></div></div>';
+}
+
+/* ----- one layout: a live preview with your own weather, calendars and lists, then put it on Main or add it as a page ----- */
+const libHasLook = key => { const c = choiceOf(key); return !!(c && c.look && Object.keys(c.look).length); };
+function libTrialBody(key){
+  const real = mods; mods = JSON.parse(JSON.stringify(real));
+  try{
+    installStarter(key, true, LIB.look && libHasLook(key));
+    const look = {}; for (const k in LS()) if (k !== "items" && k !== "rules") look[k] = LS()[k];
+    return {pages:gpAll(), tiles:tileList(), look, name:(choiceOf(key) || {}).name || "Layout"};
+  }finally{ mods = real; }
+}
+async function libPreview(key){
+  const box = libEl().querySelector(".lbig"); if (!box || ECHO) return;
+  const want = key + "|" + LIB.look + "|" + JSON.stringify(LIB.slots);
+  const f = box.querySelector("iframe"), fit = () => { const W = displayMode === "auto" ? 1920 : 1080; f.style.width = W + "px"; f.style.height = (displayMode === "auto" ? 1080 : 1920) + "px"; f.style.transform = "scale(" + box.clientWidth / W + ")"; };
+  fit();
+  if (want === LIB.pvKey && LIB.pvId){ f.src = "/dash/content?preview=1&trial=" + LIB.pvId; return; }
+  LIB.pvKey = want;
+  try{
+    const r = await fetch("/trial", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(libTrialBody(key))});
+    const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+    if (LIB.pvKey !== want) return;
+    LIB.pvId = j.id; f.onload = () => setTimeout(() => f.classList.add("on"), 900);
+    f.src = "/dash/content?preview=1&trial=" + j.id;
+  }catch(e){ LIB.pvKey = ""; }
+}
+function libSlotRows(){
+  const imp = LIB.imp; if (!imp || !imp.kinds.length) return "";
+  return '<div class="lpanel"><h3>Fill in from your setup</h3>' + imp.kinds.map(k => {
+    const K = KINDS[k] || {title:k, one:k}, L = SRC[k] || [], multi = imp.multi.includes(k);
+    if (!L.length) return '<div class="lrow"><div class="t">' + esc(K.title) + '<small>You haven\'t set up any ' + esc(K.title.toLowerCase()) + ' yet. Those tiles stay empty until you do.</small></div><button class="lnk" data-l="setup" data-id="' + k + '">Set up</button></div>';
+    const cur = LIB.slots[k] != null ? LIB.slots[k] : multi ? "all" : L[0].id;
+    return '<div class="lrow"><div class="t">' + esc(K.title) + '<small>For ' + esc(imp.uses[k].join(", ")) + '</small></div><select data-l="slot" data-id="' + k + '">' +
+      (multi ? '<option value="all">All ' + esc(K.title.toLowerCase()) + '</option>' : "") +
+      L.map(x => '<option value="' + esc(x.id) + '"' + (x.id === cur ? " selected" : "") + '>' + esc(x.name) + '</option>').join("") +
+      (multi ? "" : '<option value=""' + (cur === "" ? " selected" : "") + '>None</option>') + '</select></div>';
+  }).join("") + '</div>';
+}
+function libLayoutItem(key){
+  const c = choiceOf(key); if (!c) return '<div class="lempty">That layout isn\'t here any more.</div>';
+  const saved = key.startsWith("saved:"), imp = key === "import";
+  const p = saved ? c.page : null, nT = saved ? [].concat(...p.slots.map(smods)).length : 0;
+  let h = '<button class="lback" data-l="view" data-id="' + (imp ? "import" : LIB.view) + '">‹ ' + (imp ? "Import" : LIB.view === "mine" ? "My layouts" : "Layouts") + '</button>';
+  h += '<div class="ldet"><div><div class="lbig' + (displayMode === "auto" ? "" : " port") + '">' + libPic(key) + (ECHO ? "" : '<iframe tabindex="-1" aria-hidden="true" title="Live preview"></iframe>') + '</div>' +
+    (ECHO ? "" : '<p class="lnote">Live preview with your own weather, calendars and lists.</p>') + '</div><div>';
+  if (saved) h += '<input class="lname" type="text" data-l="rename" data-id="' + p.id + '" value="' + esc(p.name) + '" aria-label="Name">' +
+    '<div class="lsub">Saved ' + (p.at ? new Date(p.at).toLocaleDateString(undefined, {month:"long", day:"numeric"}) : "earlier") + ' · ' + nT + (nT === 1 ? " tile" : " tiles") + '</div>';
+  else h += '<h2 class="ltitle">' + esc(c.name) + '</h2><div class="lsub">' + (imp ? "From a shared file" + (LIB.imp.made ? " · made " + esc(LIB.imp.made) : "") : c.full ? "Full screen · built in" : "Built in") + '</div>';
+  h += '<p class="ldesc">' + esc(imp ? LIB.imp.desc : saved ? pageSummary(p) : c.sub) + '</p>';
+  if (imp){
+    h += libSlotRows();
+    const warn = [];
+    if (LIB.imp.skipped.length) warn.push(["Left out", "Tiles this Countertop doesn't have: " + LIB.imp.skipped.join(", ")]);
+    if (LIB.imp.code) warn.push(["Has a tile with its own code", "It runs sealed off from the rest of the dashboard, like every Your own tile."]);
+    if (warn.length) h += '<div class="lpanel">' + warn.map(([t, s]) => '<div class="lrow"><div class="t">' + esc(t) + '<small>' + esc(s) + '</small></div></div>').join("") + '</div>';
+  }
+  if (libHasLook(key)) h += '<div class="lpanel"><div class="lrow"><div class="t">Switch to its colors and background<small>' + (LIB.look ? "Changes the look of every page" : "Off: keeps your current look") + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>';
+  h += '<div class="lact"><button class="lbtn pri" data-l="use" data-id="main">Use on Main</button><button class="lbtn" data-l="use" data-id="page">Add as a new page</button></div>';
+  h += '<div class="lact"><button class="lbtn ghost" data-l="try">' + (LIB.trialEnd > Date.now() ? "Stop trying it on the screen" : "Try it on the screen for 2 minutes") + '</button></div>';
+  if (imp) h += '<div class="lact"><button class="lbtn" data-l="keep">Save to My layouts</button></div>';
+  if (saved) h += '<div class="lact"><button class="lbtn" data-l="dup" data-id="' + p.id + '">Duplicate</button><button class="lbtn" data-l="view" data-id="share" data-item="saved:' + p.id + '">Share</button><button class="lbtn red" data-l="del" data-id="' + p.id + '">Delete</button></div>';
+  h += '<p class="lnote">' + (saved || imp ? "Use on Main keeps your current Main in My layouts first, so you can switch back." : "Your current Main is kept in My layouts first, so you can switch back any time.") + '</p>';
+  return h + '</div></div>';
+}
+
+/* ----- sharing: a layout as a small file ----- */
+const LIB_FMT = 1;
+function libPack(p, look, name, desc){
+  const flags = new Set();
+  const boxes = (p.slots || []).map(sl => {
+    const tiles = smods(sl).map(id => tileList().find(t => t.id === id)).filter(Boolean).map(t => {
+      const S = (DEFS[t.type] || {}).settings || {}, s = {};
+      for (const k in t.settings || {}){
+        const d = S[k];
+        if (k === "design"){ s.design = t.settings.design; continue; }
+        if (!d) continue;
+        if (d.type === "source"){ flags.add("src"); continue; }
+        if (d.type === "entity"){ flags.add("ha"); continue; }
+        if (d.share === false){ flags.add("own"); continue; }
+        if (d.type === "code" && t.settings[k]) flags.add("code");
+        s[k] = t.settings[k];
+      }
+      const o = {type:t.type, settings:s}; if (t.name) o.name = t.name;
+      return o;
+    });
+    const b = {x:sl.x, y:sl.y, w:sl.w, h:sl.h, tiles};
+    if (tiles.length > 1) b.every = sl.every || 45;
+    return b;
+  });
+  const lk = {}; LOOK_KEYS.forEach(k => { if (look && look[k] !== undefined) lk[k] = look[k]; });
+  return {pkg:{countertop:"layout", format:LIB_FMT, name, description:desc || "", made:new Date().toISOString().slice(0, 10), look:lk, pages:[{name, boxes}]}, flags};
+}
+const b64enc = s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const b64dec = s => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
+const libCode = pkg => "CT1." + b64enc(JSON.stringify(pkg));
+function libShareTarget(){
+  const id = LIB.shareOf || "main";
+  if (id === "main") return {p:gpAll().find(x => x.id === "main"), look:lookSnap(), name:"Main"};
+  const sp = savedById(id.replace(/^saved:/, ""));
+  return sp ? {p:sp, look:sp.look || lookSnap(), name:sp.name} : null;
+}
+function libShare(){
+  const T = libShareTarget(); if (!T) return '<div class="lempty">That layout isn\'t here any more.</div>';
+  if (LIB.share.of !== LIB.shareOf){ LIB.share = {of:LIB.shareOf, name:T.name === "Main" ? "My dashboard" : T.name, desc:""}; }
+  const {pkg, flags} = libPack(T.p, T.look, LIB.share.name.trim() || "Shared layout", LIB.share.desc.trim());
+  const opts = [["main", "Main right now"]].concat(savedList().map(p => ["saved:" + p.id, p.name]));
+  let h = '<h2 class="ltitle">Share a layout</h2><p class="ldesc">Make a small file of a layout to send to a friend or keep as a backup. They open it in Library › Import a file.</p>';
+  h += '<div class="ldet"><div><div class="lbig">' + pagePic(T.p, Object.assign(lookVals(curLook()), T.look), "page") + '</div>' +
+    '<div class="lpanel"><h3>Left out automatically</h3>' +
+    [["Which calendars, lists and teams it uses", "Whoever opens it picks their own", flags.has("src")], ["Your own text", "Notes, countdown dates and picture links", flags.has("own")],
+      ["Home Assistant devices", "They're different in every home", flags.has("ha")], ["Calendar links, list items, photos", "Never part of a layout", true]]
+      .filter(x => x[2]).map(([t, s]) => '<div class="lrow"><span class="lok">✓</span><div class="t">' + t + '<small>' + s + '</small></div></div>').join("") +
+    (flags.has("code") ? '<div class="lrow"><span class="lok warn">!</span><div class="t">A Your own tile\'s code is included<small>Read it over if it holds anything private</small></div></div>' : "") + '</div></div><div>' +
+    '<label class="lfield">Layout<select data-l="shareof">' + opts.map(([v, l]) => '<option value="' + esc(v) + '"' + (v === (LIB.shareOf || "main") ? " selected" : "") + '>' + esc(l) + '</option>').join("") + '</select></label>' +
+    '<label class="lfield">Name<input type="text" data-l="sharename" maxlength="80" value="' + esc(LIB.share.name) + '"></label>' +
+    '<label class="lfield">What it\'s for<textarea data-l="sharedesc" maxlength="500" placeholder="A month view beside the family agenda, for busy weeks.">' + esc(LIB.share.desc) + '</textarea></label>' +
+    '<div class="lact">' + (ECHO ? "" : '<button class="lbtn pri" data-l="download">Download file</button>') + '<button class="lbtn' + (ECHO ? " pri" : "") + '" data-l="copy">Copy share code</button></div>' +
+    '<label class="lfield">Share code<textarea class="code" readonly data-l="codebox" rows="4">' + esc(libCode(pkg)) + '</textarea></label>' +
+    '<p class="lnote">A share code is the same layout as text, for pasting into a message. A community gallery to submit layouts to is planned.</p></div></div>';
+  return h;
+}
+function libDownload(){
+  const T = libShareTarget(); if (!T) return;
+  const name = LIB.share.name.trim() || "Shared layout", {pkg} = libPack(T.p, T.look, name, LIB.share.desc.trim());
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(pkg, null, 1)], {type:"application/json"}));
+  a.download = (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "layout") + ".countertop";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function libCopy(){
+  const box = libEl().querySelector('[data-l="codebox"]'); if (!box) return;
+  try{ await navigator.clipboard.writeText(box.value); }
+  catch(e){ box.select(); try{ document.execCommand("copy"); }catch(e2){} }      // plain http on the home network has no clipboard API
+  toast("Share code copied", "ok");
+}
+
+/* ----- importing: check everything in the file against the tile files and the look's settings ----- */
+const COLOR = /^#[0-9a-f]{3,8}$/i;
+function libClean(d, v){
+  if (!d) return undefined;
+  if (d.type === "bool") return typeof v === "boolean" ? v : undefined;
+  if (d.type === "int" || d.type === "number"){
+    let n = +v; if (typeof v !== "number" && typeof v !== "string" || !isFinite(n)) return undefined;
+    if (d.type === "int") n = Math.round(n);
+    if (d.min != null) n = Math.max(d.min, n); if (d.max != null) n = Math.min(d.max, n);
+    return n;
+  }
+  if (d.type === "choice") return (d.choices || []).some(c => (Array.isArray(c) ? c[0] : c) === v) ? v : undefined;
+  if (d.type === "color") return typeof v === "string" && COLOR.test(v) ? v : undefined;
+  if (d.type === "list") return Array.isArray(v) ? v.filter(x => typeof x === "string").slice(0, 60).map(x => x.slice(0, 200)) : undefined;
+  if (d.type === "text") return typeof v === "string" ? v.slice(0, 2000) : undefined;
+  if (d.type === "code") return typeof v === "string" ? v.slice(0, 200000) : undefined;
+  return undefined;          // sources, Home Assistant entities and anything new: never taken from a file
+}
+// saved tile designs are positions, sizes, fonts and colors: numbers and short plain words only (nothing that could load a page)
+function libDesign(v, depth = 0){
+  if (!v || typeof v !== "object" || Array.isArray(v) || depth > 4) return undefined;
+  const o = {};
+  for (const k in v){
+    if (!/^\w{1,30}$/.test(k)) continue;
+    const x = v[k];
+    if (typeof x === "number" && isFinite(x) || typeof x === "boolean") o[k] = x;
+    else if (typeof x === "string" && /^[\w #.,%()\-]{0,60}$/.test(x)) o[k] = x;
+    else if (x && typeof x === "object"){ const c = libDesign(x, depth + 1); if (c) o[k] = c; }
+  }
+  return o;
+}
+function libRead(text){
+  text = String(text || "").trim();
+  let j;
+  try{ j = JSON.parse(/^CT1\./.test(text) ? b64dec(text.slice(4).replace(/\s+/g, "")) : text); }
+  catch(e){ throw new Error("That isn't a layout file or share code."); }
+  if (!j || j.countertop !== "layout") throw new Error("That isn't a Countertop layout.");
+  if (+j.format > LIB_FMT) throw new Error("This layout was made by a newer Countertop. Update Countertop to open it.");
+  const pg = Array.isArray(j.pages) && j.pages[0];
+  if (!pg || !Array.isArray(pg.boxes)) throw new Error("This layout has no page in it.");
+  const num = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
+  const str = (v, n) => typeof v === "string" ? v.trim().slice(0, n) : "";
+  const skipped = new Set(), uses = {}, multi = new Set(); let code = false;
+  const boxes = pg.boxes.slice(0, 60).map(b => {
+    b = b || {};
+    const x = num(b.x, 0, 47), y = num(b.y, 0, 31), w = num(b.w, 1, 48 - x), h = num(b.h, 1, 32 - y);
+    const tiles = (Array.isArray(b.tiles) ? b.tiles : []).slice(0, 12).map(t => {
+      const def = t && typeof t.type === "string" && Object.prototype.hasOwnProperty.call(DEFS, t.type) ? DEFS[t.type] : null;
+      if (!def){ if (t && t.type) skipped.add(str(String(t.type), 40)); return null; }
+      const S = def.settings || {}, s = {}, name = str(t.name, 60);
+      for (const k in (t.settings && typeof t.settings === "object" ? t.settings : {})){
+        const d = S[k], v = t.settings[k];
+        if (k === "design"){ const c = libDesign(v); if (c) s.design = c; continue; }
+        if (!d || d.share === false) continue;
+        const c = libClean(d, v); if (c === undefined) continue;
+        s[k] = c; if (d.type === "code" && c) code = true;
+      }
+      for (const k in S) if (S[k].type === "source"){
+        (uses[S[k].kind] = uses[S[k].kind] || []).push(name || def.title || t.type);
+        if (S[k].multi) multi.add(S[k].kind);
+      }
+      const o = {type:t.type, settings:s}; if (name) o.name = name;
+      return o;
+    }).filter(Boolean);
+    const o = {x, y, w, h, tiles}; if (tiles.length > 1) o.every = num(b.every || 45, 5, 3600);
+    return o;
+  });
+  const look = {}, LSD = (schema.look && schema.look.settings) || {};
+  for (const k of LOOK_KEYS) if (j.look && j.look[k] !== undefined){ const c = libClean(LSD[k], j.look[k]); if (c !== undefined) look[k] = c; }
+  for (const k in uses) uses[k] = [...new Set(uses[k])];
+  return {name:str(j.name, 80) || "Shared layout", desc:str(j.description, 500), made:str(j.made, 10), look, boxes,
+    skipped:[...skipped], kinds:KIND_ORDER.filter(k => uses[k]).concat(Object.keys(uses).filter(k => !KIND_ORDER.includes(k))), uses, multi:[...multi], code};
+}
+// a source setting in an imported tile: what was picked in "Fill in from your setup"
+function libFill(type, values){
+  const S = (DEFS[type] || {}).settings || {};
+  for (const k in S){
+    const d = S[k]; if (d.type !== "source") continue;
+    const L = SRC[d.kind] || [], pick = LIB.slots[d.kind] != null ? LIB.slots[d.kind] : d.multi ? "all" : (L[0] || {}).id || "";
+    values[k] = d.multi ? (pick && pick !== "all" ? [pick] : []) : pick;
+  }
+}
+function libImport(){
+  return '<h2 class="ltitle">Import a layout</h2><p class="ldesc">Open a .countertop file someone shared, or paste a share code. You\'ll see it with your own weather and calendars before anything changes.</p>' +
+    '<div class="lpanel lwide">' + (ECHO ? "" : '<div class="lrow"><div class="t">A file<small>Ends in .countertop</small></div><label class="lbtn">Choose a file<input type="file" accept=".countertop,.json,application/json" data-l="file" hidden></label></div>') +
+    '<div class="lrow col"><div class="t">Or a share code<small>Starts with CT1.</small></div><textarea class="code" data-l="paste" rows="4" placeholder="CT1.…"></textarea>' +
+    '<div class="lact"><button class="lbtn pri" data-l="openpaste">Open</button></div></div>' +
+    (LIB.impErr ? '<div class="lrow"><div class="t" style="color:var(--bad)">' + esc(LIB.impErr) + '</div></div>' : "") + '</div>';
+}
+function libLoadImport(text){
+  try{
+    LIB.imp = libRead(text); LIB.impErr = ""; LIB.slots = {}; LIB.look = true; LIB.pvKey = "";
+    libGo("import", "import");
+  }catch(e){ LIB.impErr = e.message; LIB.imp = null; libGo("import"); }
+}
+
+/* ----- drawing and taps ----- */
+function libShow(){
+  if (libEl().hidden) return;
+  const it = LIB.item;
+  let h;
+  if (it === "import" && LIB.imp) h = libLayoutItem("import");
+  else if (it.startsWith("tile:")) h = libTileItem(it.slice(5));
+  else if (it) h = libLayoutItem(it);
+  else if (LIB.view === "tiles") h = libTiles();
+  else if (LIB.view === "share") h = libShare();
+  else if (LIB.view === "import") h = libImport();
+  else h = libLayouts();
+  libEl().innerHTML = '<nav class="lrail">' + libRail() + '</nav><div class="lmain">' + h + '</div>';
+  libFitShots();
+  if (it && !it.startsWith("tile:") && choiceOf(it)) libPreview(it);
+}
+function libUse(key, onMain){
+  const c = choiceOf(key); if (!c) return;
+  const pid = installStarter(key, onMain, LIB.look && libHasLook(key));
+  save(); libClose(); stack = ["root"];
+  if (pid) go("page:" + pid);
+  else { toast("Your old Main is in My layouts", "ok"); show(); }
+}
+async function libTry(key){
+  if (LIB.trialEnd > Date.now()){
+    await fetch("/trial/stop", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"}).catch(() => {});
+    LIB.trialEnd = 0; toast("Your own layout is back on the screen", "ok"); libShow(); return;
+  }
+  try{
+    const r = await fetch("/trial", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(Object.assign(libTrialBody(key), {screen:true, seconds:120}))});
+    const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+    LIB.trialEnd = Date.now() + 120e3;
+    if (ECHO){ location.href = displayHref(); return; }
+    toast("On the screen for 2 minutes, then your layout comes back", "ok"); libShow();
+    setTimeout(() => { if (LIB.trialEnd && LIB.trialEnd <= Date.now() + 500){ LIB.trialEnd = 0; libShow(); } }, 120.5e3);
+  }catch(e){ toast("Couldn't show it: " + e.message, "bad"); }
+}
+function libDup(id){
+  const sp = savedById(id); if (!sp) return;
+  const uid = newUid();
+  gpAll().push({id:uid, name:uniqueName(sp.name + " copy"), cols:GC, slots:cloneSlots(sp.slots, uid), on:false, saved:true, look:sp.look, at:Date.now()});
+  save(); libGo("mine", "saved:" + uid);
+}
+function libKeep(){
+  const pid = installStarter("import", false, false), p = gpAll().find(x => x.id === pid);
+  if (!p) return;
+  Object.assign(p, {on:false, saved:true, look:Object.keys(LIB.imp.look).length ? LIB.imp.look : lookSnap(), at:Date.now(), name:uniqueName(LIB.imp.name)});
+  save(); toast("Saved to My layouts", "ok"); libGo("mine", "saved:" + pid);
+}
+function libTap(t){
+  const d = t.dataset, a = d.l;
+  if (a === "close"){ libClose(); show(); return; }
+  if (a === "view"){ if (d.item) LIB.shareOf = d.item; else if (d.id === "share") LIB.shareOf = LIB.shareOf || "main"; LIB.q = ""; LIB.chip = "all"; libGo(d.id); return; }
+  if (a === "chip"){ LIB.chip = d.id; libShow(); return; }
+  if (a === "open"){ LIB.look = true; LIB.pvKey = ""; libGo(LIB.view, d.id); return; }
+  if (a === "savemain"){
+    const main = gpAll().find(x => x.id === "main"), uid = newUid();
+    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), at:Date.now()});
+    save(); toast("Saved a copy of Main in My layouts", "ok"); libShow(); return;
+  }
+  if (a === "look"){ LIB.look = !LIB.look; libShow(); return; }
+  if (a === "use"){ libUse(LIB.item, d.id === "main"); return; }
+  if (a === "try"){ libTry(LIB.item); return; }
+  if (a === "keep"){ libKeep(); return; }
+  if (a === "dup"){ libDup(d.id); return; }
+  if (a === "del"){
+    const sp = savedById(d.id); if (!sp || !confirmDel({one:"saved layout"}, d.id)) return;
+    const gone = new Set([].concat(...(sp.slots || []).map(smods)));
+    if (mods.tiles) mods.tiles.settings.items = tileList().filter(x => !gone.has(x.id));
+    mods.pages.settings.items = gpAll().filter(x => x !== sp); save(); toast("Deleted", "ok"); libGo("mine"); return;
+  }
+  if (a === "edit"){ libClose(); if (ECHO){ location.href = displayHref(true); return; } stack = ["root"]; show(); act("edit", "main"); return; }
+  if (a === "setup"){ libClose(); stack = ["root", "src:" + d.id]; show(); return; }
+  if (a === "download"){ libDownload(); return; }
+  if (a === "copy"){ libCopy(); return; }
+  if (a === "openpaste"){ const box = libEl().querySelector('[data-l="paste"]'); libLoadImport(box ? box.value : ""); return; }
+}
+function libInit(){
+  const el = libEl();
+  el.addEventListener("click", e => { const t = e.target.closest("[data-l]"); if (t && t.tagName !== "INPUT" && t.tagName !== "SELECT" && t.tagName !== "TEXTAREA") libTap(t); });
+  el.addEventListener("input", e => {
+    const t = e.target, a = t.dataset.l;
+    if (a === "q"){ LIB.q = t.value; clearTimeout(libInit.qt); libInit.qt = setTimeout(() => { const pos = t.selectionStart; libShow(); const q = el.querySelector('[data-l="q"]'); if (q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(err){} } }, 200); }
+    if (a === "sharename" || a === "sharedesc"){
+      LIB.share[a === "sharename" ? "name" : "desc"] = t.value;
+      const T = libShareTarget(), box = el.querySelector('[data-l="codebox"]');
+      if (T && box) box.value = libCode(libPack(T.p, T.look, LIB.share.name.trim() || "Shared layout", LIB.share.desc.trim()).pkg);
+    }
+  });
+  el.addEventListener("change", e => {
+    const t = e.target, d = t.dataset;
+    if (d.l === "slot"){ LIB.slots[d.id] = t.value; libShow(); return; }
+    if (d.l === "shareof"){ LIB.shareOf = t.value; libShow(); return; }
+    if (d.l === "rename"){ const sp = savedById(d.id); if (sp){ sp.name = t.value.trim().slice(0, 80) || sp.name; t.value = sp.name; save(); } return; }
+    if (d.l === "file" && t.files && t.files[0]){ t.files[0].text().then(libLoadImport, () => { LIB.impErr = "Couldn't read that file."; libShow(); }); }
+  });
+  addEventListener("keydown", e => { if (e.key === "Escape" && !el.hidden){ if (LIB.item) libGo(LIB.item === "import" ? "import" : LIB.view); else { libClose(); show(); } } });
+  addEventListener("resize", () => { if (!el.hidden) libFitShots(); });
+}
+libInit();
+
 /* ---------- preview (on a computer; on the Echo the screen itself is the preview) ---------- */
 const PV = {w:1920, h:1080, page:0, theme:""};
 function pvWin(){ try{ return $("pvf").contentWindow; }catch(e){ return null; } }

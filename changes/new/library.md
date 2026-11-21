@@ -1,0 +1,1 @@
+- **Library.** A full-screen Library in Controls holds your saved layouts, every premade layout and every tile type, with live examples. A layout's page shows it with your own weather, calendars and lists before you pick it, and Try it on the screen shows it on the display for two minutes before your own layout comes back.

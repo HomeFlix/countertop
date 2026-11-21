@@ -19,14 +19,14 @@ Choose **Edit dashboard on screen**, add a tile from the **Home** group, and pic
 
 | Tile | What it shows | What taps do |
 | --- | --- | --- |
-| **Home** | A list of the things you pick, in your order, with their state: "Closed", "Locked", "61.3 °F" | Lights, switches, fans and helper toggles get an on/off switch. Scenes and scripts get a Run button. |
-| **Sensor** | One thing in big type, such as the outside temperature or the garage door | Nothing. It can take over its box while it needs a look, such as a door left open. |
+| **Home** | A list of the things you pick, in your order, with their state: "Closed", "Locked", "61.3 °F" | Lights, switches, fans and helper toggles get an on/off switch, and lights and fans a brightness or speed − / +. Thermostats get − / + for the target and mode buttons. Blinds and other covers get open / close / stop, media players play / pause, skip and volume, vacuums start / pause / back to base. Numbers, selects, buttons and text helpers get a − / +, option buttons, Press, or a text box. Scenes and scripts get a Run button, and tapping a plain sensor refreshes it. |
+| **Sensor** | One thing in big type, such as the outside temperature or the garage door | Pick a "Controlled by" entity, such as the thermostat for a temperature sensor, and its controls appear under the value. It can take over its box while it needs a look, such as a door left open. |
 
 Doors left open, locks left unlocked and water sensors that are wet are shown in orange.
 
 ## What can't be changed from the screen
 
-Locks, garage doors, covers and alarms are shown but can't be changed from the screen, because a kitchen screen is within reach of guests and kids. Taps only reach things that a Home tile on your dashboard is set up to switch. Anything else on your network that tries to switch something through Countertop is refused.
+Locks, alarm panels and garage doors, gates and doors are shown but can't be changed from the screen, because a kitchen screen is within reach of guests and kids. Taps only reach things that a Home or Sensor tile on your dashboard shows, with "Let the screen control" turned on. Anything else on your network that tries to switch something through Countertop is refused.
 
 Turn off **Let taps switch lights and run scenes** in a Home tile's settings to make it display only.
 

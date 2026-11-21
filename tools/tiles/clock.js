@@ -13,7 +13,7 @@ Tile("clock", {
     date:{part:"date", type:"bool", label:"Show the date", default:true},
     greeting:{part:"greet", type:"bool", label:"Greeting (\"Lunch time? 🥪\")", default:true},
     countdowns:{part:"count", type:"bool", label:"Countdown to the next holidays", default:true},
-    extra:{type:"list", label:"Your own countdowns", help:"One per line: Label, YYYY-MM-DD", default:[]}
+    extra:{type:"list", share:false, label:"Your own countdowns", help:"One per line: Label, YYYY-MM-DD", default:[]}
   },
 
   css:`.dz .ap{font-size:.4em;margin-left:.15em;opacity:.85}
