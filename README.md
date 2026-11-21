@@ -110,6 +110,7 @@ You can also schedule whole looks by time of day, day of the week, or date, for 
 - **Designed for the Echo Show 15.** Layouts are made for its 1920×1080 screen in the Silk browser. A tablet or monitor with a modern browser works too.
 - **Your grocery list can live where you like.** Use the built-in list from any phone, send an Apple Reminders list with an iPhone Shortcut or the Countertop Mac app, or point Countertop at a list that's online. See [list sync](docs/list-sync.md).
 - **Works with Home Assistant.** Show lights, doors and sensors, and switch lights or run scenes from the screen. See [Home Assistant](docs/home-assistant.md).
+- **Save and share layouts.** The Library keeps earlier layouts to switch back to, lets you try one on the screen for two minutes, and shares any layout as a small file with your calendars and personal text left out. See [sharing layouts](docs/sharing-layouts.md).
 - **Some features are limited.** Store deals use US weekly ads by ZIP code. Sports cover soccer leagues such as MLS, NWSL, the Premier League, and the Champions League. Photos come from shared iCloud albums.
 - **Keep it on your home network.** Anyone who can reach the dashboard can open Controls.
 

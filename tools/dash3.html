@@ -558,6 +558,9 @@
   html.preview,html.preview body{cursor:default}
   html.preview .card.pv-hl{outline:3px solid #7cb7ff;outline-offset:3px}
   body.fs #hint{display:none}
+#trialbar{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:14px;padding:8px 8px 8px 18px;border-radius:99px;
+  background:rgba(12,15,20,.82);color:#fff;font-size:18px;box-shadow:0 6px 24px rgba(0,0,0,.4);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+#trialbar button{font:inherit;font-size:16px;font-weight:600;border:0;border-radius:99px;padding:6px 16px;background:#fff;color:#111;cursor:pointer}
 </style>
 </head>
 <body>
@@ -1610,7 +1613,7 @@ const FORCE_NIGHT = /[?&]night=1/.test(location.search);
 const hr12 = h => new Date(2000, 0, 1, +h || 0).toLocaleTimeString([], {hour:"numeric"});
 const NIGHT = {mode:"day", peekUntil:0};
 function isNight(h){
-  if (SOLO || !nightGrid()) return false;
+  if (SOLO || TRIAL_ID || TRIAL || !nightGrid()) return false;      // a layout being previewed or tried shows its own page, day or night
   if (FORCE_NIGHT) return true;
   const s = S("night"), a = +s.start, b = +s.end;
   if (!ON("night") || a === b) return false;
@@ -1729,10 +1732,29 @@ if (!FRAMED && !PREVIEW){
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden){ loadWeather(); loadEvents(); loadNotes(); } });
 
+/* ---------- a layout from the Library, shown for a few minutes ("Try it on the screen") or in its live preview (?trial=<id>) ---------- */
+const TRIAL_ID = (location.search.match(/[?&]trial=(\w+)/) || [])[1] || "";
+let TRIAL = null;
+function trialBanner(t){
+  TRIAL = {name:t.name, end:Date.now() + t.left * 1000};
+  const b = document.createElement("div"); b.id = "trialbar";
+  b.innerHTML = '<span></span><button type="button">Stop</button>';
+  b.querySelector("button").addEventListener("click", () => {
+    fetch("/trial/stop", {method:"POST", headers:{"Content-Type":"application/json"}, body:"{}"}).finally(() => location.reload());
+  });
+  document.body.appendChild(b);
+  const draw = () => {
+    const s = Math.max(0, Math.round((TRIAL.end - Date.now()) / 1000));
+    b.firstChild.textContent = "Trying " + TRIAL.name + " · your layout comes back in " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    if (s <= 0){ clearInterval(tm); setTimeout(() => location.reload(), FRAMED ? 6000 : 500); }    // the shell usually reloads first
+  };
+  const tm = setInterval(draw, 1000); draw();
+}
 /* ---------- boot (runs after /tiles.js has defined the tile types) ---------- */
 let SOURCES = {};
 async function boot(){
-  try{ const j = await getJSON("/config"); CFG = j.modules; SCH = {}; SOURCES = j.sources || {}; for (const k in CFG) SCH[k] = (j.schema || {})[k] || {}; }
+  try{ const j = await getJSON("/config" + (TRIAL_ID ? "?trial=" + encodeURIComponent(TRIAL_ID) : "")); CFG = j.modules; SCH = {}; SOURCES = j.sources || {}; for (const k in CFG) SCH[k] = (j.schema || {})[k] || {};
+    if (j.trial) trialBanner(j.trial); }
   catch(e){ reportErr("config", String(e)); setTimeout(boot, 15e3); return; }
   if (SOLO) demoConfig();             // ?solo=<type>: one tile of that type with made-up data (examples in the tile list)
   tilesSetup();
@@ -2077,7 +2099,12 @@ function selectTile(id){
   if (name !== EDIT.page) goEditPage(name); else { stackTick(); edPaint(true); }
 }
 function editEnter(sel){
-  if (EDIT.on || SOLO) return;
+  if (EDIT.on || SOLO || TRIAL_ID) return;
+  if (TRIAL){        // not while a layout is being tried: Save would keep it. Point at the banner instead.
+    const b = document.getElementById("trialbar");
+    if (b && b.animate) b.animate([{transform:"translateX(-50%) scale(1.12)"}, {transform:"translateX(-50%) scale(1)"}], 450);
+    return;
+  }
   const cur = pageList()[PAGE] || "main";
   EDIT.on = true; EDIT.focus = null; EDIT.orig = JSON.stringify(CFG); EDIT.hist = []; EDIT.fut = []; EDIT.panel = null; EDIT.sel = null; EDIT.tile = null;
   EDIT.page = gridOf(cur) ? cur : "main";

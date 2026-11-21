@@ -141,6 +141,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
         elif p == "/config":
             cfg = config_load()
+            tid = parse_qs(urlparse(self.path).query).get("trial", [""])[0]
+            if tid:
+                trial_apply(cfg, tid)          # a live preview in the Library
+            elif self.path == "/config":
+                live = trial_screen()          # "Try it on the screen" from the Library
+                if live:
+                    trial_apply(cfg, live["id"])
+                    cfg["trial"] = {"name": live["name"], "left": max(1, int(live["until"] - time.time()))}
             if self.path == "/config?starters=1":
                 defaults = migrate_v3({})
                 main = next(p for p in defaults["pages"]["settings"]["items"] if p["id"] == "main")
@@ -198,7 +206,8 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError:
                     pass
             # include the server's start time, so a restart also reloads the dashboard (it reads /config at boot)
-            self._json({"v": v + SERVER_START, "orientation": dashboard_orientation()})
+            # a layout tried on the screen changes it too, when it starts and when it ends
+            self._json({"v": v + SERVER_START + trial_version(), "orientation": dashboard_orientation()})
         elif p == "/status":
             if parse_qs(urlparse(self.path).query).get("check"):
                 update_check(force=True)
@@ -248,6 +257,14 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(config_save(body))
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p == "/trial":
+            try:
+                self._json(trial_add(body))
+            except Exception as e:
+                self._json({"error": str(e)}, 400)
+        elif p == "/trial/stop":
+            trial_stop()
+            self._json({"ok": True})
         elif p == "/sources":
             try:
                 self._json({"sources": sources_apply(body), "kinds": SOURCE_KINDS})
@@ -1439,6 +1456,75 @@ def config_save(body, quiet=False):
         tmp.write_text(json.dumps(saved, indent=1, ensure_ascii=False))
         tmp.replace(CONFIG_FILE)
     return None if quiet else config_load()
+
+
+# ---------- Library: preview a layout without saving it ----------
+# Controls sends a page list, tiles and look; the dashboard asks for /config?trial=<id> to draw them (the live
+# preview on a layout's page), or gets them from plain /config for a few minutes ("Try it on the screen").
+# Nothing here is written to disk, and everything else (sources, settings, the night page's hours) stays as saved.
+TRIALS = {}
+TRIAL_SCREEN = {"id": "", "until": 0.0}
+TRIAL_LOCK = threading.Lock()
+
+
+def trial_add(body):
+    if not isinstance(body, dict):
+        raise ValueError("expected a layout")
+    pages, tiles, look = body.get("pages"), body.get("tiles"), body.get("look")
+    if not isinstance(pages, list) or not isinstance(tiles, list) or not isinstance(look or {}, dict):
+        raise ValueError("expected pages, tiles and look")
+    if not any(isinstance(x, dict) and x.get("id") == "main" for x in pages):
+        raise ValueError("the layout has no main page")
+    if len(json.dumps(body)) > 2_000_000:
+        raise ValueError("that layout is too big")
+    tid = uuid.uuid4().hex[:12]
+    with TRIAL_LOCK:
+        TRIALS[tid] = {"pages": pages, "tiles": tiles, "look": look or {}, "name": str(body.get("name") or "Layout")[:80], "at": time.time()}
+        for old in sorted(TRIALS, key=lambda k: TRIALS[k]["at"])[:-12]:
+            if old != TRIAL_SCREEN["id"]:
+                del TRIALS[old]
+        out = {"id": tid}
+        if body.get("screen"):
+            try:
+                secs = int(body.get("seconds") or 120)
+            except (TypeError, ValueError):
+                secs = 120
+            TRIAL_SCREEN.update(id=tid, until=time.time() + max(10, min(600, secs)))
+            out["until"] = int(TRIAL_SCREEN["until"])
+    return out
+
+
+def trial_screen():
+    with TRIAL_LOCK:
+        tid = TRIAL_SCREEN["id"]
+        if not tid or time.time() >= TRIAL_SCREEN["until"] or tid not in TRIALS:
+            return None
+        return {"id": tid, "name": TRIALS[tid]["name"], "until": TRIAL_SCREEN["until"]}
+
+
+def trial_stop():
+    with TRIAL_LOCK:
+        TRIAL_SCREEN.update(id="", until=0.0)
+
+
+def trial_version():
+    live = trial_screen()
+    return int(live["id"][:6], 16) % 100000 + 1 if live else 0
+
+
+def trial_apply(cfg, tid):
+    with TRIAL_LOCK:
+        t = TRIALS.get(tid)
+    if not t:
+        return cfg
+    m = cfg["modules"]
+    m["pages"]["settings"]["items"] = t["pages"]
+    m["tiles"]["settings"]["items"] = t["tiles"]
+    look = m["look"]["settings"]
+    for k, v in t["look"].items():
+        if k in look and k not in ("items", "rules"):
+            look[k] = v
+    return cfg
 
 
 def setting(mid, key):
