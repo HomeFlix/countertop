@@ -8,8 +8,11 @@ Tile("tempo", {
     today:{type:"entity", label:"Today's color", default:"sensor.rte_tempo_couleur_actuelle"},
     tomorrow:{type:"entity", label:"Tomorrow's color", default:"sensor.rte_tempo_prochaine_couleur"},
     price:{type:"entity", label:"Current price (€/kWh)", default:"sensor.prix_tempo_courant"},
-    offpeak:{type:"entity", label:"Off-peak sensor (on = heures creuses)", default:"binary_sensor.rte_tempo_heures_creuses"},
-    cycle:{type:"bool", label:"Show the days left in the cycle, per color", default:true}
+    offpeak:{type:"entity", label:"Off-peak sensor (on during off-peak hours)", default:"binary_sensor.rte_tempo_heures_creuses"},
+    cycle:{type:"bool", label:"Show the days left in the cycle, per color", default:true},
+    cycleBlue:{type:"entity", label:"Blue days left", default:"sensor.rte_tempo_cycle_jours_restants_bleu"},
+    cycleWhite:{type:"entity", label:"White days left", default:"sensor.rte_tempo_cycle_jours_restants_blanc"},
+    cycleRed:{type:"entity", label:"Red days left", default:"sensor.rte_tempo_cycle_jours_restants_rouge"}
   },
   css:`.m-tempo{display:flex;flex-direction:column}
     .m-tempo h3 small{float:right}
@@ -31,10 +34,10 @@ Tile("tempo", {
 
   render(el){
     const s = this.s;
-    const CYCLE = ["sensor.rte_tempo_cycle_jours_restants_bleu", "sensor.rte_tempo_cycle_jours_restants_blanc", "sensor.rte_tempo_cycle_jours_restants_rouge"];
-    const ids = [s.today, s.tomorrow, s.price, s.offpeak].filter(Boolean).concat(s.cycle !== false ? CYCLE : []);
+    const CYCLE = s.cycle !== false ? [s.cycleBlue, s.cycleWhite, s.cycleRed] : [];
+    const ids = [s.today, s.tomorrow, s.price, s.offpeak].concat(CYCLE).filter(Boolean);
     const d = tileData(this, HA.url(this, ids), 5);
-    let h = '<h3><span>' + esc(this.name) + '</span><small>RTE · Élec</small></h3>';
+    let h = '<h3><span>' + esc(this.name) + '</span><small>RTE Tempo</small></h3>';
     if (!d){ el.innerHTML = h + '<div class="empty">Loading…</div>'; return; }
     if (d.error){ el.innerHTML = h + '<div class="empty">' + esc(d.error) + '</div>'; return; }
     const st = {};
@@ -48,21 +51,21 @@ Tile("tempo", {
       return null;
     };
     const cT = col(st[s.today] && st[s.today].state), cM = col(st[s.tomorrow] && st[s.tomorrow].state);
-    const LABEL = {bleu:"Bleu", blanc:"Blanc", rouge:"Rouge"};
+    const LABEL = {bleu:"Blue", blanc:"White", rouge:"Red"};
     h += '<div class="trow">' +
-      '<div class="tc ' + (cT || "none") + '"><small>Aujourd\'hui</small><b>' + (cT ? LABEL[cT] : "—") + '</b></div>' +
-      '<div class="tc ' + (cM || "none") + '"><small>Demain</small><b>' + (cM ? LABEL[cM] : (st[s.tomorrow] ? "annoncé le soir" : "—")) + '</b></div>' +
+      '<div class="tc ' + (cT || "none") + '"><small>Today</small><b>' + (cT ? LABEL[cT] : "—") + '</b></div>' +
+      '<div class="tc ' + (cM || "none") + '"><small>Tomorrow</small><b>' + (cM ? LABEL[cM] : (st[s.tomorrow] ? "Due this evening" : "—")) + '</b></div>' +
       '</div>';
     const hc = st[s.offpeak] && st[s.offpeak].state === "on";
     const pr = st[s.price] && col2num(st[s.price].state);
-    h += '<div class="tpr"><span class="' + (hc ? "hc" : "") + '">' + (hc ? "Heures creuses" : "Heures pleines") + '</span>' +
-      (pr != null ? '<span>·</span><b>' + String(st[s.price].state).replace(".", ",") + ' €</b><span>/kWh</span>' : "") + '</div>';
-    if (s.cycle !== false){
-      const c = CYCLE.map(id => col2num(st[id] && st[id].state));
-      if (c.some(v => v != null)) h += '<div class="tcyc"><span>Reste</span>' +
-        '<span><b class="b">' + (c[0] != null ? c[0] : "—") + '</b> bleu</span><span>·</span>' +
-        '<span><b class="w">' + (c[1] != null ? c[1] : "—") + '</b> blanc</span><span>·</span>' +
-        '<span><b class="r">' + (c[2] != null ? c[2] : "—") + '</b> rouge</span></div>';
+    h += '<div class="tpr"><span class="' + (hc ? "hc" : "") + '">' + (hc ? "Off-peak hours" : "Peak hours") + '</span>' +
+      (pr != null ? '<span>·</span><b>' + esc(String(pr)) + ' €</b><span>/kWh</span>' : "") + '</div>';
+    if (CYCLE.length){
+      const c = CYCLE.map(id => col2num(id && st[id] && st[id].state));
+      if (c.some(v => v != null)) h += '<div class="tcyc"><span>Days left</span>' +
+        '<span><b class="b">' + (c[0] != null ? c[0] : "—") + '</b> blue</span><span>·</span>' +
+        '<span><b class="w">' + (c[1] != null ? c[1] : "—") + '</b> white</span><span>·</span>' +
+        '<span><b class="r">' + (c[2] != null ? c[2] : "—") + '</b> red</span></div>';
     }
     el.innerHTML = h;
 
