@@ -1,0 +1,56 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: Server tests (Python ${{ matrix.python }}${{ matrix.dateutil && ', with dateutil' || '' }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 3.9 is the python3 a Mac ships with; without dateutil it uses the built-in repeat expander
+          - python: "3.9"
+            dateutil: false
+          # Docker and the Mac app use a current Python with dateutil
+          - python: "3.13"
+            dateutil: true
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install dateutil
+        if: matrix.dateutil
+        run: python -m pip install python-dateutil
+      - name: Run tests
+        run: python -m unittest discover -s tests -v
+
+  pages:
+    name: Pages and tiles load without errors
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Syntax-check every script
+        run: node tests/check-js.js
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: Open the dashboard, Controls and the phone list
+        run: node tests/browser-check.js
