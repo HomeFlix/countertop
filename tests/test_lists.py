@@ -31,7 +31,7 @@ class LocalListsTest(unittest.TestCase):
         ct.NOTES.write_text(json.dumps(OLD))
         lists = [{"id": "groc", "name": "Grocery", "kind": "This dashboard"},
                  {"id": "chores", "name": "Chores", "kind": "This dashboard", "daily": True}]
-        self.sources = mock.patch.object(ct, "sources_load", return_value={"lists": lists})
+        self.sources = ct.patch_everywhere("sources_load", lambda *a, **k: {"lists": lists})
         self.sources.start()
         self.addCleanup(self.sources.stop)
 
@@ -64,7 +64,7 @@ class LocalListsTest(unittest.TestCase):
         ct.local_list_apply("chores", {"op": "toggle", "id": iid})
         ct.local_list_apply("groc", {"op": "toggle", "id": "a1"})
         self.assertTrue(ct.local_list_view("chores")["items"][0]["done"])
-        with mock.patch.object(ct, "_today", return_value="2099-01-01"):
+        with ct.patch_everywhere("_today", lambda *a, **k: "2099-01-01"):
             self.assertFalse(ct.local_list_view("chores")["items"][0]["done"])     # daily list: ticks cleared
             self.assertTrue(ct.local_list_view("groc")["items"][0]["done"])        # other lists keep theirs
             self.assertEqual(len(ct.local_list_view("chores")["items"]), 1)        # items stay
