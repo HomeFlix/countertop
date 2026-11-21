@@ -144,7 +144,12 @@ class Handler(BaseHTTPRequestHandler):
                 since = 0
             self._json(tiledata.changed(since, live_tiles()))
         elif p == "/notes":
-            self._json(notes_view())
+            q = parse_qs(urlparse(self.path).query)
+            lid = (q.get("list") or [""])[0].strip()
+            if lid and local_list_source(lid):
+                self._json(local_list_view(lid))
+            else:
+                self._json(notes_view())
         elif p == "/list":
             self._send(200, (HERE / "list.html").read_bytes(), "text/html; charset=utf-8")
         elif re.fullmatch(r"/starters/[a-z]+\.jpg", p) and (HERE / p[1:]).is_file():
@@ -207,7 +212,10 @@ class Handler(BaseHTTPRequestHandler):
             code, out = list_push(body)
             self._json(out, code)
         elif p == "/notes":
-            if pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
+            lid = str(body.get("list") or "").strip()
+            if lid and local_list_source(lid):
+                self._json(local_list_apply(lid, body))
+            elif pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(notes_view())          # the list is kept in another app: read-only here
             elif reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(reminders_apply(body))
@@ -338,7 +346,7 @@ from server.feeds.sports import team_matches  # noqa: E402
 from server.feeds.stocks import stocks  # noqa: E402
 from server.homeassistant import ha_call, ha_entities, ha_test, ha_view  # noqa: E402
 from server.library import trial_add, trial_apply, trial_screen, trial_stop, trial_version  # noqa: E402
-from server.lists import list_push, notes_apply, notes_view, pushed_list, reminders_apply, reminders_list_name, reminders_loop  # noqa: E402
+from server.lists import list_push, local_list_apply, local_list_source, local_list_view, notes_apply, notes_view, pushed_list, reminders_apply, reminders_list_name, reminders_loop  # noqa: E402
 from server.sources import SOURCES_FILE, SOURCE_KINDS, sources_apply, sources_load, sources_public  # noqa: E402
 from server.status import diagnostics_zip, status_view, update_check, update_loop  # noqa: E402
 from server.upgrades import migrate_v3  # noqa: E402

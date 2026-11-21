@@ -31,5 +31,27 @@ del _m
 from server.app import main  # noqa: E402
 
 
+class patch_everywhere:
+    """For tests: swap `name` for `value` in every part of the server that has it, like unittest.mock.patch.object
+    on each (with-statement, or start() and stop())."""
+    def __init__(self, name, value):
+        import unittest.mock
+        self.p = [unittest.mock.patch.object(m, name, value) for m in (core, app, sources, homeassistant, lists, config, upgrades, library, status, tiledata, sports, sky, stocks, meals, sales, cams, photos, calendar) if name in vars(m)]
+
+    def start(self):
+        for x in self.p:
+            x.start()
+
+    def stop(self):
+        for x in self.p:
+            x.stop()
+
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, *a):
+        self.stop()
+
+
 if __name__ == "__main__":
     main()

@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 import uuid
+from datetime import datetime
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 from server.core import WORK
@@ -278,6 +279,11 @@ def notes_view():
                     error=None if got else "Nothing sent yet. Turn on Reminders Sync in the Mac app or set up a Shortcut with this list's sync key.")
     name = reminders_list_name()
     if not name:
+        # no list from another app: the phone page at /list (which sends no list id) edits the
+        # first list kept on this dashboard, as it always did with the shared grocery list
+        for L in sources_load().get("lists") or []:
+            if (L.get("kind") or LOCAL_LIST) == LOCAL_LIST:
+                return local_list_view(L["id"])
         return d
     with REM_LOCK:
         cutoff = time.time() - 3 * 3600
@@ -321,6 +327,10 @@ def reminders_apply(body):
 
 
 def notes_apply(body):
+    # no list id (the phone page at /list): edit the first list kept on this dashboard
+    for L in sources_load().get("lists") or []:
+        if (L.get("kind") or LOCAL_LIST) == LOCAL_LIST:
+            return local_list_apply(L["id"], body)
     op = str(body.get("op") or "")
     with NOTES_LOCK:
         d = notes_load()
@@ -348,6 +358,116 @@ def notes_apply(body):
         tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
         tmp.replace(NOTES)
         return d
+
+
+# ---------- lists kept on this dashboard, one entry per list (work/lists.json) ----------
+# A list set up in Sources as "This dashboard" is edited right on the List tile. Its ticks can be
+# cleared automatically when the day changes (the items stay), so it works as a daily checklist.
+LISTS_FILE = WORK / "lists.json"
+LISTS_LOCK = threading.Lock()
+LOCAL_LIST = "This dashboard"
+
+
+def _lists_load():
+    try:
+        d = json.loads(LISTS_FILE.read_text())
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _lists_save(d):
+    LISTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = LISTS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
+    tmp.chmod(0o600)
+    tmp.replace(LISTS_FILE)
+
+
+def local_list_source(list_id):
+    """The list set up in Sources as kept on this dashboard, if list_id names one."""
+    for L in sources_load().get("lists") or []:
+        if L.get("id") == list_id and (L.get("kind") or LOCAL_LIST) == LOCAL_LIST:
+            return L
+    return None
+
+
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def _local_list(rec, daily):
+    """The 00:00 reset: on a new calendar day the ticks are cleared, the items stay."""
+    today = _today()
+    rec.setdefault("items", [])
+    rec.setdefault("date", today)
+    if daily and rec.get("date") != today:
+        for i in rec["items"]:
+            i["done"] = False
+        rec["date"] = today
+    return rec
+
+
+def _local_record(all_, list_id):
+    """A list's saved items. Before lists had their own entries here, every list kept on this dashboard showed
+    the items in work/notes.json, so a list with no entry yet starts from those (notes.json is left as it was)."""
+    rec = all_.get(list_id)
+    if isinstance(rec, dict):
+        return rec
+    old = notes_load()
+    return {"items": [dict(i) for i in old.get("items") or [] if isinstance(i, dict)],
+            "note": old.get("note") or "", "updated": old.get("updated") or 0}
+
+
+def _local_view(L, rec):
+    return {"list": L.get("name") or "List", "source": "local", "date": rec.get("date"),
+            "items": rec["items"], "updated": rec.get("updated", 0), "note": rec.get("note", ""),
+            "daily": bool(L.get("daily")), "readonly": False}
+
+
+def local_list_view(list_id):
+    L = local_list_source(list_id) or {"id": list_id, "name": "List"}
+    with LISTS_LOCK:
+        all_ = _lists_load()
+        rec = _local_record(all_, list_id)
+        was = rec.get("date")
+        rec = _local_list(rec, bool(L.get("daily")))
+        if list_id not in all_ or was != rec.get("date"):
+            all_[list_id] = rec
+            _lists_save(all_)
+    return _local_view(L, rec)
+
+
+def local_list_apply(list_id, body):
+    op = str(body.get("op") or "")
+    L = local_list_source(list_id) or {"id": list_id, "name": "List"}
+    with LISTS_LOCK:
+        all_ = _lists_load()
+        rec = _local_list(_local_record(all_, list_id), bool(L.get("daily")))
+        items = rec["items"]
+        if op == "add":
+            text = " ".join(str(body.get("text") or "").split())[:80]
+            if text and len(items) < 80 and not any(i["text"].lower() == text.lower() and not i.get("done") for i in items):
+                items.append({"id": uuid.uuid4().hex[:8], "text": text, "done": False})
+        elif op == "toggle":
+            for i in items:
+                if i["id"] == body.get("id"):
+                    i["done"] = not i.get("done")
+        elif op == "remove":
+            rec["items"] = [i for i in items if i["id"] != body.get("id")]
+        elif op == "reset":                     # clear every tick now (same as the midnight reset)
+            for i in items:
+                i["done"] = False
+        elif op == "clear_done":
+            rec["items"] = [i for i in items if not i.get("done")]
+        elif op == "clear":                     # empty the whole list
+            rec["items"] = []
+        elif op == "note":
+            rec["note"] = str(body.get("text") or "").strip()[:240]
+        rec["updated"] = int(time.time())
+        all_[list_id] = rec
+        _lists_save(all_)
+    return _local_view(L, rec)
 
 
 # names used only inside functions: imported last, so these modules can use each other

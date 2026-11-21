@@ -62,7 +62,7 @@ Only one Countertop app can run at a time, and both use port 8090. On a Mac wher
 | `status.py` | Controls > Status, update notice, diagnostics |
 | `feeds/` | Data for built-in tiles: calendar, sports, sky (radar, space, ISS, planes), stocks, meals, sales, cams, photos |
 
-A module imports the names it needs at load time at the top, and names it only uses inside functions at the bottom, so modules can use each other without import loops. `tools/countertop.py` re-exports every name, so `countertop.config_load()` and friends still work in tests and scripts.
+A module imports the names it needs at load time at the top, and names it only uses inside functions at the bottom, so modules can use each other without import loops. `tools/countertop.py` re-exports every name, so `countertop.config_load()` and friends still work in tests and scripts. To swap a function out in a test, use `countertop.patch_everywhere(name, value)`, which replaces it in every file that uses it.
 
 ## Run the checks
 

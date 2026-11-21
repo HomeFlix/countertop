@@ -26,7 +26,9 @@ SOURCE_KINDS = {
         "fields": {
             "name": {"label": "Name", "type": "text"},
             "kind": {"label": "Kept in", "type": "choice", "choices": ["This dashboard", "Apple Reminders", PUSHED, FROM_URL],
-                     "help": "This dashboard: add items from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. Reminders Sync in the Countertop Mac app (updates within seconds) or an iPhone Shortcut. " + FROM_URL + ": the server reads a list that is published online (plain text, a Markdown checklist, JSON or iCal to-dos) every few minutes. See docs/list-sync.md."},
+                     "help": "This dashboard: add and tick items right in Controls → Lists, on the List tile, or from the phone page at /list. Apple Reminders: mirrors a Reminders list (only when the dashboard server runs on a Mac). " + PUSHED + ": another app sends the list here, e.g. Reminders Sync in the Countertop Mac app (updates within seconds) or an iPhone Shortcut. " + FROM_URL + ": the server reads a list that is published online (plain text, a Markdown checklist, JSON or iCal to-dos) every few minutes. See docs/list-sync.md."},
+            "daily": {"label": "Clear the ticks every day at 00:00", "type": "bool", "when": {"kind": "This dashboard"},
+                      "help": "A daily checklist: the ticks are cleared overnight while the items stay, so the same list is ready every morning."},
             "remName": {"label": "Reminders list name", "type": "text", "help": "Exactly as it appears in the Reminders app", "when": {"kind": "Apple Reminders"}},
             "pushKey": {"label": "Sync key", "type": "text", "when": {"kind": PUSHED},
                         "help": "Made for you when you save. Paste it into Reminders Sync in the Mac app or your Shortcut; anyone on your network with this key can replace the list."},
@@ -139,7 +141,11 @@ def sources_apply(body):
     if kind not in SOURCE_KINDS or op not in ("add", "update", "delete"):
         raise ValueError("expected {kind, op: add|update|delete, item}")
     fields = SOURCE_KINDS[kind]["fields"]
-    clean = {f: str(item[f])[:2000] for f in fields if f in item and item[f] is not None}
+    clean = {}
+    for f, F in fields.items():
+        if f not in item or item[f] is None:
+            continue
+        clean[f] = bool(item[f]) if F.get("type") == "bool" else str(item[f])[:2000]
     for f, v in list(clean.items()):
         ch = fields[f].get("choices")
         if ch and v not in [c[0] if isinstance(c, list) else c for c in ch]:
