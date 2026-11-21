@@ -64,7 +64,7 @@ def fake_get_json(url, data=None, timeout=15):
 
 class MealIdeasTest(unittest.TestCase):
     def setUp(self):
-        ct._get_json = fake_get_json
+        ct.meal_ideas.__globals__['_get_json'] = fake_get_json     # where meal ideas look it up
         ct.MEAL_CACHE.clear()
         ct.MEAL_LOOKUPS.clear()
         ct.SALES["data"] = None

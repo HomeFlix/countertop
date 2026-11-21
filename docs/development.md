@@ -45,6 +45,25 @@ Run `node demo/capture-readme.js manual-portrait` to simulate a browser that kee
 
 Only one Countertop app can run at a time, and both use port 8090. On a Mac where you also run the everyday app, `build.sh` quits it, so open your everyday app again when you're done testing.
 
+## Where the server's code lives
+
+`tools/countertop.py` starts the server and holds `VERSION`; everything else is in `tools/server/`, one file per area:
+
+| File | What it holds |
+| --- | --- |
+| `core.py` | Paths (`WORK`), shared state, logging, small helpers |
+| `app.py` | The HTTP handler (every route) and `main()` |
+| `config.py`, `upgrades.py` | Reading and saving `dashboard.json`, backups, upgrading older files |
+| `sources.py` | Setup sources (calendars, lists, teams, albums, cams, Home Assistant, recipes) |
+| `lists.py` | The grocery list and note, Reminders, lists from a web address or another app |
+| `homeassistant.py` | Home Assistant states and controls |
+| `tiledata.py` | Each tile's own saved data ([Writing a tile](tile-api.md)) |
+| `library.py` | Previewing and trying layouts |
+| `status.py` | Controls > Status, update notice, diagnostics |
+| `feeds/` | Data for built-in tiles: calendar, sports, sky (radar, space, ISS, planes), stocks, meals, sales, cams, photos |
+
+A module imports the names it needs at load time at the top, and names it only uses inside functions at the bottom, so modules can use each other without import loops. `tools/countertop.py` re-exports every name, so `countertop.config_load()` and friends still work in tests and scripts.
+
 ## Run the checks
 
 Countertop needs Python 3.9 or newer, with nothing else to install. The same checks run on every pull request:
