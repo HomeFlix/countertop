@@ -5,6 +5,7 @@ Tile("list", {
   settings:{
     list:{type:"source", kind:"lists", label:"List", default:""},
     max:{type:"int", label:"Items to show", default:20, min:2, max:40},
+    addBox:{type:"bool", label:"Add box on the tile", default:true, help:"Off: the tile only shows the items; add and edit them in Controls → Lists instead."},
     saleTag:{type:"bool", label:"Tag items that are on sale this week", default:true, needs:"deals"},
     deals:{type:"bool", label:"Fill spare room with deals on things you usually buy", default:false, needs:"deals"}
   },
@@ -39,13 +40,13 @@ Tile("list", {
     if (d.note) h += '<div class="note">📌 ' + esc(d.note) + '</div>';
 
     if (local){
-      const items = d.items || [];
-      h += '<form class="add"><input type="text" maxlength="80" placeholder="Add something…" autocomplete="off" autocapitalize="sentences"><button type="button" class="addbtn" title="Add">+</button></form>';
+      const items = d.items || [], addBox = s.addBox !== false;
+      if (addBox) h += '<form class="add"><input type="text" maxlength="80" placeholder="Add something…" autocomplete="off" autocapitalize="sentences"><button type="button" class="addbtn" title="Add">+</button></form>';
       h += items.length
         ? '<div class="gl">' + items.slice(0, max).map(i =>
             '<div class="gi' + (i.done ? " done" : "") + '" data-id="' + esc(i.id) + '"><i class="cb">' + (i.done ? "✓" : "") + '</i><span>' + esc(i.text) + '</span><span class="rm" data-rm="' + esc(i.id) + '" title="Delete">×</span></div>').join("") + '</div>' +
             (items.length > max ? '<div class="empty">+' + (items.length - max) + ' more</div>' : "")
-        : '<div class="empty">Nothing on the list yet — add the first item above…</div>';
+        : '<div class="empty">Nothing on the list yet' + (addBox ? " — add the first item above…" : "") + '</div>';
       const done = items.filter(i => i.done).length;
       if (items.length) h += '<div class="bar"><span>' + done + ' / ' + items.length + ' done' + (daily ? " · resets at 00:00" : "") + '</span><button data-op="reset" title="Untick everything now">Untick all</button></div>';
     } else {
