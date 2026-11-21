@@ -1,7 +1,7 @@
 /* Photo frame: photos from a shared album, one at a time */
 Tile("photos", {
   title:"Photo frame", cat:"Photos & video", cls:"m-photos", every:1, size:[16, 12, 8, 6], feeds:["photos"],
-  desc:"Shows the photos from a shared album one at a time. Set up the album in Setup → Photo albums (an iCloud Shared Album with Public Website turned on).",
+  desc:"Shows the photos from a shared album one at a time. Set up the album in Setup → Photo albums (an iCloud Shared Album with Public Website turned on, or an album on your own Immich server).",
   settings:{
     album:{type:"source", kind:"albums", label:"Album", default:""},
     every:{type:"int", label:"Seconds per photo", default:60, min:10, max:3600},
