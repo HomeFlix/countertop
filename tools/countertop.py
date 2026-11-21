@@ -706,6 +706,22 @@ def ha_entities(sid):
     return {"error": c["error"], "entities": [{"id": o["id"], "name": o["name"], "domain": o["domain"], "state": o["state"], "unit": o["unit"]} for o in L]}
 
 
+# Locks, alarm panels and garage doors, gates and doors (covers) can let someone in, so the screen shows their
+# state but doesn't control them.
+HA_SECURE_DOMAINS = {"lock", "alarm_control_panel"}
+HA_SECURE_COVERS = {"garage", "gate", "door"}
+
+
+def ha_secure(src, entity):
+    dom = entity.split(".")[0]
+    if dom in HA_SECURE_DOMAINS:
+        return True
+    if dom != "cover":
+        return False
+    st = ha_states(src)["states"].get(entity) or {}
+    return st.get("dc", "") in HA_SECURE_COVERS or not st      # a cover we can't see yet counts as secure
+
+
 def _ha_allowed(sid, entity):
     """The dashboard may only control entities a Home or Sensor tile on the dashboard is set up to show:
     anyone on the network can reach this server."""
@@ -724,6 +740,8 @@ def _ha_allowed(sid, entity):
             if entity in (s.get("entities") or []):
                 return True
         elif it.get("type") == "hasensor":
+            if s.get("taps") is False:
+                continue
             if (s.get("src") or first) != sid:
                 continue
             if s.get("entity") == entity or s.get("control") == entity:
@@ -753,6 +771,8 @@ def ha_call(body):
         return 403, {"error": "That action isn't allowed here"}
     if not _ha_allowed(src.get("id"), entity):
         return 403, {"error": "Add it to a Home or Sensor tile first"}
+    if action != HA_REFRESH and ha_secure(src, entity):
+        return 403, {"error": "Locks, garage doors and alarms can't be controlled from the screen"}
     data = body.get("data")
     payload = {"entity_id": entity}
     if isinstance(data, dict):
