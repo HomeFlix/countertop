@@ -1,0 +1,1 @@
+- **Tempo tile.** France's RTE Tempo electricity days on the dashboard: today's and tomorrow's color (blue, white, red) as big color cards, the current price per kWh and whether it's off-peak hours right now, plus the days left in the cycle for each color. It reads the Tempo sensors from Home Assistant (picked in the tile's settings), so any integration that exposes them works.
