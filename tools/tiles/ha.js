@@ -174,9 +174,13 @@ const HA = {
     return p;
   },
   // the buttons on the right of a row (shared by the Home tile and the Sensor tile)
-  controls(o, taps){
+  // locks, alarm panels and garage doors, gates and doors: shown, but not controlled from the screen
+  secure(o){ return o.domain === "lock" || o.domain === "alarm_control_panel" || (o.domain === "cover" && /^(garage|gate|door)$/.test(o.dc || "")); },
+  // a lock, alarm or garage door on a tile that doesn't allow them: shown, not controllable (the server checks this too)
+  held(o, s){ return this.secure(o) && !(s && s.secure); },
+  controls(o, taps, s){
     const dom = o.domain, gone = o.state === "unavailable" || o.state === "missing";
-    if (gone) return '<span class="st">' + esc(HA.text(o)) + '</span>';
+    if (gone || this.held(o, s)) return '<span class="st">' + esc(HA.text(o)) + '</span>';
     const id = esc(o.id), C = [], tapDef = taps ? this.TAP[dom] : null;
     const step = (act, label) => '<span class="step"><button data-ha="' + id + '" data-act="dec">−</button><b>' + label + '</b><button data-ha="' + id + '" data-act="inc">+</button></span>';
     if (dom === "climate" || dom === "water_heater"){
@@ -335,12 +339,12 @@ Tile("ha", {
     const opt = this._opt = this._opt || {}, now = Date.now(), nm = HA.namemap(s);
     h += '<div class="hl">' + (d.states || []).map(o0 => {
       const p = opt[o0.id], o = p && p.until > now ? Object.assign({}, o0, p.patch || {state:p.state}) : o0;
-      const taps = s.taps !== false, tap = taps && HA.TAP[o.domain], gone = o.state === "unavailable" || o.state === "missing";
+      const taps = s.taps !== false, tap = taps && !HA.held(o, s) && HA.TAP[o.domain], gone = o.state === "unavailable" || o.state === "missing";
       const modes = HA.modeChips(o);
       const sub = modes || (s.changed !== false && !tap && o.changed && /^(binary_sensor|lock|cover|person|device_tracker)$/.test(o.domain) ? HA.ago(o.changed)
         : o.domain === "light" && o.state === "on" && o.level != null ? o.level + "%" : "");
       return '<div class="hr' + (HA.alert(o) ? " alert" : "") + (tap === "toggle" && !HA.isOn(o) ? " off" : "") + (gone ? " gone" : "") + (p && p.until > now ? " busy" : "") + '"' +
-        (tap ? ' data-ha="' + esc(o.id) + '"' : "") + '><span class="ic">' + HA.icon(o) + '</span><span class="nm">' + esc(nm[o0.id] || o.name) + (sub ? '<small>' + sub + '</small>' : "") + '</span>' + HA.controls(o, taps) + '</div>';
+        (tap ? ' data-ha="' + esc(o.id) + '"' : "") + '><span class="ic">' + HA.icon(o) + '</span><span class="nm">' + esc(nm[o0.id] || o.name) + (sub ? '<small>' + sub + '</small>' : "") + '</span>' + HA.controls(o, taps, s) + '</div>';
     }).join("") + '</div>';
     if (d.error) h += '<div class="msg">' + esc(d.error) + '</div>';
     if (this._msg && this._msg.until > now) h += '<div class="msg' + (this._msg.ask ? " ask" : "") + '">' + esc(this._msg.text) + '</div>';

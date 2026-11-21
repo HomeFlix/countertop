@@ -19,8 +19,8 @@ Choose **Edit dashboard on screen**, add a tile from the **Home** group, and pic
 
 | Tile | What it shows | What taps do |
 | --- | --- | --- |
-| **Home** | A list of the things you pick, in your order, with their state: "Closed", "Locked", "61.3 °F" | Lights, switches, fans and helper toggles get an on/off switch. Scenes and scripts get a Run button. |
-| **Sensor** | One thing in big type, such as the outside temperature or the garage door | Nothing. It can take over its box while it needs a look, such as a door left open. |
+| **Home** | A list of the things you pick, in your order, with their state: "Closed", "Locked", "61.3 °F" | Lights, switches, fans and helper toggles get an on/off switch, and lights and fans a brightness or speed − / +. Thermostats get − / + for the target and mode buttons. Blinds and other covers get open / close / stop, media players play / pause, skip and volume, vacuums start / pause / back to base. Numbers, selects, buttons and text helpers get a − / +, option buttons, Press, or a text box. Scenes and scripts get a Run button, and tapping a plain sensor refreshes it. |
+| **Sensor** | One thing in big type, such as the outside temperature or the garage door | Pick a "Controlled by" entity, such as the thermostat for a temperature sensor, and its controls appear under the value. It can take over its box while it needs a look, such as a door left open. |
 
 Doors left open, locks left unlocked and water sensors that are wet are shown in orange.
 
@@ -30,7 +30,7 @@ Locks, alarm panels, and garage doors, gates and doors (covers) are shown on eve
 
 With it on, **Locks, garage doors and alarms need** picks **Two taps** (the default: the first tap shows "Tap again to unlock Front door", and the second within six seconds does it) or **One tap**. The server checks both settings, so a tile can't skip them.
 
-Every tile can only reach the things it shows, following its own settings. Turn off **Let the screen control these things** to make a tile display only; its refresh button still works. Settings are open to anyone on your home network, so these settings guard against accidental taps, not against someone on your Wi-Fi.
+Every tile can only reach the things it shows, following its own settings. Turn off **Let the screen control these things** to make a tile display only. Settings are open to anyone on your home network, so these settings guard against accidental taps, not against someone on your Wi-Fi.
 
 ## How it works
 

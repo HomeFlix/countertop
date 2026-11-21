@@ -234,8 +234,7 @@ class Handler(BaseHTTPRequestHandler):
             q = parse_qs(urlparse(self.path).query)
             lid = (q.get("list") or [""])[0].strip()
             if lid and local_list_source(lid):
-                force = (q.get("daily") or [""])[0]
-                self._json(local_list_view(lid, True if force in ("1", "true", "yes") else None))
+                self._json(local_list_view(lid))
             else:
                 self._json(notes_view())
         elif p == "/list":
@@ -302,7 +301,7 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/notes":
             lid = str(body.get("list") or "").strip()
             if lid and local_list_source(lid):
-                self._json(local_list_apply(lid, body, True if body.get("daily") else None))
+                self._json(local_list_apply(lid, body))
             elif pushed_list() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
                 self._json(notes_view())          # the list is kept in another app: read-only here
             elif reminders_list_name() and body.get("op") in ("add", "toggle", "remove", "clear_done"):
@@ -838,9 +837,9 @@ def act_ha_call(tile, args):
     if not src:
         return 400, {"error": "Home Assistant isn't set up"}
     action = str(args.get("action") or "")
+    if s.get("taps") is False:
+        return 403, {"error": "This tile is set to only show things"}
     if action != HA_REFRESH:                       # refreshing a reading changes nothing in the house
-        if s.get("taps") is False:
-            return 403, {"error": "This tile is set to only show things"}
         if ha_secure(src, entity):
             if not s.get("secure"):
                 return 403, {"error": "Turn on \"Allow locks, garage doors and alarms\" in this tile's settings first"}
@@ -1218,10 +1217,6 @@ def notes_apply(body):
         return d
 
 
-def _today():
-    return datetime.now().strftime("%Y-%m-%d")
-
-
 # ---------- lists kept on this dashboard, one entry per list (work/lists.json) ----------
 # A list set up in Sources as "This dashboard" is edited right on the List tile. Its ticks can be
 # cleared automatically when the day changes (the items stay), so it works as a daily checklist.
@@ -1254,6 +1249,10 @@ def local_list_source(list_id):
     return None
 
 
+def _today():
+    return datetime.now().strftime("%Y-%m-%d")
+
+
 def _local_list(rec, daily):
     """The 00:00 reset: on a new calendar day the ticks are cleared, the items stay."""
     today = _today()
@@ -1266,10 +1265,15 @@ def _local_list(rec, daily):
     return rec
 
 
-def _local_daily(L, daily):
-    """A list can clear its own ticks overnight (Sources: "Clear the ticks every day at 00:00").
-    An explicit True/False from the caller (the daily tile API) overrides that."""
-    return bool(L.get("daily")) if daily is None else bool(daily)
+def _local_record(all_, list_id):
+    """A list's saved items. Before lists had their own entries here, every list kept on this dashboard showed
+    the items in work/notes.json, so a list with no entry yet starts from those (notes.json is left as it was)."""
+    rec = all_.get(list_id)
+    if isinstance(rec, dict):
+        return rec
+    old = notes_load()
+    return {"items": [dict(i) for i in old.get("items") or [] if isinstance(i, dict)],
+            "note": old.get("note") or "", "updated": old.get("updated") or 0}
 
 
 def _local_view(L, rec):
@@ -1278,25 +1282,25 @@ def _local_view(L, rec):
             "daily": bool(L.get("daily")), "readonly": False}
 
 
-def local_list_view(list_id, daily=None):
+def local_list_view(list_id):
     L = local_list_source(list_id) or {"id": list_id, "name": "List"}
     with LISTS_LOCK:
         all_ = _lists_load()
-        rec = all_.get(list_id)
-        was = rec.get("date") if isinstance(rec, dict) else None
-        rec = _local_list(rec or {"items": []}, _local_daily(L, daily))
+        rec = _local_record(all_, list_id)
+        was = rec.get("date")
+        rec = _local_list(rec, bool(L.get("daily")))
         if list_id not in all_ or was != rec.get("date"):
             all_[list_id] = rec
             _lists_save(all_)
     return _local_view(L, rec)
 
 
-def local_list_apply(list_id, body, daily=None):
+def local_list_apply(list_id, body):
     op = str(body.get("op") or "")
     L = local_list_source(list_id) or {"id": list_id, "name": "List"}
     with LISTS_LOCK:
         all_ = _lists_load()
-        rec = _local_list(all_.get(list_id) or {"items": []}, _local_daily(L, daily))
+        rec = _local_list(_local_record(all_, list_id), bool(L.get("daily")))
         items = rec["items"]
         if op == "add":
             text = " ".join(str(body.get("text") or "").split())[:80]

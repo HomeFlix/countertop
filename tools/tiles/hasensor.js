@@ -67,12 +67,12 @@ Tile("hasensor", {
               : taps && !gone && HA.CTRL[o.domain] ? o : null;
     let ctl = "", modes = "";
     if (tgt){
-      ctl = HA.controls(tgt, taps);
+      ctl = HA.controls(tgt, taps, s);
       modes = HA.modeChips(tgt);
       // a sensor being shown can always be refreshed, even when a control entity drives the tile
       if (tgt !== o && /^(sensor|binary_sensor)$/.test(o.domain)) ctl = '<span class="ctl"><span class="cbtn" data-ha="' + esc(o.id) + '" data-act="refresh" title="Refresh now">🔄</span></span>' + ctl;
     }
-    const tapId = tgt && HA.TAP[tgt.domain] ? tgt.id : (taps && HA.TAP[o.domain] ? o.id : null);
+    const tapId = tgt && !HA.held(tgt, s) && HA.TAP[tgt.domain] ? tgt.id : (taps && !HA.held(o, s) && HA.TAP[o.domain] ? o.id : null);
     el.innerHTML = '<div class="bv">' + (s.icon !== false ? '<div class="ic">' + HA.icon(o) + '</div>' : "") + '<div class="v' + (v.length > 9 ? " long" : "") + '">' + esc(v) + '</div>' +
       '<div class="n">' + esc(nm[o0.id] || this.it.name || o.name) + (ago ? '<small>' + esc(ago) + '</small>' : "") + '</div></div>' +
       (modes ? '<div class="modes">' + modes + '</div>' : "") +

@@ -187,17 +187,34 @@ class HomeAssistantTest(unittest.TestCase):
         self.assertEqual(code, 200, j)
         self.assertEqual(CALLS[-1], ("/api/services/lock/unlock", {"entity_id": "lock.front_door"}))
 
-        # "only show things": no control, but a refresh is fine; the Sensor tile follows its own setting too
+        # the Sensor tile: a reading can be refreshed
+        code, j = self.act("t_sensor", {"entity": "sensor.outside", "action": "update_entity"})
+        self.assertEqual(code, 200, j)
+        self.assertEqual(CALLS[-1], ("/api/services/homeassistant/update_entity", {"entity_id": "sensor.outside"}))
+        # "only show things": nothing at all, on either kind of tile
         self.save_tiles({"entities": ["light.kitchen"], "taps": False}, {"entity": "sensor.outside", "taps": False})
         code, _ = self.act("t_ha", {"entity": "light.kitchen"})
         self.assertEqual(code, 403)
         code, _ = self.act("t_sensor", {"entity": "sensor.outside", "action": "update_entity"})
-        self.assertEqual(code, 200)
-        self.assertEqual(CALLS[-1], ("/api/services/homeassistant/update_entity", {"entity_id": "sensor.outside"}))
-        code, _ = self.act("t_ha", {"entity": "light.kitchen", "action": "update_entity"})
-        self.assertEqual(code, 200)
+        self.assertEqual(code, 403)
         code, _ = self.act("t_ha", {"entity": "light.kitchen"}, action="no.such")
         self.assertEqual(code, 400)
+
+        # an allowed action with data: only known scalar keys are passed on
+        self.save_tiles({"entities": ["light.kitchen", "lock.front_door"]})
+        code, j = self.act("t_ha", {"entity": "light.kitchen", "action": "turn_on",
+                                    "data": {"brightness_pct": 40, "rgb_color": [1, 2, 3], "flash": "long"}})
+        self.assertEqual(code, 200, j)
+        self.assertEqual(CALLS[-1], ("/api/services/light/turn_on", {"entity_id": "light.kitchen", "brightness_pct": 40}))
+        # an action the domain doesn't have
+        code, _ = self.act("t_ha", {"entity": "light.kitchen", "action": "set_temperature", "data": {"temperature": 20}})
+        self.assertEqual(code, 403)
+        # with the setting off, a lock shown on a tile can't be changed in any way
+        n = len(CALLS)
+        for action in ("unlock", "lock", "open"):
+            code, _ = self.act("t_ha", {"entity": "lock.front_door", "action": action})
+            self.assertEqual(code, 403, action)
+        self.assertEqual(len(CALLS), n)
 
         # an update with the token left blank keeps the saved one
         self.json("/sources", {"kind": "homeassistant", "op": "update", "item": {"id": src["id"], "name": "House", "url": self.ha_url, "token": ""}})
