@@ -1,7 +1,10 @@
 /* Tempo: France's RTE Tempo electricity days — today's and tomorrow's color (blue, white, red),
    the current price and off-peak state, read from the Tempo sensors in Home Assistant. */
 Tile("tempo", {
-  title:"Tempo", cat:"Home", cls:"m-tempo", size:[12, 8, 8, 6], every:5, needs:"homeassistant",
+  title:"Tempo", cat:"Home",
+  // the tile's own French, from its original French version (see docs/languages.md)
+  lang:{fr:{"Today":"Aujourd'hui", "Tomorrow":"Demain", "Blue":"Bleu", "White":"Blanc", "Red":"Rouge", "Due this evening":"Annoncé le soir",
+    "Off-peak hours":"Heures creuses", "Peak hours":"Heures pleines", "Days left":"Reste", "blue":"bleu", "white":"blanc", "red":"rouge"}}, cls:"m-tempo", size:[12, 8, 8, 6], every:5, needs:"homeassistant",
   desc:"France's RTE Tempo electricity days: today's and tomorrow's color (blue, white, red), the current price per kWh and whether it's off-peak hours right now, read from the Tempo sensors in Home Assistant. Optionally shows the days left in the cycle for each color.",
   settings:{
     src:{type:"source", kind:"homeassistant", label:"Home Assistant", default:""},
@@ -38,7 +41,7 @@ Tile("tempo", {
     const ids = [s.today, s.tomorrow, s.price, s.offpeak].concat(CYCLE).filter(Boolean);
     const d = tileData(this, HA.url(this, ids), 5);
     let h = '<h3><span>' + esc(this.name) + '</span><small>RTE Tempo</small></h3>';
-    if (!d){ el.innerHTML = h + '<div class="empty">Loading…</div>'; return; }
+    if (!d){ el.innerHTML = h + '<div class="empty">' + this.t("Loading…") + '</div>'; return; }
     if (d.error){ el.innerHTML = h + '<div class="empty">' + esc(d.error) + '</div>'; return; }
     const st = {};
     (d.states || []).forEach(x => { st[x.id] = x; });
@@ -53,19 +56,19 @@ Tile("tempo", {
     const cT = col(st[s.today] && st[s.today].state), cM = col(st[s.tomorrow] && st[s.tomorrow].state);
     const LABEL = {bleu:"Blue", blanc:"White", rouge:"Red"};
     h += '<div class="trow">' +
-      '<div class="tc ' + (cT || "none") + '"><small>Today</small><b>' + (cT ? LABEL[cT] : "—") + '</b></div>' +
-      '<div class="tc ' + (cM || "none") + '"><small>Tomorrow</small><b>' + (cM ? LABEL[cM] : (st[s.tomorrow] ? "Due this evening" : "—")) + '</b></div>' +
+      '<div class="tc ' + (cT || "none") + '"><small>' + this.t("Today") + '</small><b>' + (cT ? this.t(LABEL[cT]) : "—") + '</b></div>' +
+      '<div class="tc ' + (cM || "none") + '"><small>' + this.t("Tomorrow") + '</small><b>' + (cM ? this.t(LABEL[cM]) : (st[s.tomorrow] ? this.t("Due this evening") : "—")) + '</b></div>' +
       '</div>';
     const hc = st[s.offpeak] && st[s.offpeak].state === "on";
     const pr = st[s.price] && col2num(st[s.price].state);
-    h += '<div class="tpr"><span class="' + (hc ? "hc" : "") + '">' + (hc ? "Off-peak hours" : "Peak hours") + '</span>' +
-      (pr != null ? '<span>·</span><b>' + esc(String(pr)) + ' €</b><span>/kWh</span>' : "") + '</div>';
+    h += '<div class="tpr"><span class="' + (hc ? "hc" : "") + '">' + this.t(hc ? "Off-peak hours" : "Peak hours") + '</span>' +
+      (pr != null ? '<span>·</span><b>' + esc(pr.toLocaleString([], {maximumFractionDigits:4})) + ' €</b><span>/kWh</span>' : "") + '</div>';
     if (CYCLE.length){
       const c = CYCLE.map(id => col2num(id && st[id] && st[id].state));
-      if (c.some(v => v != null)) h += '<div class="tcyc"><span>Days left</span>' +
-        '<span><b class="b">' + (c[0] != null ? c[0] : "—") + '</b> blue</span><span>·</span>' +
-        '<span><b class="w">' + (c[1] != null ? c[1] : "—") + '</b> white</span><span>·</span>' +
-        '<span><b class="r">' + (c[2] != null ? c[2] : "—") + '</b> red</span></div>';
+      if (c.some(v => v != null)) h += '<div class="tcyc"><span>' + this.t("Days left") + '</span>' +
+        '<span><b class="b">' + (c[0] != null ? c[0] : "—") + '</b> ' + this.t("blue") + '</span><span>·</span>' +
+        '<span><b class="w">' + (c[1] != null ? c[1] : "—") + '</b> ' + this.t("white") + '</span><span>·</span>' +
+        '<span><b class="r">' + (c[2] != null ? c[2] : "—") + '</b> ' + this.t("red") + '</span></div>';
     }
     el.innerHTML = h;
 

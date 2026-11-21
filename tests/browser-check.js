@@ -41,7 +41,25 @@ async function main() {
       ["controls preview", "/dash/content?preview=1", { width: 960, height: 540 }],
       ["phone list", "/list", { width: 390, height: 844 }],
     ];
-    for (const [name, url, viewport] of pages) {
+    // the same dashboard with Language set to French: the page says so, and the weather and dates use French words
+    pages.push(["dashboard in French", "/dash/content", { width: 1920, height: 1080 }, async page => {
+      const t = await page.evaluate(() => ({ lang: document.documentElement.lang, text: document.body.innerText }));
+      if (t.lang !== "fr") throw new Error("html lang is " + JSON.stringify(t.lang) + ", not fr");
+      const fr = Object.values(JSON.parse(fs.readFileSync(path.join(root, "tools", "lang", "fr.json"), "utf8"))).filter(w => w.length > 4 && !/[{]/.test(w));
+      if (!fr.some(w => t.text.includes(w))) throw new Error("no French words on the screen");
+    }, () => {
+      const f = path.join(data, "dashboard.json"), d = JSON.parse(fs.readFileSync(f, "utf8"));
+      d.modules.general.settings.lang = "Français";
+      fs.writeFileSync(f, JSON.stringify(d));
+    }]);
+    // a tile's own lang block: the Tempo tile brings its French labels with it
+    pages.push(["Tempo tile in French", "/dash/content?solo=tempo", { width: 960, height: 640 }, async page => {
+      const text = await page.evaluate(() => document.body.textContent);
+      for (const w of ["Aujourd'hui", "Bleu", "Rouge", "Heures creuses", "0,1325"])
+        if (!text.includes(w)) throw new Error("missing " + JSON.stringify(w) + " in " + JSON.stringify(text.slice(0, 300)));
+    }]);
+    for (const [name, url, viewport, check, before] of pages) {
+      if (before) before();
       const context = await browser.newContext({ viewport });
       // The pages catch a tile that throws and post it to /report; the fixture answers fetch itself, so
       // wrap fetch once more and turn those reports into console errors this script sees.
@@ -55,6 +73,10 @@ async function main() {
           }; })();` });
       await context.route("**/*", route => route.request().url().startsWith(base) || route.request().url().startsWith("data:")
         ? route.continue() : route.abort());
+      // Home Assistant answers for the Tempo tile's French check
+      await context.route(base + "/ha/states*", route => route.fulfill({ json: { states: [
+        { id: "sensor.rte_tempo_couleur_actuelle", state: "Bleu" }, { id: "sensor.rte_tempo_prochaine_couleur", state: "Rouge" },
+        { id: "sensor.prix_tempo_courant", state: "0.1325" }, { id: "binary_sensor.rte_tempo_heures_creuses", state: "on" }] } }));
       const page = await context.newPage();
       page.on("pageerror", e => problems.push(name + ": " + (e.stack || e.message)));
       page.on("console", m => {
@@ -62,6 +84,7 @@ async function main() {
       });
       await page.goto(base + url, { waitUntil: "load" });
       await sleep(4000);                    // let tiles render and take a turn or two
+      if (check) await check(page).catch(e => problems.push(name + ": " + e.message));
       console.log((problems.some(p => p.startsWith(name + ":")) ? "✗ " : "✓ ") + name);
       await context.close();
     }

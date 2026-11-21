@@ -6,7 +6,7 @@ Tile("hourly", {
 
   render(el){
     const j = STATE.wx; el.className = "m-hourly";
-    if (!j){ el.innerHTML = '<div class="hour"><div class="h">' + (STATE.noLoc ? "Set your location in Setup" : "…") + '</div></div>'; return; }
+    if (!j){ el.innerHTML = '<div class="hour"><div class="h">' + (STATE.noLoc ? tr("Set your location in Setup") : "…") + '</div></div>'; return; }
     const H = j.hourly, n = this.s.hours || 6, i0 = Math.max(0, H.time.findIndex(t => new Date(t) >= new Date()));
     let h = "";
     for (let i = i0; i < i0 + n && i < H.time.length; i++){

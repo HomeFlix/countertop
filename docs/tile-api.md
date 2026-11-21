@@ -38,9 +38,27 @@ Tile("daily", {
 | `this.store` | Its own saved data (below) |
 | `this.fetch(url, maxAge)` | Data from a web address, cached for `maxAge` seconds. Returns what it has now (or `null`) and redraws the tile when new data arrives |
 | `this.feed(name)` | Shared data the dashboard already loads: `weather`, `air`, `events`, `notes`, `teams`, `albums`, `sales`. List the matching `feeds` so it gets loaded |
+| `this.t(text, values)` | The text in the dashboard's language (below). `this.locale` is the locale for dates and numbers |
 | `this.act(action, args)` | Ask the server to do something the tile is set up to do (below). Resolves with the server's answer, rejects with its error |
 
 `tap(e, el)` and `submit(e, el, form)` are called for taps and form submits in the tile, except while the dashboard is being edited or shown as a preview in Controls. The default action of a submit is already stopped.
+
+## Words in other languages
+
+The dashboard can be set to another language (see [languages](languages.md)). Write a tile's words in English and pass the ones it shows through `this.t()`. Give the tile its own translations in a `lang` block, so it works in that language without a change to Countertop's own word lists:
+
+```js
+Tile("tempo", {
+  title:"Tempo",
+  lang:{fr:{"Today's color":"Couleur du jour", "{n} days left":"{n} jours restants"}},
+  render(el){ el.textContent = this.t("{n} days left", {n:12}); }
+});
+```
+
+- `this.t(text, values)` gives the tile's own translation, then Countertop's (`tools/lang/<code>.json`), then the English. `{name}` placeholders are filled from `values`.
+- The tile's default name (`title`) is translated the same way.
+- Dates, times and numbers from `toLocaleDateString([], …)`, `toLocaleTimeString([], …)`, `toLocaleString()` and `Intl.DateTimeFormat([], …)` already follow the chosen language. `this.locale` is the locale in use (`undefined` means the device's own).
+- Settings labels in Controls are not translated yet.
 
 ## Saved data: `this.store`
 

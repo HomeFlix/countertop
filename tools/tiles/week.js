@@ -22,7 +22,7 @@ Tile("week", {
     let html = "";
     for (let i = 0; i < n; i++){
       const day = new Date(today.getTime() + i * 86400e3 + 3600e3 * 2); day.setHours(0,0,0,0);
-      const dn = i === 0 ? "Today" : day.toLocaleDateString([], {weekday:"short"});
+      const dn = i === 0 ? tr("Today") : day.toLocaleDateString([], {weekday:"short"});
       let w = "", pp = "";
       if (j && j.daily && j.daily.time){
         const k = j.daily.time.findIndex(t => dayKey(new Date(t + "T00:00:00")) === dayKey(day));
@@ -39,7 +39,7 @@ Tile("week", {
       if (hol) chips.push('<div class="ev hol">' + esc(hol) + '</div>');
       for (const {g:match, team} of matches) chips.push('<div class="ev team">' + (match.done ? "" : shortTime(new Date(match.date)) + " ") + '⚽ ' + esc(teamShort(team)) + (match.home ? " vs " : " @ ") + esc(match.opp) + '</div>');
       if (i === 0){
-        evs.slice(0, 3).forEach(e => chips.push('<div class="ev"><em>' + (e.allDay ? "All day" : esc(fmtTime(evDate(e)))) + '</em>' + esc(e.summary) + '</div>'));
+        evs.slice(0, 3).forEach(e => chips.push('<div class="ev"><em>' + (e.allDay ? tr("All day") : esc(fmtTime(evDate(e)))) + '</em>' + esc(e.summary) + '</div>'));
         if (!evs.length && !hol && !matches.length){
           const tm = eventsOn(new Date(today.getTime() + 86400e3 + 7200e3), this.s.cals)[0];
           chips.push('<div class="ev"><em>Today</em>Nothing else on 🎉</div>');

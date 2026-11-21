@@ -20,13 +20,13 @@ Tile("nightclock", {
   lines(d){
     const s = this.s, dz = designed(this); let a = "", b = "";
     if (dz || s.moon !== false){
-      const rain = (STATE.rain || "").replace(/<[^>]+>/g, "");
-      a = moon(d)[0] + "  " + (STATE.tempNow != null ? STATE.tempNow + "°" : "") + (rain && !/^Dry/.test(rain) ? "  ·  " + rain : "");
+      const rain = /class="pill dry"/.test(STATE.rain || "") ? "" : (STATE.rain || "").replace(/<[^>]+>/g, "");
+      a = moon(d)[0] + "  " + (STATE.tempNow != null ? STATE.tempNow + "°" : "") + (rain ? "  ·  " + rain : "");
     }
     if (dz || s.next !== false){
       const t1 = startOfDay(d).getTime() + 86400e3, t2 = t1 + 86400e3;
       const e = (STATE.events || []).find(e => { const x = evDate(e).getTime(); return x > Date.now() && x < t2; });
-      if (e){ const x = evDate(e); b = (x.getTime() >= t1 ? "Tomorrow" : "Today") + " " + (e.allDay ? "" : fmtTime(x) + " · ") + (e.summary || ""); }
+      if (e){ const x = evDate(e); b = tr(x.getTime() >= t1 ? "Tomorrow" : "Today") + " " + (e.allDay ? "" : fmtTime(x) + " · ") + (e.summary || ""); }
     }
     return [a, b];
   },

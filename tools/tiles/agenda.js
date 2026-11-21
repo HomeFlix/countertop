@@ -13,9 +13,9 @@ Tile("agenda", {
     const none = !(SOURCES.calendars || []).length;
     el.innerHTML = '<h3>' + esc(this.name) + '</h3>' + (list.length ? list.map(e => {
       const d = evDate(e), ds = d.toDateString();
-      const p = ds === today ? "" : ds === tmr ? "Tmrw " : d.toLocaleDateString([], d - Date.now() > 6 * 86400e3 ? {month:"short", day:"numeric"} : {weekday:"short"}) + " ";
-      return '<div class="li"' + (e.color ? ' style="--ec:' + esc(e.color) + '"' : "") + '><div class="t">' + p + (e.allDay ? "All day" : fmtTime(d)) + '</div><div class="s">' + esc(e.summary) +
+      const p = ds === today ? "" : ds === tmr ? tr("Tmrw") + " " : d.toLocaleDateString([], d - Date.now() > 6 * 86400e3 ? {month:"short", day:"numeric"} : {weekday:"short"}) + " ";
+      return '<div class="li"' + (e.color ? ' style="--ec:' + esc(e.color) + '"' : "") + '><div class="t">' + p + (e.allDay ? tr("All day") : fmtTime(d)) + '</div><div class="s">' + esc(e.summary) +
         (e.rep ? '<span class="rep">' + esc(e.rep) + '</span>' : "") + '</div></div>';
-    }).join("") : '<div class="empty">' + (none ? "Connect a calendar in Setup → Calendars" : "Nothing coming up") + '</div>');
+    }).join("") : '<div class="empty">' + tr(none ? "Connect a calendar in Setup → Calendars" : "Nothing coming up") + '</div>');
   }
 });

@@ -13,13 +13,13 @@ Tile("forecast", {
   cls:"m-fc",
   render(el){
     const j = STATE.wx;
-    if (!j){ el.innerHTML = '<h3>' + esc(this.name) + '</h3><div class="empty">' + (STATE.noLoc ? "Set your location in Setup" : "Loading…") + '</div>'; return; }
+    if (!j){ el.innerHTML = '<h3>' + esc(this.name) + '</h3><div class="empty">' + tr(STATE.noLoc ? "Set your location in Setup" : "Loading…") + '</div>'; return; }
     const D = j.daily, n = Math.min(this.s.days || 7, D.time.length);
     const lo = Math.min(...D.temperature_2m_min.slice(0, n)), hi = Math.max(...D.temperature_2m_max.slice(0, n)), span = Math.max(1, hi - lo);
     let h = '<h3>' + esc(this.name.replace(/^10-day/, n + "-day")) + '</h3>';
     for (let i = 0; i < n; i++){
       const d = new Date(D.time[i] + "T12:00"), a = D.temperature_2m_min[i], b = D.temperature_2m_max[i], p = (D.precipitation_probability_max || [])[i];
-      h += '<div class="fr"><span class="d">' + (i === 0 ? "Today" : d.toLocaleDateString([], {weekday:"short"})) + '</span><span>' + wx(D.weather_code[i]).g + '</span>' +
+      h += '<div class="fr"><span class="d">' + (i === 0 ? tr("Today") : d.toLocaleDateString([], {weekday:"short"})) + '</span><span>' + wx(D.weather_code[i]).g + '</span>' +
         '<span class="p">' + (this.s.rain !== false && p >= 20 ? p + "%" : "") + '</span><span class="lo">' + Math.round(a) + '°</span>' +
         '<span class="bar"><i style="left:' + ((a - lo) / span * 100).toFixed(1) + '%;right:' + ((hi - b) / span * 100).toFixed(1) + '%"></i></span><span>' + Math.round(b) + '°</span></div>';
     }

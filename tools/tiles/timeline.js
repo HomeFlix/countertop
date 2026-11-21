@@ -19,7 +19,7 @@ Tile("timeline", {
     const day = now.getHours() >= b ? new Date(now.getTime() + 86400e3) : now, d0 = startOfDay(day).getTime();
     const t0 = d0 + a * 3600e3, t1 = d0 + b * 3600e3, pct = t => ((t - t0) / (t1 - t0) * 100);
     const E = eventsOn(day, s.cals).filter(e => !e.allDay), allday = eventsOn(day, s.cals).filter(e => e.allDay);
-    let h = '<h3><span>' + (day === now ? "Today" : "Tomorrow") + '</span>' + (allday.length ? '<small>' + esc(allday.map(e => e.summary).join(" · ")) + '</small>' : "") + '</h3><div class="ax">';
+    let h = '<h3><span>' + tr(day === now ? "Today" : "Tomorrow") + '</span>' + (allday.length ? '<small>' + esc(allday.map(e => e.summary).join(" · ")) + '</small>' : "") + '</h3><div class="ax">';
     for (let x = a; x <= b; x += (b - a > 10 ? 2 : 1)) h += '<div class="hr" style="left:' + pct(d0 + x * 3600e3) + '%"><span>' + new Date(d0 + x * 3600e3).toLocaleTimeString([], {hour:"numeric"}) + '</span></div>';
     const lanes = [];
     E.forEach(e => {

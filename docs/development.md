@@ -71,6 +71,7 @@ Countertop needs Python 3.9 or newer, with nothing else to install. The same che
 ```sh
 python3 -m unittest discover -s tests     # server: settings, tile data, calendars, Home Assistant, meal ideas
 node tests/check-js.js                    # every script in the pages and tiles parses
+node tests/check-lang.js                  # translations keep their placeholders; lists missing words
 node tests/browser-check.js               # the pages open with the demo data and log no errors (needs Playwright)
 node tests/tile-data-check.js            # two Daily to-do tiles keep separate lists on a real screen (needs Playwright)
 ```

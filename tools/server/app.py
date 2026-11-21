@@ -179,6 +179,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, (HERE / "media.mp3").read_bytes(), "audio/mpeg")
         elif p == "/favicon.ico":
             self._send(204)
+        elif re.fullmatch(r"/lang/[a-z]{2}\.json", p) and (HERE / "lang" / p[6:]).is_file():
+            # words for the Language setting: English text → translation (tools/lang/, docs/languages.md)
+            self._send(200, (HERE / "lang" / p[6:]).read_bytes(), "application/json; charset=utf-8")
         elif p.startswith("/fonts/") and re.fullmatch(r"/fonts/[A-Za-z0-9_-]+\.woff2", p) and (HERE / "fonts" / p[7:]).is_file():
             self._send(200, (HERE / "fonts" / p[7:]).read_bytes(), "font/woff2", {"Cache-Control": "max-age=2592000"})
         else:

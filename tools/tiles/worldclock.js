@@ -20,7 +20,7 @@ Tile("worldclock", {
         const t = now.toLocaleTimeString([], {hour:"numeric", minute:"2-digit", timeZone:tz, hour12:!LOOK.h24});
         const h = +now.toLocaleString("en-US", {hour:"numeric", hour12:false, timeZone:tz}) % 24;
         const day = now.toLocaleDateString("en-CA", {timeZone:tz}), other = day !== here;
-        const sub = (h >= 6 && h < 19 ? "☀️ " : "🌙 ") + (other && this.s.day !== false ? (day > here ? "Tomorrow" : "Yesterday") : "Today");
+        const sub = (h >= 6 && h < 19 ? "☀️ " : "🌙 ") + (other && this.s.day !== false ? tr(day > here ? "Tomorrow" : "Yesterday") : tr("Today"));
         return '<div class="wc"><div class="n">' + esc(m[0]) + '<small>' + sub + '</small></div><div class="tm">' + esc(t) + '</div></div>';
       }catch(e){ return '<div class="wc"><div class="n">' + esc(m[0]) + '<small>Unknown time zone "' + esc(tz) + '"</small></div></div>'; }
     });
