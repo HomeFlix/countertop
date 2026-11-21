@@ -1,0 +1,1 @@
+- **Tiles can save their own data.** Each tile on the dashboard now has its own small store on the server, so tiles that remember things (like the Daily to-do) never share or overwrite each other's data. It's backed up with your settings, and a removed tile's data is kept for 30 days in case you undo. Tile authors: see [Writing a tile](docs/tile-api.md).

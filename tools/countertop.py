@@ -35,6 +35,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 from urllib.request import Request, urlopen
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from server import tiledata          # noqa: E402  (tools/server/: the server's parts, split out of this file over time)
+
 VERSION = "0.5.0"                 # bump with each release; CHANGELOG.md says what changed
 REPO = "kizit/countertop"
 HERE = Path(__file__).resolve().parent
@@ -220,6 +223,13 @@ class Handler(BaseHTTPRequestHandler):
             self._json(ha_view(q.get("src", [""])[0], q.get("ids", [""])[0].split(",")))
         elif p == "/ha/entities":
             self._json(ha_entities(parse_qs(urlparse(self.path).query).get("src", [""])[0]))
+        elif p == "/tile-data":
+            q = parse_qs(urlparse(self.path).query)
+            try:
+                since = int((q.get("since") or ["0"])[0])
+            except ValueError:
+                since = 0
+            self._json(tiledata.changed(since, live_tiles()))
         elif p == "/notes":
             self._json(notes_view())
         elif p == "/list":
@@ -270,6 +280,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"sources": sources_apply(body), "kinds": SOURCE_KINDS})
             except Exception as e:
                 self._json({"error": str(e)}, 400)
+        elif p.startswith("/tile-data/"):
+            try:
+                self._json(tiledata.apply(p[len("/tile-data/"):], body, live_tiles()))
+            except tiledata.TileDataError as e:
+                self._json({"error": str(e)}, e.code)
         elif p == "/ha/call":
             code, out = ha_call(body)
             self._json(out, code)
@@ -1309,6 +1324,7 @@ CONFIG_SCHEMA = 2
 BACKUP_DIR = WORK / "backups"
 BACKUP_KEEP = 12              # rolling copies of dashboard.json, newest kept
 BACKUP_EVERY = 15 * 60        # at most one routine copy per 15 minutes (Controls saves on every change)
+tiledata.init(WORK, BACKUP_DIR)
 CONFIG_PROBLEM = {}           # set when a settings file couldn't be read: shown in Controls > Status
 
 
@@ -1455,7 +1471,39 @@ def config_save(body, quiet=False):
         tmp = CONFIG_FILE.with_suffix(".tmp")
         tmp.write_text(json.dumps(saved, indent=1, ensure_ascii=False))
         tmp.replace(CONFIG_FILE)
+        live = _tile_ids(saved.get("modules"))
+        if live is not None:              # a save without a tile list (orientation only) leaves tile data alone
+            tiledata.sync(live)
     return None if quiet else config_load()
+
+
+def _tile_ids(mods):
+    """Tile id -> tile type for every tile in a saved modules dict (None when it has no tile list)."""
+    try:
+        items = mods["tiles"]["settings"]["items"]
+    except (KeyError, TypeError):
+        return None
+    if not isinstance(items, list):
+        return None
+    return {t["id"]: str(t.get("type") or "") for t in items if isinstance(t, dict) and isinstance(t.get("id"), str)}
+
+
+LIVE_TILES = {"mtime": None, "ids": {}}
+
+
+def live_tiles():
+    """The tiles on the saved dashboard (id -> type); a layout being previewed or tried isn't saved, so its tiles aren't here."""
+    try:
+        mt = CONFIG_FILE.stat().st_mtime_ns
+    except OSError:
+        return {}
+    if LIVE_TILES["mtime"] != mt:
+        try:
+            LIVE_TILES["ids"] = _tile_ids(json.loads(CONFIG_FILE.read_text()).get("modules")) or {}
+        except (OSError, ValueError, AttributeError):
+            LIVE_TILES["ids"] = {}
+        LIVE_TILES["mtime"] = mt
+    return LIVE_TILES["ids"]
 
 
 # ---------- Library: preview a layout without saving it ----------

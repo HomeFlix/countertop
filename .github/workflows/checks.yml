@@ -54,3 +54,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Open the dashboard, Controls and the phone list
         run: node tests/browser-check.js
+      - name: Check tile data end to end
+        run: node tests/tile-data-check.js

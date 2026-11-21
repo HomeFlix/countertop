@@ -150,6 +150,6 @@ Yes. Any screen with a modern browser works. Layouts are designed for a wide 16:
 
 ---
 
-[Setup tips and more details](docs/setup.md) · [Docker and Unraid](docs/install-docker-unraid.md) · [Developing](docs/development.md) · [MIT license](LICENSE)
+[Setup tips and more details](docs/setup.md) · [Docker and Unraid](docs/install-docker-unraid.md) · [Developing](docs/development.md) · [Writing a tile](docs/tile-api.md) · [MIT license](LICENSE)
 
 <sub>Countertop is an independent project. Echo, Echo Show, Alexa, and Silk are trademarks of Amazon.com, Inc.</sub>
