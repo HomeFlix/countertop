@@ -17,7 +17,7 @@ viewTile("nexthours", {
     cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
     const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H);
     const rows = hourlyFrom(STATE.wx, this.s.hours || 18);
-    if (rows.length < 3){ c.fillStyle = "#98a0aa"; c.font = "22px system-ui"; c.fillText(STATE.noLoc ? "Set your location in Setup to see the forecast" : "Waiting for the forecast…", 30, H / 2); return; }
+    if (rows.length < 3){ c.fillStyle = "#98a0aa"; c.font = "22px system-ui"; c.fillText(tr(STATE.noLoc ? "Set your location in Setup to see the forecast" : "Waiting for the forecast…"), 30, H / 2); return; }
     const compact = H < 350;
     const L = 40, R = W - 40, T = Math.min(185, H * .55), B = H - Math.min(120, H * .27), n = rows.length;
     const X = i => L + (R - L) * i / (n - 1);
@@ -54,7 +54,7 @@ viewTile("nexthours", {
       c.font = compact ? "20px system-ui" : "24px system-ui";
       c.fillText(wx(r.code, !r.day).g, X(i), Y(r.temp) - (compact ? 44 : 62));
       c.fillStyle = "#98a0aa"; c.font = "16px system-ui";
-      c.fillText(i === 0 ? "Now" : new Date(r.t).toLocaleTimeString([], {hour:"numeric"}).replace(" ", "").toLowerCase(), X(i), H - 20);
+      c.fillText(i === 0 ? tr("Now") : new Date(r.t).toLocaleTimeString([], {hour:"numeric"}).replace(" ", "").toLowerCase(), X(i), H - 20);
       c.fillStyle = "#e9ecf1"; c.beginPath(); c.arc(X(i), Y(r.temp), 5, 0, 7); c.fill();
     });
     // sunrise / sunset markers
@@ -91,10 +91,10 @@ viewTile("nexthours", {
     });
     // summary line
     let iHi = 0, iLo = 0; temps.forEach((v, i) => { if (v > temps[iHi]) iHi = i; if (v < temps[iLo]) iLo = i; });
-    const hr = i => i === 0 ? "now" : new Date(rows[i].t).toLocaleTimeString([], {hour:"numeric"});
+    const hr = i => i === 0 ? tr("now") : new Date(rows[i].t).toLocaleTimeString([], {hour:"numeric"});
     const wet = rows.findIndex(r => r.pp >= 50);
-    box.querySelector(".gs").textContent = "High " + Math.round(temps[iHi]) + "° " + hr(iHi) + " · Low " + Math.round(temps[iLo]) + "° " + hr(iLo) +
-      (wet >= 0 ? " · " + (SNOWY(rows[wet].code) ? "Snow" : "Rain") + " likely " + (wet === 0 ? "now" : "from " + hr(wet)) : " · Dry");
+    box.querySelector(".gs").textContent = tr("High {temp} {time}", {temp:Math.round(temps[iHi]) + "°", time:hr(iHi)}) + " · " + tr("Low {temp} {time}", {temp:Math.round(temps[iLo]) + "°", time:hr(iLo)}) +
+      " · " + (wet < 0 ? tr("Dry") : SNOWY(rows[wet].code) ? tr(wet === 0 ? "Snow likely now" : "Snow likely from {time}", {time:hr(wet)}) : tr(wet === 0 ? "Rain likely now" : "Rain likely from {time}", {time:hr(wet)}));
   },
   tick(){
     if (this.size !== this.box.clientWidth + "x" + this.box.clientHeight || Date.now() - this.drawn > 60e3 ||

@@ -15,7 +15,7 @@ Tile("month", {
     el.querySelector("h1").innerHTML = esc(now.toLocaleDateString([], {month:"long"})) + '<small>' + y + '</small>';
     const g = el.querySelector(".grid");
     g.style.gridTemplateRows = "30px repeat(" + weeks + ",1fr)";
-    const wk = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]; if (THEMEV.weekStart === "Monday") wk.push(wk.shift());
+    const wk = [0, 1, 2, 3, 4, 5, 6].map(i => new Date(2023, 0, 1 + i).toLocaleDateString([], {weekday:"short"})); if (THEMEV.weekStart === "Monday") wk.push(wk.shift());
     let h = wk.map(d => '<div class="hd">' + d + '</div>').join("");
     const t0 = startOfDay(now).getTime(), j = STATE.wx;
     for (let i = 0; i < weeks * 7; i++){

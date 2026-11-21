@@ -30,8 +30,8 @@ Tile("countdown", {
     const L = this.list();
     if (!L.length){ el.innerHTML = '<h3>' + esc(this.name) + '</h3><div class="empty">Add dates in this tile\'s settings</div>'; return; }
     const a = L[0], n = a.days;
-    let h = '<h3>' + esc(this.name) + '</h3><div class="what">' + esc(a.name) + '</div><div class="big"><b>' + (n === 0 ? "Today!" : n) + '</b><span>' +
-      (n === 0 ? "" : n === 1 ? "day to go" : "days to go") + '</span></div>';
+    let h = '<h3>' + esc(this.name) + '</h3><div class="what">' + esc(a.name) + '</div><div class="big"><b>' + (n === 0 ? tr("Today!") : n) + '</b><span>' +
+      (n === 0 ? "" : tr(n === 1 ? "day to go" : "days to go")) + '</span></div>';
     h += L.slice(1, 1 + (this.s.more == null ? 3 : this.s.more)).map(x => '<div class="li"><div class="t">' + x.days + (x.days === 1 ? " day" : " days") + '</div><div class="s">' + esc(x.name) + '</div></div>').join("");
     el.innerHTML = h;
   }

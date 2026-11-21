@@ -18,29 +18,29 @@ Tile("weather", {
   // the parts of the weather, for the tile designer
   parts(){
     const j = STATE.wx, o = ((designOf(this) || {}).parts || {}).icon || {};
-    if (!j) return [{id:"msg", label:"Message", html:STATE.noLoc ? "Set your location in Setup" : STATE.wxErr ? "Weather unavailable" : "Loading weather…"}];
+    if (!j) return [{id:"msg", label:"Message", html:tr(STATE.noLoc ? "Set your location in Setup" : STATE.wxErr ? "Weather unavailable" : "Loading weather…")}];
     const cur = j.current, dd = j.daily, w = wx(cur.weather_code, cur.is_day === 0), hm = x => new Date(x).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
     return [
       {id:"icon", label:"Weather icon", html: o.set === "Symbols" ? wxSymbol(cur.weather_code, cur.is_day === 0) : w.g, icon:true},
       {id:"temp", label:"Temperature", html:Math.round(cur.temperature_2m) + "°"},
       {id:"cond", label:"Conditions", html:esc(w.t)},
-      {id:"hilo", label:"High and low", html:"H " + Math.round(dd.temperature_2m_max[0]) + "° · L " + Math.round(dd.temperature_2m_min[0]) + "°"},
-      {id:"air", label:"Air quality", html:STATE.aqi != null ? "Air " + Math.round(STATE.aqi) + " · " + this.aqiLabel(STATE.aqi) : ""},
+      {id:"hilo", label:"High and low", html:tr("H {high} · L {low}", {high:Math.round(dd.temperature_2m_max[0]) + "°", low:Math.round(dd.temperature_2m_min[0]) + "°"})},
+      {id:"air", label:"Air quality", html:STATE.aqi != null ? tr("Air") + " " + Math.round(STATE.aqi) + " · " + this.aqiLabel(STATE.aqi) : ""},
       {id:"sun", label:"Sunrise and sunset", html:dd.sunrise ? "🌅 " + hm(dd.sunrise[0]) + "  ·  🌇 " + hm(dd.sunset[0]) : "", emoji:true},
       {id:"moon", label:"Moon", html:moon(new Date()).join(" "), emoji:true},
       {id:"rain", label:"Rain or snow coming", html:STATE.rain || ""}];
   },
-  aqiLabel(v){ return v <= 50 ? "Good" : v <= 100 ? "Moderate" : v <= 150 ? "Unhealthy (sensitive)" : v <= 200 ? "Unhealthy" : "Very unhealthy"; },
+  aqiLabel(v){ return tr(v <= 50 ? "Good" : v <= 100 ? "Moderate" : v <= 150 ? "Unhealthy (sensitive)" : v <= 200 ? "Unhealthy" : "Very unhealthy"); },
 
   render(el){
     if (designed(this)) return designRender(el, this);
     const j = STATE.wx, s = this.s, st = slug(s.style);
-    if (!j){ el.innerHTML = '<div class="m-weather"><div class="m" data-part="msg">' + (STATE.noLoc ? "Set your location in Setup to see the weather" : STATE.wxErr ? "Weather unavailable" : "Loading weather…") + '</div></div>'; return; }
+    if (!j){ el.innerHTML = '<div class="m-weather"><div class="m" data-part="msg">' + tr(STATE.noLoc ? "Set your location in Setup to see the weather" : STATE.wxErr ? "Weather unavailable" : "Loading weather…") + '</div></div>'; return; }
     const cur = j.current, dd = j.daily, w = wx(cur.weather_code, cur.is_day === 0);
     const parts = [], P = (id, h) => '<span data-part="' + id + '">' + h + '</span>';
     if (s.cond !== false) parts.push(P("cond", esc(w.t)));
-    if (s.hilo !== false) parts.push(P("hilo", "H " + Math.round(dd.temperature_2m_max[0]) + "° · L " + Math.round(dd.temperature_2m_min[0]) + "°"));
-    if (s.air && STATE.aqi != null) parts.push(P("air", "Air " + Math.round(STATE.aqi) + " · " + this.aqiLabel(STATE.aqi)));
+    if (s.hilo !== false) parts.push(P("hilo", tr("H {high} · L {low}", {high:Math.round(dd.temperature_2m_max[0]) + "°", low:Math.round(dd.temperature_2m_min[0]) + "°"})));
+    if (s.air && STATE.aqi != null) parts.push(P("air", tr("Air") + " " + Math.round(STATE.aqi) + " · " + this.aqiLabel(STATE.aqi)));
     let sub = "";
     if (s.sun && dd.sunrise){
       const hm = x => new Date(x).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});

@@ -639,7 +639,7 @@ function modScreen(m){
   if (s.desc) h += '<p class="intro">' + esc(s.desc) + '</p>';
   if (m === "general"){
     h += sec("", '<button class="btnrow blue" data-act="locate">Find a place by name…</button>', "Or type the latitude and longitude below.");
-    const G = [["Place", ["place", "lat", "lon"]], ["Units and formats", ["units", "h24", "dateFmt", "weekStart"]], ["Icons", ["emoji", "swap"]], ["Screen", ["gear"]]];
+    const G = [["Place", ["place", "lat", "lon"]], ["Language and formats", ["lang", "units", "h24", "dateFmt", "weekStart"]], ["Icons", ["emoji", "swap"]], ["Screen", ["gear"]]];
     G.forEach(([g, keys]) => { const K = keys.filter(k => s.settings[k]); if (!K.length) return;
       if (g === "Icons"){ h += emojiPicker(c.settings.emoji, c.settings.swap); return; }
       h += sec(g, K.map(k => field(m, k, s.settings[k], c.settings[k])).join("")); });
@@ -1042,7 +1042,8 @@ function wizScreen(){
     h += '<div class="big">Where are you?</div><p class="intro">For the weather, the radar, sunrise and sunset. Only the name you type is sent, to Open-Meteo\'s free place search.</p>';
     h += sec("", (g.lat || g.lon ? row({t:g.place || g.lat + ", " + g.lon, sub:"Your location", pre:'<span class="dot" style="background:var(--ok)"></span>'}) : "") +
       '<button class="btnrow blue" data-act="locate">' + (g.lat || g.lon ? "Pick a different place…" : "Find your town…") + '</button>');
-    h += sec("", field("general", "units", schema.general.settings.units, g.units) + field("general", "h24", schema.general.settings.h24, g.h24));
+    h += sec("", field("general", "units", schema.general.settings.units, g.units) + field("general", "h24", schema.general.settings.h24, g.h24) +
+      field("general", "lang", schema.general.settings.lang, g.lang));
     h += nav(["Next"], g.lat || g.lon ? "" : "Skip");
   } else if (st === 2){
     const F = KINDS.calendars.fields.url, cals = SRC.calendars || [];

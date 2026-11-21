@@ -622,19 +622,52 @@ const ON = id => !!(CFG && CFG[id] && CFG[id].on);
 const FXCFG = {any:true, front:true, sky:true};
 const STATE = {wx:null, aqi:null, events:[], notes:null, teams:{}, albums:{}, rain:"", tempNow:null, isDay:true, bday:[]};
 
+/* ---------- language (docs/languages.md) ---------- */
+// The Language setting in Controls picks the words (tools/lang/<code>.json: English text → translation) and the locale
+// for dates, times and numbers. Anything without a translation stays in English.
+const LANGS = {"English":"en", "Français":"fr"};
+const I18N = {lang:"en", locale:undefined, words:{}};
+// tr("Rain likely around {time}", {time:"3 PM"}): the words in the screen's language; `own` is a tile's own lang block
+function tr(s, vars, own){
+  let out = (own && own[s]) || I18N.words[s] || s;
+  if (vars) out = out.replace(/\{(\w+)\}/g, (m, k) => vars[k] != null ? vars[k] : m);
+  return out;
+}
+async function langSetup(){
+  const pick = S("general").lang, nav = String(navigator.language || "en"), navLang = nav.split("-")[0].toLowerCase();
+  I18N.lang = LANGS[pick] || (Object.values(LANGS).includes(navLang) ? navLang : "en");
+  // Automatic leaves dates to the device. A chosen language keeps the device's region when it speaks that language
+  // (fr-CA stays fr-CA), and otherwise uses the language's usual one.
+  I18N.locale = !LANGS[pick] ? undefined : navLang === I18N.lang ? nav : {en:"en-US", fr:"fr-FR"}[I18N.lang];
+  document.documentElement.lang = I18N.lang;
+  if (I18N.lang !== "en"){
+    try{ I18N.words = await getJSON("/lang/" + I18N.lang + ".json"); }
+    catch(e){ I18N.words = {}; reportErr("language", String(e.message || e)); }
+  }
+  if (!I18N.locale) return;
+  // dates, times and numbers that ask for the default locale ([] or nothing) get the chosen one
+  const loc = l => l == null || (Array.isArray(l) && !l.length) ? I18N.locale : l;
+  for (const [P, k] of [[Date.prototype, "toLocaleDateString"], [Date.prototype, "toLocaleTimeString"], [Date.prototype, "toLocaleString"], [Number.prototype, "toLocaleString"]]){
+    const f = P[k]; P[k] = function(l, o){ return f.call(this, loc(l), o); };
+  }
+  const DTF = Intl.DateTimeFormat;
+  Intl.DateTimeFormat = Object.assign(function(l, o){ return new DTF(loc(l), o); }, {supportedLocalesOf:DTF.supportedLocalesOf});
+  Intl.DateTimeFormat.prototype = DTF.prototype;
+}
+
 /* ---------- weather codes ---------- */
 function wx(code, night){
-  if (code === 0) return {g: night ? "🌙" : "☀️", t:"Clear"};
-  if (code === 1) return {g: night ? "🌙" : "🌤️", t:"Mostly clear"};
-  if (code === 2) return {g: night ? "☁️" : "⛅", t:"Partly cloudy"};
-  if (code === 3) return {g:"☁️", t:"Overcast"};
-  if (code === 45 || code === 48) return {g:"🌫️", t:"Fog"};
-  if (code >= 51 && code <= 57) return {g:"🌦️", t:"Drizzle"};
-  if (code >= 61 && code <= 67) return {g:"🌧️", t:"Rain"};
-  if (code >= 71 && code <= 77) return {g:"🌨️", t:"Snow"};
-  if (code >= 80 && code <= 82) return {g:"🌧️", t:"Showers"};
-  if (code >= 85 && code <= 86) return {g:"🌨️", t:"Snow showers"};
-  if (code >= 95) return {g:"⛈️", t:"Storms"};
+  if (code === 0) return {g: night ? "🌙" : "☀️", t:tr("Clear")};
+  if (code === 1) return {g: night ? "🌙" : "🌤️", t:tr("Mostly clear")};
+  if (code === 2) return {g: night ? "☁️" : "⛅", t:tr("Partly cloudy")};
+  if (code === 3) return {g:"☁️", t:tr("Overcast")};
+  if (code === 45 || code === 48) return {g:"🌫️", t:tr("Fog")};
+  if (code >= 51 && code <= 57) return {g:"🌦️", t:tr("Drizzle")};
+  if (code >= 61 && code <= 67) return {g:"🌧️", t:tr("Rain")};
+  if (code >= 71 && code <= 77) return {g:"🌨️", t:tr("Snow")};
+  if (code >= 80 && code <= 82) return {g:"🌧️", t:tr("Showers")};
+  if (code >= 85 && code <= 86) return {g:"🌨️", t:tr("Snow showers")};
+  if (code >= 95) return {g:"⛈️", t:tr("Storms")};
   return {g:"·", t:"—"};
 }
 
@@ -650,19 +683,19 @@ function rainNote(j, curCode){
   const wetAt = i => (pp[i] != null && pp[i] >= 50) || isWet(wc[i]);
   const pill = (snow, txt) => '<span class="pill' + (snow ? " snow" : "") + '">' + txt + '</span>';
   if (isWet(curCode)){
-    const kind = isSnow(curCode) ? "Snow" : "Rain";
-    for (let i = i0; i < end; i++) if (!wetAt(i)) return pill(kind === "Snow", kind + " now · easing by " + hr(i));
-    return pill(kind === "Snow", kind + " for the next several hours");
+    const snow = isSnow(curCode);
+    for (let i = i0; i < end; i++) if (!wetAt(i)) return pill(snow, tr(snow ? "Snow now · easing by {time}" : "Rain now · easing by {time}", {time:hr(i)}));
+    return pill(snow, tr(snow ? "Snow for the next several hours" : "Rain for the next several hours"));
   }
   for (let i = i0; i < end; i++){
     if (wetAt(i)){
-      const kind = isSnow(wc[i]) ? "Snow" : "Rain";
+      const snow = isSnow(wc[i]);
       const pct = pp[i] != null ? " (" + pp[i] + "%)" : "";
-      return pill(kind === "Snow", kind + " likely around " + hr(i) + pct);
+      return pill(snow, tr(snow ? "Snow likely around {time}" : "Rain likely around {time}", {time:hr(i)}) + pct);
     }
   }
   let mx = 0; for (let i = i0; i < end; i++) mx = Math.max(mx, pp[i] || 0);
-  return mx < 20 ? '<span class="pill dry">Dry for the next 12 hours</span>' : "";
+  return mx < 20 ? '<span class="pill dry">' + tr("Dry for the next 12 hours") + '</span>' : "";
 }
 
 /* ---------- little thing: on this day / dad joke / kitchen fact ---------- */
@@ -776,21 +809,21 @@ function applySky(){
 function moon(d){
   const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14);
   const age = (((d.getTime() - ref) / 86400e3) % syn + syn) % syn;
-  const names = [["🌑","New moon"],["🌒","Waxing crescent"],["🌓","First quarter"],["🌔","Waxing gibbous"],
-                 ["🌕","Full moon"],["🌖","Waning gibbous"],["🌗","Last quarter"],["🌘","Waning crescent"]];
+  const names = [["🌑", tr("New moon")], ["🌒", tr("Waxing crescent")], ["🌓", tr("First quarter")], ["🌔", tr("Waxing gibbous")],
+                 ["🌕", tr("Full moon")], ["🌖", tr("Waning gibbous")], ["🌗", tr("Last quarter")], ["🌘", tr("Waning crescent")]];
   return names[Math.floor((age / syn) * 8 + .5) % 8];
 }
 
 /* ---------- a little greeting that changes through the day ---------- */
 function hello(d){
   const h = d.getHours(), wd = d.getDay();
-  if (h < 5) return "Up late 🦉";
-  if (h < 9) return wd === 0 || wd === 6 ? "Slow morning ☕" : "Good morning ☕";
-  if (h < 12) return "Good morning";
-  if (h < 14) return "Lunch time? 🥪";
-  if (h < 17) return wd === 5 ? "Almost the weekend 🎉" : "Good afternoon";
-  if (h < 20) return "What's for dinner? 🍝";
-  return "Good evening 🌙";
+  if (h < 5) return tr("Up late") + " 🦉";
+  if (h < 9) return tr(wd === 0 || wd === 6 ? "Slow morning" : "Good morning") + " ☕";
+  if (h < 12) return tr("Good morning");
+  if (h < 14) return tr("Lunch time?") + " 🥪";
+  if (h < 17) return wd === 5 ? tr("Almost the weekend") + " 🎉" : tr("Good afternoon");
+  if (h < 20) return tr("What's for dinner?") + " 🍝";
+  return tr("Good evening") + " 🌙";
 }
 /* ---------- effects library: every effect is one small animation that can be turned on, sized and timed on its own ----------
    Shared by the dashboard (full-screen canvases) and Controls (little live previews on each card). */
@@ -1357,6 +1390,9 @@ const TILE_API = {
   get store(){ return tileStore(this); },
   fetch(url, maxAge){ return tileData(this, url, maxAge == null ? 300 : maxAge); },
   feed(name){ return STATE[{weather:"wx", air:"aqi"}[name] || name]; },
+  // words in the screen's language: the tile's own lang block first, then tools/lang/<code>.json, then the English as written
+  t(s, vars){ return tr(s, vars, this.lang && this.lang[I18N.lang]); },
+  get locale(){ return I18N.locale; },          // for Intl calls that need it; [] already means the chosen language
   // ask the server to do something for this tile (tools/countertop.py TILE_ACTIONS); resolves with its answer,
   // rejects with its error. Nothing happens while editing or previewing.
   async act(action, args){
@@ -1441,7 +1477,7 @@ function tileMount(it){
   const m = Object.create(T);
   m.id = it.id; m.it = it;
   Object.defineProperty(m, "s", {get(){ return it.settings; }});
-  Object.defineProperty(m, "name", {get(){ return it.name || T.title; }});
+  Object.defineProperty(m, "name", {get(){ return it.name || m.t(T.title); }});
   return (MODULES[it.id] = m);
 }
 function tilesSetup(){
@@ -1840,6 +1876,7 @@ async function boot(){
     if (j.trial) trialBanner(j.trial); }
   catch(e){ reportErr("config", String(e)); setTimeout(boot, 15e3); return; }
   if (SOLO) demoConfig();             // ?solo=<type>: one tile of that type with made-up data (examples in the tile list)
+  await langSetup();
   tilesSetup();
   Object.assign(FXCFG, {any: ON("effects") && !SOLO, front: S("effects").front !== false, sky:true});
   lookSetup();
@@ -2814,9 +2851,9 @@ const designUsers = (type, ref) => tileItems().filter(it => it.type === type && 
 function designName(type, base){ const L = designLib(type); let n = base, i = 2; while (L.some(v => v.name === n)) n = base + " " + i++; return n; }
 const stripEmoji = h => String(h).replace(EMO, "").replace(/ {2,}/g, " ").trim();
 function wxSymbol(code, night){
-  const t = wx(code, night).t;
-  if (/Storm/.test(t)) return "ϟ"; if (/Snow/.test(t)) return "❄︎"; if (/Rain|Drizzle|Showers/.test(t)) return "☂︎";
-  if (/Fog/.test(t)) return "≋"; if (/Overcast|cloudy/i.test(t) && !/Mostly clear/.test(t)) return "☁︎"; return night ? "☾" : "☀︎";
+  // by weather code, so it doesn't depend on the words wx() shows (those follow the Language setting)
+  if (code >= 95) return "ϟ"; if (isSnow(code)) return "❄︎"; if (isWet(code)) return "☂︎";
+  if (code === 45 || code === 48) return "≋"; if (code === 2 || code === 3) return "☁︎"; return night ? "☾" : "☀︎";
 }
 // A design is drawn on a canvas the height of the box it was made in (D.rows grid rows): sizes and the distance from
 // the top are a share of that height. In a shorter box the text keeps its size and the empty space at the bottom
@@ -3179,7 +3216,7 @@ function lookText(s){
   let t = s;
   for (const [a, b] of LOOK.swaps) if (a && t.includes(a)) t = t.split(a).join(b);
   if (LOOK.plain){
-    const sym = LOOK.mode === "symbols", u = t.replace(EMOX, m => { const k = m.replace(/[\uFE0E\uFE0F]/g, ""); return (sym ? SYM[k] : WORDS[k]) || ""; });
+    const sym = LOOK.mode === "symbols", u = t.replace(EMOX, m => { const k = m.replace(/[\uFE0E\uFE0F]/g, ""); return (sym ? SYM[k] : WORDS[k] && tr(WORDS[k])) || ""; });
     if (u !== t) t = u.replace(/ {2,}/g, " ").replace(/^ (?=\S)/, "");
   }
   return t;

@@ -47,7 +47,7 @@ Tile("clock", {
     if (hol) for (const y of [d.getFullYear(), d.getFullYear() + 1]) holidaysIn(y).forEach(h => all.push({t:h.t.replace(/^\S+\s/, ""), d:h.d}));
     const soon = all.map(x => ({t:x.t, n:Math.round((startOfDay(x.d) - t0) / 86400e3)})).filter(x => x.n > 0)
       .sort((a, b) => a.n - b.n).filter((x, i, a) => a.findIndex(y => y.t === x.t) === i).slice(0, 2);
-    return soon.map((x, i) => x.t + (x.n === 1 ? " tomorrow" : i ? " in " + x.n : " in " + x.n + " days")).join("  ·  ");
+    return soon.map((x, i) => tr(x.n === 1 ? "{name} tomorrow" : i ? "{name} in {n}" : "{name} in {n} days", {name:x.t, n:x.n})).join("  ·  ");
   },
 
   render(el){

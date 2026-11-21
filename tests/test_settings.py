@@ -142,5 +142,22 @@ class Backups(unittest.TestCase):
         self.assertEqual(len(backups()), 2)
 
 
+class Language(unittest.TestCase):
+    def test_defaults_to_automatic_and_keeps_a_chosen_language(self):
+        reset()
+        self.assertEqual(ct.config_load()["modules"]["general"]["settings"]["lang"], "Automatic")
+        mods = ct.config_load()["modules"]
+        mods["general"]["settings"]["lang"] = "Français"
+        ct.config_save({"modules": mods})
+        self.assertEqual(ct.config_load()["modules"]["general"]["settings"]["lang"], "Français")
+
+    def test_every_language_choice_has_a_catalog(self):
+        codes = {"English": "en", "Français": "fr"}
+        for choice in ct.SCHEMA["general"]["settings"]["lang"]["choices"]:
+            if choice == "Automatic" or codes[choice] == "en":
+                continue
+            json.loads((ROOT / "tools" / "lang" / (codes[choice] + ".json")).read_text())
+
+
 if __name__ == "__main__":
     unittest.main()
