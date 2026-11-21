@@ -1,0 +1,1 @@
+- **Locks, garage doors and alarms from the screen, only if you allow it.** Home and Sensor tiles have **Allow locks, garage doors and alarms** (off by default) and a choice of one or two taps to confirm. The server checks every tap against the tile's own settings, so a tile only reaches the things it shows.

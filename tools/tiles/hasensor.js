@@ -12,6 +12,8 @@ Tile("hasensor", {
     icon:{type:"bool", label:"Show an icon", default:true},
     changed:{type:"bool", label:"Show how long ago it changed", default:true},
     taps:{type:"bool", label:"Let the screen control this thing", default:true},
+    secure:{type:"bool", label:"Allow locks, garage doors and alarms", help:"Off: they're shown but can't be changed from the screen", default:false},
+    confirm:{type:"choice", label:"Locks, garage doors and alarms need", choices:["Two taps", "One tap"], default:"Two taps"},
     names:{type:"text", label:"Rename", help:"Just a name to rename what is shown (e.g. Énergie), or entity_id = Display name per ; — e.g. sensor.salon_temperature = Salon", default:""}
   },
   css:`.m-hasensor{display:flex;flex-direction:column}
@@ -24,6 +26,7 @@ Tile("hasensor", {
     .m-hasensor.alert .v{color:#ffb74d}
     .m-hasensor.gone .v{opacity:.45}
     .m-hasensor .msg{font-size:16px;color:#ffb74d;text-align:center}
+    .m-hasensor .msg.ask{font-size:20px;color:#fff;background:var(--accent);border-radius:12px;padding:6px 12px}
     .m-hasensor .modes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:2px 0}
     .m-hasensor .modes .chip,.m-hasensor .ctl .chip{font-size:18px;padding:7px 17px;border-radius:999px;background:rgba(255,255,255,.12);color:var(--dim);cursor:pointer;border:0;transition:background .15s,color .15s}
     .m-hasensor .modes .chip.on,.m-hasensor .ctl .chip.on{background:var(--accent);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.35)}
@@ -64,18 +67,18 @@ Tile("hasensor", {
               : taps && !gone && HA.CTRL[o.domain] ? o : null;
     let ctl = "", modes = "";
     if (tgt){
-      ctl = HA.controls(tgt, taps);
+      ctl = HA.controls(tgt, taps, s);
       modes = HA.modeChips(tgt);
       // a sensor being shown can always be refreshed, even when a control entity drives the tile
       if (tgt !== o && /^(sensor|binary_sensor)$/.test(o.domain)) ctl = '<span class="ctl"><span class="cbtn" data-ha="' + esc(o.id) + '" data-act="refresh" title="Refresh now">🔄</span></span>' + ctl;
     }
-    const tapId = tgt && !HA.secure(tgt) && HA.TAP[tgt.domain] ? tgt.id : (taps && !HA.secure(o) && HA.TAP[o.domain] ? o.id : null);
+    const tapId = tgt && !HA.held(tgt, s) && HA.TAP[tgt.domain] ? tgt.id : (taps && !HA.held(o, s) && HA.TAP[o.domain] ? o.id : null);
     el.innerHTML = '<div class="bv">' + (s.icon !== false ? '<div class="ic">' + HA.icon(o) + '</div>' : "") + '<div class="v' + (v.length > 9 ? " long" : "") + '">' + esc(v) + '</div>' +
       '<div class="n">' + esc(nm[o0.id] || this.it.name || o.name) + (ago ? '<small>' + esc(ago) + '</small>' : "") + '</div></div>' +
       (modes ? '<div class="modes">' + modes + '</div>' : "") +
       (ctl ? '<div class="ctl"' + (tapId ? ' data-ha="' + esc(tapId) + '"' : "") + '>' + ctl + '</div>' : "") +
       (d.error ? '<div class="msg">' + esc(d.error) + '</div>' : "") +
-      (this._msg && this._msg.until > now ? '<div class="msg">' + esc(this._msg.text) + '</div>' : "");
+      (this._msg && this._msg.until > now ? '<div class="msg' + (this._msg.ask ? " ask" : "") + '">' + esc(this._msg.text) + '</div>' : "");
     HA.bind(el, this);
   }
 });

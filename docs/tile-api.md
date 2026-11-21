@@ -38,6 +38,7 @@ Tile("daily", {
 | `this.store` | Its own saved data (below) |
 | `this.fetch(url, maxAge)` | Data from a web address, cached for `maxAge` seconds. Returns what it has now (or `null`) and redraws the tile when new data arrives |
 | `this.feed(name)` | Shared data the dashboard already loads: `weather`, `air`, `events`, `notes`, `teams`, `albums`, `sales`. List the matching `feeds` so it gets loaded |
+| `this.act(action, args)` | Ask the server to do something the tile is set up to do (below). Resolves with the server's answer, rejects with its error |
 
 `tap(e, el)` and `submit(e, el, form)` are called for taps and form submits in the tile, except while the dashboard is being edited or shown as a preview in Controls. The default action of a submit is already stopped.
 
@@ -64,6 +65,16 @@ this.store.change([op, op, …], unless);            // several at once, all or 
 
 Stored data is not a setting. Controls doesn't save it, it's never part of a shared layout, and it's backed up with the settings (every 15 minutes, newest 12 kept). When a tile is removed, its data moves to `tiles/.trash` for 30 days, so undoing the removal brings it back.
 
+## Actions: `this.act`
+
+Some things only the server can do, like switching a light in Home Assistant. A tile asks with `this.act`, and the server looks the tile up in the saved settings and checks the request against that tile's own settings. A tile can only do what it's set up to do, and nothing happens while editing or previewing.
+
+| Action | Args | Who can use it |
+| --- | --- | --- |
+| `ha.call` | `{entity, action, data, confirm}` | Home and Sensor tiles, for the things they show. Locks, alarms and garage doors need the tile's **Allow locks, garage doors and alarms**, and with **Two taps** the first answer is `{confirm, seconds}`: send the same action again with that `confirm` token to do it |
+
+New actions go in `TILE_ACTIONS` on the server.
+
 ## Server routes
 
 Tiles normally use `this.store`. The routes behind it:
@@ -72,3 +83,4 @@ Tiles normally use `this.store`. The routes behind it:
 | --- | --- |
 | `GET /tile-data?since=<rev>` | `{rev, tiles:{<tile id>: data}}` for every tile on the saved dashboard changed after `rev` (all of them for `0`) |
 | `POST /tile-data/<tile id>` | One operation, or `{ops:[…], unless:{…}}`. Answers `{rev, data}`. Refused (404) for a tile that isn't on the saved dashboard |
+| `POST /tile-act/<tile id>` | `{action, args}`. Refused (404) for a tile that isn't on the saved dashboard |
