@@ -253,24 +253,46 @@ const HA = {
   },
   send(tile, id, action, data, st){
     const c = tile._fd, opt = tile._opt = tile._opt || {};
+    // a lock, alarm or garage door asks for a second tap: the server hands out a token the second tap brings back
+    const cf = tile._confirm && tile._confirm.id === id && tile._confirm.action === action && tile._confirm.until > Date.now() ? tile._confirm : null;
+    tile._confirm = null;
     opt[id] = {patch: HA.patch(action, data, st) || {}, until: Date.now() + 6000};   // show the change right away
     render(tile.id);
-    fetch("/ha/call", {method:"POST", headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({src:(c && c.data && c.data.src) || tile.s.src || "", entity:id, action:action, data:data || {}})})
-      .then(r => r.json().then(j => { if (!r.ok || j.error) throw new Error(j.error || r.status); return j; }))
-      .then(j => { if (j.state && c && c.data){ const i = (c.data.states || []).findIndex(o => o.id === id); if (i >= 0) c.data.states[i] = j.state; } delete opt[id]; })
+    tile.act("ha.call", {entity:id, action:action, data:data || {}, confirm:cf ? cf.token : ""})
+      .then(j => {
+        delete opt[id];
+        if (j.confirm){
+          const nm = HA.namemap(tile.s)[id] || (st && st.name) || id;
+          tile._confirm = {id, action, token:j.confirm, until:Date.now() + (j.seconds || 6) * 1000};
+          tile._msg = {text:"Tap again to " + HA.verb(action) + " " + nm, until:tile._confirm.until, ask:true};
+          setTimeout(() => render(tile.id), (j.seconds || 6) * 1000 + 50);
+          return;
+        }
+        tile._msg = null;
+        if (j.state && c && c.data){ const i = (c.data.states || []).findIndex(o => o.id === id); if (i >= 0) c.data.states[i] = j.state; }
+      })
       .catch(e => { delete opt[id]; tile._msg = {text:"Didn't work: " + (e.message || e), until: Date.now() + 6000}; })
       .finally(() => { if (c) c.at = 0; render(tile.id); });
+  },
+  verb(action){
+    return {unlock:"unlock", open:"open", lock:"lock", disarm:"disarm", arm_home:"arm (home)", arm_away:"arm (away)", arm_night:"arm (night)",
+      arm_vacation:"arm (vacation)", open_cover:"open", close_cover:"close", stop_cover:"stop", toggle:"open or close", set_cover_position:"move"}[action] || "change";
+  },
+  // the two settings every tile that controls Home Assistant has for locks, alarms and garage doors
+  SECURE:{
+    secure:{type:"bool", label:"Allow locks, garage doors and alarms", help:"Off: they're shown but can't be changed from the screen", default:false},
+    confirm:{type:"choice", label:"Locks, garage doors and alarms need", choices:["Two taps", "One tap"], default:"Two taps"}
   }
 };
 
 Tile("ha", {
   title:"Home", cat:"Home", size:[10, 12, 6, 6], every:5, needs:"homeassistant",
-  desc:"Lights, switches, thermostats, covers, locks and the alarm from Home Assistant. Tap a light or switch to turn it on or off; use − and + to set a temperature, a brightness or a volume; run scenes and scripts with Run.",
+  desc:"Lights, switches, thermostats, covers, locks and the alarm from Home Assistant. Tap a light or switch to turn it on or off; use − and + to set a temperature, a brightness or a volume; run scenes and scripts with Run. Locks, garage doors and alarms can be changed only if you allow it in the tile's settings, with a second tap to confirm.",
   settings:{
     src:{type:"source", kind:"homeassistant", label:"Home Assistant", default:""},
     entities:{type:"entity", multi:true, label:"Things to show", help:"In the order you want them", default:[]},
     taps:{type:"bool", label:"Let the screen control these things", default:true},
+    secure:HA.SECURE.secure, confirm:HA.SECURE.confirm,
     changed:{type:"bool", label:"Show how long ago doors and sensors changed", default:true},
     names:{type:"text", label:"Rename things", help:"entity_id = Display name, separated by ; — e.g. sensor.cap_energie_power = Linky power", default:""}
   },
@@ -299,7 +321,8 @@ Tile("ha", {
     .m-ha .cbtn{font-size:18px;padding:7px 15px;border-radius:999px;background:rgba(255,255,255,.14);border:0;color:#fff;cursor:pointer;white-space:nowrap;transition:background .15s}
     .m-ha .cbtn.on{background:var(--accent);box-shadow:0 3px 14px rgba(0,0,0,.35)}
     .m-ha [data-ha]{cursor:pointer}
-    .m-ha .msg{font-size:17px;color:#ffb74d;margin-top:6px}`,
+    .m-ha .msg{font-size:17px;color:#ffb74d;margin-top:6px}
+    .m-ha .msg.ask{font-size:22px;color:#fff;background:var(--accent);border-radius:12px;padding:8px 14px}`,
   cls:"m-ha",
   has(){ return true; },
   render(el){
@@ -320,7 +343,7 @@ Tile("ha", {
         (tap ? ' data-ha="' + esc(o.id) + '"' : "") + '><span class="ic">' + HA.icon(o) + '</span><span class="nm">' + esc(nm[o0.id] || o.name) + (sub ? '<small>' + sub + '</small>' : "") + '</span>' + HA.controls(o, taps) + '</div>';
     }).join("") + '</div>';
     if (d.error) h += '<div class="msg">' + esc(d.error) + '</div>';
-    if (this._msg && this._msg.until > now) h += '<div class="msg">' + esc(this._msg.text) + '</div>';
+    if (this._msg && this._msg.until > now) h += '<div class="msg' + (this._msg.ask ? " ask" : "") + '">' + esc(this._msg.text) + '</div>';
     el.innerHTML = h;
     el.classList.toggle("wide", el.clientWidth > 820 && ids.length > 4);
     HA.bind(el, this);
