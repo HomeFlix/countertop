@@ -21,6 +21,7 @@ async function main() {
   const m = cfg.modules;
   m.tiles.settings.items.push({ id: "daily_a", type: "daily", name: "Morning", settings: {} }, { id: "daily_b", type: "daily", name: "Evening", settings: {} });
   const main = m.pages.settings.items.find(p => p.id === "main");
+  m.night.on = false;     // the night page takes over 22:00-04:00 and would hide the tiles, so runs at those hours failed
   main.slots = [{ id: "sa", x: 0, y: 0, w: 24, h: 32, mod: "daily_a" }, { id: "sb", x: 24, y: 0, w: 24, h: 32, mod: "daily_b" }];
   fs.writeFileSync(cfgFile, JSON.stringify(cfg));
 
