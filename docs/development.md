@@ -45,6 +45,22 @@ Run `node demo/capture-readme.js manual-portrait` to simulate a browser that kee
 
 Only one Countertop app can run at a time, and both use port 8090. On a Mac where you also run the everyday app, `build.sh` quits it, so open your everyday app again when you're done testing.
 
+## Run the checks
+
+Countertop needs Python 3.9 or newer, with nothing else to install. The same checks run on every pull request:
+
+```sh
+python3 -m unittest discover -s tests     # server: settings, calendars, Home Assistant, meal ideas
+node tests/check-js.js                    # every script in the pages and tiles parses
+node tests/browser-check.js               # the pages open with the demo data and log no errors (needs Playwright)
+```
+
+Repeating calendar events use python-dateutil when it's installed and a built-in expander when it isn't, so the calendar tests run against both. When you change how settings are stored, add a step to `CONFIG_UPGRADES` in `tools/countertop.py`, bump `CONFIG_SCHEMA`, and add a test with a settings file in the old shape.
+
+## Your settings are backed up
+
+The server keeps up to 12 recent copies of `dashboard.json` in the data folder's `backups/` folder, at most one every 15 minutes, plus one right before an upgrade changes the file. If `dashboard.json` can't be read, the server never writes over it: it renames it to `dashboard.broken-<time>.json`, puts the newest backup back, and says so under Status in Controls.
+
 ## Ship a change
 
 Open a pull request against `main`, and add a one-line note under [changes/](../changes/README.md) if people will notice the change. Once it is merged, a release puts it in front of everyone, including your own everyday copy. See [releasing](releasing.md).
