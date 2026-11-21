@@ -36,9 +36,14 @@ function wordsIn(src) {
 const sources = [path.join(tools, "dash3.html")]
   .concat(fs.readdirSync(path.join(tools, "tiles")).filter(f => f.endsWith(".js")).map(f => path.join(tools, "tiles", f)));
 const used = new Set();
+const own = {};                 // a tile's own translations, from its lang block: own[lang][word] = text
 for (const f of sources) {
   const src = fs.readFileSync(f, "utf8");
   wordsIn(src).forEach(w => used.add(w));
+  const L = /\blang:\{([\s\S]*?\})\}/.exec(src);
+  if (L) for (const b of L[1].matchAll(/(\w+):\{([^}]*)\}/g))
+    for (const pr of b[2].matchAll(/"((?:[^"\\]|\\.)*)"\s*:\s*"((?:[^"\\]|\\.)*)"/g))
+      ((own[b[1]] = own[b[1]] || {})[JSON.parse('"' + pr[1] + '"')] = JSON.parse('"' + pr[2] + '"'));
   if (f.includes(path.sep + "tiles" + path.sep)) {
     // a tile's default name is shown through this.t(title)
     const t = /^\s*title:"([^"]+)"/m.exec(src) || /Tile\("\w+",\s*\{[^}]*?title:"([^"]+)"/.exec(src);
@@ -58,12 +63,12 @@ for (const lang of langs) {
   try { cat = JSON.parse(fs.readFileSync(path.join(langDir, lang + ".json"), "utf8")); }
   catch (e) { bad++; console.error("✗ " + lang + ".json is not valid JSON: " + e.message); continue; }
   const holes = s => (s.match(/\{\w+\}/g) || []).sort().join(" ");
-  for (const [en, tx] of Object.entries(cat)) {
+  for (const [en, tx] of Object.entries(cat).concat(Object.entries(own[lang] || {}))) {
     if (en.startsWith("_")) continue;                       // notes for translators
     if (typeof tx !== "string") { bad++; console.error("✗ " + lang + ': "' + en + '" is not text'); continue; }
     if (holes(en) !== holes(tx)) { bad++; console.error("✗ " + lang + ': "' + tx + '" should keep ' + (holes(en) || "no placeholders")); }
   }
-  const missing = [...used].filter(w => !(w in cat)).sort();
+  const missing = [...used].filter(w => !(w in cat) && !(w in (own[lang] || {}))).sort();
   const unused = Object.keys(cat).filter(w => !w.startsWith("_") && !used.has(w)).sort();
   console.log(lang + ": " + (used.size - missing.length) + " of " + used.size + " words translated");
   if (missing.length) console.log("  missing (shown in English):\n" + missing.map(w => '    "' + w + '"').join("\n"));

@@ -52,6 +52,12 @@ async function main() {
       d.modules.general.settings.lang = "Français";
       fs.writeFileSync(f, JSON.stringify(d));
     }]);
+    // a tile's own lang block: the Tempo tile brings its French labels with it
+    pages.push(["Tempo tile in French", "/dash/content?solo=tempo", { width: 960, height: 640 }, async page => {
+      const text = await page.evaluate(() => document.body.textContent);
+      for (const w of ["Aujourd'hui", "Bleu", "Rouge", "Heures creuses", "0,1325"])
+        if (!text.includes(w)) throw new Error("missing " + JSON.stringify(w) + " in " + JSON.stringify(text.slice(0, 300)));
+    }]);
     for (const [name, url, viewport, check, before] of pages) {
       if (before) before();
       const context = await browser.newContext({ viewport });
@@ -67,6 +73,10 @@ async function main() {
           }; })();` });
       await context.route("**/*", route => route.request().url().startsWith(base) || route.request().url().startsWith("data:")
         ? route.continue() : route.abort());
+      // Home Assistant answers for the Tempo tile's French check
+      await context.route(base + "/ha/states*", route => route.fulfill({ json: { states: [
+        { id: "sensor.rte_tempo_couleur_actuelle", state: "Bleu" }, { id: "sensor.rte_tempo_prochaine_couleur", state: "Rouge" },
+        { id: "sensor.prix_tempo_courant", state: "0.1325" }, { id: "binary_sensor.rte_tempo_heures_creuses", state: "on" }] } }));
       const page = await context.newPage();
       page.on("pageerror", e => problems.push(name + ": " + (e.stack || e.message)));
       page.on("console", m => {
