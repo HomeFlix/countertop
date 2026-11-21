@@ -126,6 +126,23 @@ class Handler(BaseHTTPRequestHandler):
         except Exception:
             return {"raw": raw[:4000].decode("utf-8", "replace")}
 
+    def _immich_image(self, sid, asset):
+        """One photo from an Immich album set up in Sources: this server holds the API key, and only
+        assets that are in the album are served. The screen gets plain image links, nothing else."""
+        src = next((a for a in (sources_load().get("albums") or [])
+                    if a.get("id") == sid and (a.get("kind") or "") == "Immich"), None)
+        cache = PHOTO_CACHES.get("immich:" + sid) or {}
+        if not src or asset not in (cache.get("assets") or set()):
+            return self._send(404, b"not found")
+        try:
+            req = Request(src["server"].rstrip("/") + "/api/assets/%s/thumbnail?size=preview" % asset,
+                          headers={"x-api-key": src.get("apiKey") or "", "Accept": "image/*"})
+            with urlopen(req, timeout=25) as r:
+                self._send(200, r.read(30_000_000), r.headers.get("Content-Type", "image/jpeg"),
+                           {"Cache-Control": "public, max-age=86400"})
+        except Exception:
+            self._send(404, b"not found")
+
     def do_GET(self):
         p = self.path.split("?")[0]
         if p in ("/", "/index.html"):
@@ -156,6 +173,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(team_matches(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
         elif p == "/photos":
             self._json(album_photos(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
+        elif re.fullmatch(r"/photos/immich/[\w-]+/[\w-]+\.jpg", p):
+            self._immich_image(p.split("/")[-2], p.rsplit("/", 1)[-1][:-4])
         elif p == "/tiles.js":
             # every tile type is one file in tools/tiles; adding a file adds a tile, no build step
             parts = []
@@ -372,11 +391,19 @@ SOURCE_KINDS = {
             "league": {"label": "League", "type": "choice", "choices": [["usa.1", "MLS"], ["usa.nwsl", "NWSL"], ["usa.usl.1", "USL Championship"], ["mex.1", "Liga MX"],
                        ["eng.1", "Premier League"], ["esp.1", "LaLiga"], ["ger.1", "Bundesliga"], ["ita.1", "Serie A"], ["fra.1", "Ligue 1"], ["uefa.champions", "Champions League"]]}}},
     "albums": {"title": "Photo albums", "one": "album",
-        "desc": "Shared photo albums for the Photo frame tile and the Photos background.",
+        "desc": "Shared photo albums for the Photo frame tile and the Photos background: an iCloud Shared Album, or an album on your own Immich server.",
         "fields": {
             "name": {"label": "Name", "type": "text"},
-            "url": {"label": "iCloud shared album link", "type": "text",
-                    "help": "In Photos: open the shared album, tap the people icon, turn on Public Website and copy the link."}}},
+            "kind": {"label": "Kept in", "type": "choice", "choices": ["iCloud shared album", "Immich"],
+                     "help": "iCloud: turn the shared album's Public Website on and paste the link. Immich: your own server's address, an API key from your account, and the album's name. This server fetches the photos; the screen never talks to Immich and the key is never shown again."},
+            "url": {"label": "iCloud shared album link", "type": "text", "when": {"kind": "iCloud shared album"},
+                    "help": "In Photos: open the shared album, tap the people icon, turn on Public Website and copy the link."},
+            "server": {"label": "Immich address", "type": "text", "when": {"kind": "Immich"},
+                       "help": "Where you open Immich, e.g. http://192.168.1.20:2283. If Countertop runs in Docker, use the IP address: names ending in .local often don't work there."},
+            "apiKey": {"label": "Immich API key", "type": "text", "secret": True, "when": {"kind": "Immich"},
+                       "help": "In Immich: your account → API keys → New API key. Name it Countertop and paste it here. It stays on the dashboard server and is never shown again."},
+            "album": {"label": "Immich album name", "type": "text", "when": {"kind": "Immich"},
+                      "help": "Exactly as the album is named in Immich. Make one just for the dashboard if you like."}}},
     "homeassistant": {"title": "Home Assistant", "one": "Home Assistant",
         "desc": "Your Home Assistant, for the Home and Sensor tiles: show lights, doors and sensors, and switch lights and scenes from the screen.",
         "fields": {
@@ -2425,9 +2452,77 @@ PHOTO_CACHES = {}          # album link -> {at, key, data}
 B62 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 
+# --- photos: an album on a self-hosted Immich server, cached 30 minutes ---
+# The screen only ever gets /photos/immich/<sid>/<asset>.jpg links, which this server fills in:
+# the API key never leaves this server, and only assets that are in the album are served.
+def _immich_json(base, key, path, timeout=30):
+    req = Request(base.rstrip("/") + path, headers={"x-api-key": key, "Accept": "application/json"})
+    with urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read(8_000_000).decode("utf-8", "replace"))
+
+
+def _immich_album_assets(base, key, alb_id):
+    """Every asset in the album, on any Immich generation: /albums/{id}/assets (older versions),
+    else the timeline API (v3+: monthly buckets whose answers come as columns, one list per key)."""
+    try:
+        return _immich_json(base, key, "/api/albums/%s/assets" % alb_id) or []
+    except Exception:
+        out = []
+        for b in _immich_json(base, key, "/api/timeline/buckets?albumId=%s" % alb_id) or []:
+            col = _immich_json(base, key, "/api/timeline/bucket?albumId=%s&timeBucket=%s"
+                                % (alb_id, b.get("timeBucket") or "")) or {}
+            ids, imgs, dates = col.get("id") or [], col.get("isImage") or [], col.get("fileCreatedAt") or []
+            for i, aid in enumerate(ids):
+                out.append({"id": aid,
+                            "type": "IMAGE" if (imgs[i] if i < len(imgs) else True) else "VIDEO",
+                            "exifInfo": {"dateTimeOriginal": dates[i] if i < len(dates) else ""}})
+        return out
+
+
+def immich_album_photos(src):
+    base = (src.get("server") or "").strip()
+    key = src.get("apiKey") or ""
+    want = (src.get("album") or "").strip()
+    if not base or not key:
+        return {"photos": [], "album": want, "error": "give Immich's address and an API key in Setup"}
+    ck = base + "|" + key + "|" + want.lower()
+    cache = PHOTO_CACHES.setdefault("immich:" + src["id"], {"at": 0, "key": ck, "data": None, "assets": set()})
+    if cache["data"] is not None and cache["key"] == ck and time.time() - cache["at"] < 1800:
+        return cache["data"]
+    out = {"photos": [], "error": None, "album": want}
+    try:
+        albums = _immich_json(base, key, "/api/albums")
+        alb = next((a for a in albums if (a.get("albumName") or "").strip().lower() == want.lower()), None)
+        if alb is None:
+            raise ValueError("no album named “%s” on that Immich" % want if want else "name the album in Setup")
+        assets = _immich_album_assets(base, key, alb["id"]) or []
+        sid = src["id"]
+        for a in assets:
+            if (a.get("type") or "").upper() != "IMAGE":
+                continue
+            ex = a.get("exifInfo") or {}
+            out["photos"].append({"url": "/photos/immich/%s/%s.jpg" % (sid, a["id"]),
+                                  "caption": ex.get("description") or "",
+                                  "date": ex.get("dateTimeOriginal") or "",
+                                  "w": int(ex.get("exifImageWidth") or 0),
+                                  "h": int(ex.get("exifImageHeight") or 0)})
+        cache.update(at=time.time(), key=ck, data=out, assets={a["id"] for a in assets})
+    except Exception as e:
+        if cache["key"] == ck and cache["data"] is not None:
+            out = dict(cache["data"], error=str(getattr(e, "reason", e))[:200])       # keep showing what we had
+        else:
+            out = {"photos": [], "album": want, "error": str(getattr(e, "reason", e))[:200]}
+        cache.update(at=time.time(), data=out)
+    return out
+
+
 def album_photos(sid=""):
     A = sources_load().get("albums") or []
     src = next((a for a in A if a.get("id") == sid), A[0] if A else None)
+    if not src:
+        return {"photos": [], "error": "no album set up"}
+    if (src.get("kind") or "iCloud shared album") == "Immich":
+        return immich_album_photos(src)
     link = ((src or {}).get("url") or "").strip()
     if not link:
         return {"photos": [], "error": "no album set up"}
