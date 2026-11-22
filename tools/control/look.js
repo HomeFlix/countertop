@@ -129,6 +129,7 @@ function themeScreen(id){
   h += '<p class="intro">' + esc(themeWhen(id)) + (now !== id ? " · " + esc(lookName(now)) + " is showing now" : "") + "." + (ECHO || now === id ? "" : " The preview shows " + esc(lookName(id)) + ".") + '</p>';
   h += '<div class="saverow">' + (used ? '<button disabled>In use</button>' : '<button class="pri" data-lact="use" data-id="' + id + '">Use this theme</button>') +
     '<button' + (used ? ' class="pri"' : "") + ' data-go="look:' + id + '">Customize</button></div>';
+  if (t && t.gallery) h += '<div class="sec"><div class="foot">Downloaded from the community gallery' + (t.gallery.by ? ', made by ' + esc(t.gallery.by) : "") + '. <button class="lnk" data-l="c-open" data-id="' + esc(t.gallery.id) + '">Update or remove it</button></div></div>';
   if (used && now !== id) h += '<div class="sec"><div class="foot">The schedule is showing ' + esc(lookName(now)) + ' right now. ' + esc(lookName(id)) + ' comes back when its time is over.</div></div>';
   if (t){
     const R = rules().filter(r => r.look === id);
@@ -272,6 +273,7 @@ function fxScreen(id){
   h += sec("Settings", rows, d.layer === "sky" ? "Drawn behind the tiles, on the background." : d.layer === "show" ? "Shows play in front of the tiles and last a few seconds." :
     (mods.effects.settings.front !== false ? "Drawn in front of the tiles (see Effects)." : "Drawn behind the tiles (see Effects)."));
   if (!ECHO) h += sec("", '<button class="btnrow blue" data-fxplay="' + id + '">Play it on the preview</button>', "Plays it once on the dashboard preview to the right, whatever the date or weather.");
+  if (d.mine && mineById(id) && mineById(id).gallery){ const g = mineById(id).gallery; h += '<div class="sec"><div class="foot">Downloaded from the community gallery' + (g.by ? ', made by ' + esc(g.by) : "") + '. <button class="lnk" data-l="c-open" data-id="' + esc(g.id) + '">Update or remove it</button></div></div>'; }
   if (d.mine) h += sec("", '<button class="btnrow" data-go="fxedit:' + id + '">Edit</button><button class="btnrow" data-go="share:effect:' + id + '">Share</button><button class="btnrow red" data-fxa="del" data-id="' + id + '">Delete effect</button>',
     "Your own effect. Edit changes its emoji and how they move; Share makes a file to send.");
   return h;
@@ -327,7 +329,7 @@ const fxDirty = () => !!FXDRAFT && (FXDRAFT.isNew || JSON.stringify(fxPlain(FXDR
 // what FXLIB knows about: your saved effects, plus the one being designed or opened from a file
 function fxRegister(){
   const extra = FXDRAFT ? [FXDRAFT] : LIB.fimp && navStack()[navStack().length - 1] === "fximp" ? [Object.assign({}, LIB.fimp, {id:"__imp"})] : [];
-  FXLIB.setMine(mineList().filter(m => !extra.some(e => e.id === m.id)).concat(extra));
+  FXLIB.setMine(mineList().filter(m => !extra.some(e => e.id === m.id)).concat(extra, typeof commFx === "function" ? commFx() : []));
 }
 function fxEditScreen(id){
   if (!FXDRAFT || (FXDRAFT.id !== id && !(id === "new" && FXDRAFT.isNew))){ fxDraftStart(id); fxRegister(); }
@@ -356,7 +358,7 @@ function fxAction(a, id){
     const D = FXDRAFT; if (!D) return;
     const m = Object.assign(fxPlain(D), {id:D.id, name:(D.name || "").trim() || "My effect"});
     const L = mineList(), i = L.findIndex(x => x.id === m.id);
-    if (i < 0) L.push(m); else L[i] = m;
+    if (i < 0) L.push(m); else L[i] = Object.assign({}, L[i], m);        // keeps where a downloaded effect came from
     FXDRAFT = null; fxRegister(); save(); toast("Saved " + m.name, "ok");
     navStack().pop(); if (D.isNew) go("fx:" + m.id); else show(); return;
   }

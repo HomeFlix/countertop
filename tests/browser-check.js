@@ -18,10 +18,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function main() {
   const data = fs.mkdtempSync(path.join(os.tmpdir(), "countertop-check-"));
   for (const f of fs.readdirSync(path.join(root, "demo", "work"))) fs.copyFileSync(path.join(root, "demo", "work", f), path.join(data, f));
+  const gallery = path.join(data, "gallery-index.json");        // Library > Community reads this instead of the real gallery
+  fs.writeFileSync(gallery, JSON.stringify({ countertop: "gallery", format: 1, updated: "2026-11-22", revoked: [], items: [
+    { id: "themes/calm", kind: "theme", name: "Calm", description: "", author: "someone", version: 1, updated: "2026-11-22",
+      item: { countertop: "theme", format: 1, name: "Calm", values: { accent: "#ff9f5a", tiles: "See-through" } } },
+    { id: "effects/hearts", kind: "effect", name: "Hearts", description: "", author: "someone", version: 1, updated: "2026-11-22",
+      item: { countertop: "effect", format: 1, name: "Hearts", effect: { glyphs: ["💕"], motion: "rise" } } }] }));
   const port = await freePort();
   const base = "http://127.0.0.1:" + port;
   const server = spawn(process.env.PYTHON || "python3", [path.join(root, "tools", "countertop.py"), "--port", String(port)],
-    { env: { ...process.env, COUNTERTOP_DATA: data, COUNTERTOP_NO_UPDATE_CHECK: "1" }, stdio: ["ignore", "pipe", "pipe"] });
+    { env: { ...process.env, COUNTERTOP_DATA: data, COUNTERTOP_NO_UPDATE_CHECK: "1", COUNTERTOP_GALLERY_URL: require("node:url").pathToFileURL(gallery).href }, stdio: ["ignore", "pipe", "pipe"] });
   let log = "";
   server.stdout.on("data", d => log += d);
   server.stderr.on("data", d => log += d);
@@ -89,6 +95,25 @@ async function main() {
       const r = await page.evaluate(() => { const f = document.getElementById("libpv"); return { src: f && f.getAttribute("src"), fun: !!(f && f.contentWindow && f.contentWindow.FUN) }; });
       if (!r.src) throw new Error("the Effects preview never started loading");
       if (!r.fun) throw new Error("the Effects preview loaded without its effects engine");
+    }]);
+    // Library > Community: the gallery's items show, and Download puts a copy in the Library (and only then)
+    pages.push(["library community", "/control", { width: 1280, height: 900 }, async page => {
+      await page.evaluate(() => libOpen("community"));
+      await sleep(2500);
+      const r = await page.evaluate(() => ({ cards: document.querySelectorAll("#lib .lc").length, mine: looks().length, fx: mineList().length }));
+      if (r.cards !== 2) throw new Error("Community shows " + r.cards + " items, not 2");
+      await page.evaluate(() => document.querySelector('#lib .lc[data-id="themes/calm"]').click());
+      await sleep(600);
+      if (!(await page.$('#lib [data-l="c-dl"]'))) throw new Error("an item's page has no Download button");
+      if (await page.evaluate(() => looks().length) !== r.mine) throw new Error("opening an item changed the Library");
+      await page.evaluate(() => document.querySelector('#lib [data-l="c-dl"]').click());
+      await sleep(400);
+      const after = await page.evaluate(() => ({ t: looks().filter(t => t.gallery).map(t => t.gallery.id), up: !!document.querySelector('#lib [data-l="c-rm"]') }));
+      if (after.t.join() !== "themes/calm" || !after.up) throw new Error("Download didn't add the theme to the Library");
+      await page.evaluate(() => document.querySelector('#lib [data-l="c-rm"]').click());
+      await page.evaluate(() => document.querySelector('#lib [data-l="c-rm"]').click());
+      await sleep(300);
+      if (await page.evaluate(() => looks().some(t => t.gallery))) throw new Error("Remove didn't take the theme out");
     }]);
     for (const [name, url, viewport, check, before] of pages) {
       if (before) before();

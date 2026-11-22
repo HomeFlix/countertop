@@ -208,6 +208,10 @@
   .lc b{display:block;font-size:16px;font-weight:600}
   .lc small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
   .lc small.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .lpick.warn{background:#2b2316;border-color:#5a4720}
+  .lbadge.up{background:var(--accent);color:#06121f;font-weight:600}
+  .lc.fxc{cursor:pointer} .lc.fxc > canvas{border-radius:0}
+  a.lbtn{text-decoration:none;color:inherit} a.lbtn.pri{color:#06121f}
   .lbadge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:3px 8px;border-radius:99px}
   .ladd{position:absolute;top:8px;right:8px;z-index:2;background:var(--accent);color:#06121f;font-weight:600;font-size:13px;padding:4px 10px;border-radius:99px;opacity:0;transition:opacity .15s}
   .lc:hover .ladd,.lc:focus-within .ladd,html.echo .ladd{opacity:1}

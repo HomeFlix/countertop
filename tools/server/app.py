@@ -89,6 +89,8 @@ class Handler(BaseHTTPRequestHandler):
             cfg["schema"] = SCHEMA
             cfg["sources"] = sources_public()
             self._json(cfg)
+        elif p == "/community":
+            self._json(community_index(bool(parse_qs(urlparse(self.path).query).get("refresh"))))     # the gallery's list, when Controls opens Community
         elif p == "/sources":
             self._json({"sources": sources_public(), "kinds": SOURCE_KINDS})
         elif p == "/control":
@@ -369,6 +371,7 @@ from server.feeds.sports import team_matches  # noqa: E402
 from server.feeds.stocks import stocks  # noqa: E402
 from server.homeassistant import ha_entities, ha_test, ha_view  # noqa: E402
 from server.pages import page, page_files  # noqa: E402
+from server.community import community_index  # noqa: E402
 from server.library import trial_add, trial_apply, trial_screen, trial_stop, trial_version  # noqa: E402
 from server.lists import list_push, local_list_apply, local_list_source, local_list_view, notes_apply, notes_view, pushed_list, reminders_apply, reminders_list_name, reminders_loop  # noqa: E402
 from server.sources import SOURCES_FILE, SOURCE_KINDS, sources_apply, sources_load, sources_public  # noqa: E402

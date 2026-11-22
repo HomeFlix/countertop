@@ -48,7 +48,8 @@ function libRail(){
     item("layouts", "Layouts", libBuiltIn().length + savedList().length) + item("tiles", "Tiles", Object.keys(DEFS).length || "") +
     item("themes", "Themes", looks().length + 1) + item("effects", "Effects", FXLIB.L.filter(d => fxC(d.id).on).length + " on") +
     '<div class="lsep">Yours</div>' + item("mine", "My layouts", savedList().length) +
-    '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file");
+    '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file") +
+    '<div class="lsep">Community</div>' + item("community", "Browse community", COMM.data && commUpdates() ? commUpdates() + " new" : null);
 }
 // Add page and Change layout open the Library to pick: a bar says what the pick is for
 function libPickBar(){
@@ -377,15 +378,18 @@ function libShow(){
   if (LIB_SUB[LIB.view]){ libSubShow(); return; }
   const it = LIB.item;
   let h;
-  if (it === "import" && LIB.imp) h = libLayoutItem("import");
+  if (LIB.view === "community") h = it.startsWith("c:") ? commItem(it.slice(2)) : commView();
+  else if (it === "import" && LIB.imp) h = libLayoutItem("import");
   else if (it.startsWith("tile:")) h = libTileItem(it.slice(5));
   else if (it) h = libLayoutItem(it);
   else if (LIB.view === "tiles") h = libTiles();
   else if (LIB.view === "share") h = libShare();
   else if (LIB.view === "import") h = libImport();
   else h = libLayouts();
+  const top = libEl().querySelector(".lmain"), keep = top ? top.scrollTop : 0;
   libEl().innerHTML = '<nav class="lrail">' + libRail() + '</nav><div class="lmain">' + h + '</div>';
   libFitShots();
+  if (LIB.view === "community"){ if (top && !it) libEl().querySelector(".lmain").scrollTop = keep; commAfter(); return; }
   if (it && !it.startsWith("tile:") && choiceOf(it)) libPreview(it);
 }
 // Themes and Effects: Controls' own screens, stacked inside the Library, beside a live preview that stays put
@@ -500,11 +504,18 @@ function libDup(id){
   gpAll().push({id:uid, name:uniqueName(sp.name + " copy"), cols:GC, slots:cloneSlots(sp.slots, uid), on:false, saved:true, look:sp.look, at:Date.now()});
   save(); libGo("mine", "saved:" + uid);
 }
-function libKeep(){
-  const pid = installStarter("import", false, false), p = gpAll().find(x => x.id === pid);
-  if (!p) return;
-  Object.assign(p, {on:false, saved:true, look:Object.keys(LIB.imp.look).length ? LIB.imp.look : lookSnap(), at:Date.now(), name:uniqueName(LIB.imp.name)});
+// gal: a layout downloaded from Community remembers where it came from; it returns the new page's id instead of opening it
+function libKeep(gal){
+  const name = uniqueName(LIB.imp.name), pid = installStarter("import", false, false), p = gpAll().find(x => x.id === pid);      // the name first: the new page would count as a clash with itself
+  if (!p) return "";
+  Object.assign(p, {on:false, saved:true, look:Object.keys(LIB.imp.look).length ? LIB.imp.look : lookSnap(), at:Date.now(), name}, gal ? {gallery:gal} : {});
+  if (gal) return pid;
   save(); toast("Saved to My layouts", "ok"); libGo("mine", "saved:" + pid);
+}
+function libDropSaved(sp){
+  const gone = new Set([].concat(...(sp.slots || []).map(smods)));
+  if (mods.tiles) mods.tiles.settings.items = tileList().filter(x => !gone.has(x.id));
+  mods.pages.settings.items = gpAll().filter(x => x !== sp);
 }
 function libTap(t){
   const d = t.dataset, a = d.l;
@@ -523,12 +534,11 @@ function libTap(t){
   if (a === "use"){ libUse(LIB.item, d.id === "main"); return; }
   if (a === "try"){ libTry(LIB.item); return; }
   if (a === "keep"){ libKeep(); return; }
+  if (a.startsWith("c-")){ commTap(t); return; }
   if (a === "dup"){ libDup(d.id); return; }
   if (a === "del"){
     const sp = savedById(d.id); if (!sp || !confirmDel({one:"saved layout"}, d.id)) return;
-    const gone = new Set([].concat(...(sp.slots || []).map(smods)));
-    if (mods.tiles) mods.tiles.settings.items = tileList().filter(x => !gone.has(x.id));
-    mods.pages.settings.items = gpAll().filter(x => x !== sp); save(); toast("Deleted", "ok"); libGo("mine"); return;
+    libDropSaved(sp); save(); toast("Deleted", "ok"); libGo("mine"); return;
   }
   if (a === "addtile"){ libAddTile(d.id, LIB.addTo || "main"); return; }
   if (a === "setup"){ libClose(); stack = ["root", "src:" + d.id]; show(); return; }
