@@ -293,7 +293,7 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ECHO = /[?&]echo=1/.test(location.search);
-const MOUNTS = {auto:"Automatic", left:"Portrait · left edge up", right:"Portrait · right edge up"};
+const MOUNTS = {auto:"Automatic", landscape:"Landscape", left:"Portrait · left edge up", right:"Portrait · right edge up"};
 const SHELL = ECHO && window.parent !== window;
 let displayMode = "auto";
 let everyday, schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
@@ -317,7 +317,7 @@ function applyDisplayMode(mode){
   const changed = displayMode !== mode;
   displayMode = mode;
   if (changed && !ECHO){
-    const height = mode === "auto" ? 1080 : 1920;
+    const height = mode === "left" || mode === "right" ? 1920 : 1080;
     pvSize($("pvsize").querySelector('[data-h="' + height + '"]'));
   }
 }
@@ -635,7 +635,7 @@ function themeFromLayout(key, c){
 function displayScreen(){
   const options = Object.entries(MOUNTS).map(([mode, label]) =>
     '<option value="' + mode + '"' + (mode === displayMode ? " selected" : "") + '>' + label + '</option>').join("");
-  return '<p class="intro">If the dashboard appears sideways, choose which edge of the landscape screen is now at the top.</p>' +
+  return '<p class="intro">Automatic follows the shape of each screen. Pick Landscape or Portrait to keep every page in that orientation. If the dashboard appears sideways on a turned screen, choose which edge of the landscape screen is now at the top.</p>' +
     sec("", '<div class="row col"><label class="t" for="display-orientation">Orientation</label><select id="display-orientation">' + options + '</select></div>',
       "Applies to every display using this dashboard.");
 }

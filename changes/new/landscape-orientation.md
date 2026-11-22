@@ -1,0 +1,1 @@
+- **Landscape screen orientation.** Settings → Screen orientation has a Landscape choice. It keeps every page in landscape, even on a browser that reports a tall screen.
