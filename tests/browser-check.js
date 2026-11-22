@@ -82,6 +82,14 @@ async function main() {
       if (r.before || !r.after.own || !r.after.p) throw new Error("moving a box didn't give the page a portrait arrangement");
       if (r.after.land !== r.land) throw new Error("changing portrait moved the landscape box");
     }]);
+    // Library > Effects opened straight from a fresh Controls session: the live preview beside it loads, so Play works
+    pages.push(["library effects preview", "/control", { width: 1280, height: 900 }, async page => {
+      await page.evaluate(() => libOpen("effects"));
+      await sleep(2500);
+      const r = await page.evaluate(() => { const f = document.getElementById("libpv"); return { src: f && f.getAttribute("src"), fun: !!(f && f.contentWindow && f.contentWindow.FUN) }; });
+      if (!r.src) throw new Error("the Effects preview never started loading");
+      if (!r.fun) throw new Error("the Effects preview loaded without its effects engine");
+    }]);
     for (const [name, url, viewport, check, before] of pages) {
       if (before) before();
       const context = await browser.newContext({ viewport });
