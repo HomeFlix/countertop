@@ -155,6 +155,7 @@
   /* effects library */
   .fxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
   .fxc{background:var(--group);border-radius:12px;overflow:hidden;cursor:pointer}
+  .fxc.new .fxplus{aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:34px;color:var(--accent);border-bottom:1px dashed var(--line)}
   .fxc canvas{display:block;width:100%;aspect-ratio:16/9;background:#0b1022}
   .fxc.off canvas{opacity:.35}
   .fxc.big{cursor:default;margin:4px 0 12px} .fxc.big canvas{border-radius:12px}
@@ -348,6 +349,7 @@ async function load(){
     const [j, s] = await Promise.all([fetch("/config?starters=1", {cache:"no-store"}).then(r => r.json()), fetch("/sources", {cache:"no-store"}).then(r => r.json())]);
     applyDisplayMode(j.orientation || "auto");
     everyday = j.everyday; schema = j.schema; mods = j.modules; SRC = s.sources || {}; KINDS = s.kinds || {};
+    FXLIB.setMine(mods.effects && mods.effects.settings.mine);
     if (needsSetup() && stack.length === 1) stack = ["root", "wiz"];       // a new install: walk through the basics first
     await titlesLoad; show(); statusLoad();
   }catch(e){ toast("Can't reach the dashboard server", "bad"); }
@@ -960,6 +962,10 @@ function screenFor(cur){
   else if (cur === "night"){ h = nightScreen(); title = "Night page"; }
   else if (cur === "effects"){ h = effectsScreen(); title = "Effects"; }
   else if (cur.startsWith("emo:")){ h = emoScreen(cur); title = "Swap emoji"; }
+  else if (cur.startsWith("fxedit:")){ h = fxEditScreen(cur.slice(7)); title = FXDRAFT && FXDRAFT.isNew ? "New effect" : "Edit effect"; }
+  else if (cur.startsWith("share:")){ h = shareScreen(cur.slice(6)); title = "Share"; }
+  else if (cur === "timp"){ h = themeImpScreen(); title = "Open a theme"; }
+  else if (cur === "fximp"){ h = fxImpScreen(); title = "Open an effect"; }
   else if (cur.startsWith("fx:")){ h = fxScreen(cur.slice(3)); title = (FXLIB.BY[cur.slice(3)] || {}).name || "Effect"; }
   else { const m = cur.slice(4); h = schema[m] ? modScreen(m) : ""; title = schema[m] ? schema[m].title : ""; }
   return {h, title};
@@ -1170,7 +1176,7 @@ async function wizAct(a, id){
 }
 
 $("back").addEventListener("click", () => {
-  if (DRAFT && draftDirty()){ toast("Save or Cancel your changes first", "bad"); const b = document.querySelector(".draftbar"); if (b) b.scrollIntoView({block:"nearest"}); return; }
+  if ((DRAFT && draftDirty()) || fxDirty()){ toast("Save or Cancel your changes first", "bad"); const b = document.querySelector(".draftbar"); if (b) b.scrollIntoView({block:"nearest"}); return; }
   stack.pop(); show();
 });
 
@@ -1204,7 +1210,7 @@ document.addEventListener("pointerdown", e => {
 });
 document.addEventListener("click", e => {
   if (e.target.closest("[data-grip]") || (dragged && performance.now() - dragged < 300)) return;
-  const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-swt],[data-ladd],[data-litog],[data-lidel],[data-llop],[data-go]"); if (!t) return;
+  const t = e.target.closest("[data-act],[data-sact],[data-loc],[data-lact],[data-fxa],[data-tia],[data-sha],[data-fxd][data-fxdv],[data-fxd='spin'],[data-ract],[data-fxon],[data-fxk][data-fxv],[data-fxplay],[data-lk][data-lv],[data-lk][data-lb],[data-nk][data-nv],[data-on],[data-t='bool'],[data-swt],[data-ladd],[data-litog],[data-lidel],[data-llop],[data-go]"); if (!t) return;
   if (lookClick(t)) return;
   if (t.dataset.swt){ const v = !t.classList.contains("on"); t.classList.toggle("on", v); t.setAttribute("aria-checked", v); return; }
   if (t.dataset.ladd){ llAdd(t.dataset.sid); return; }
@@ -1228,7 +1234,7 @@ document.addEventListener("keydown", e => {
 document.addEventListener("change", e => {
   const t = e.target, d = t.dataset;
   if (t.id === "display-orientation"){ displaySet(t); return; }
-  if ((d.lk && d.lv === undefined) || d.rk || (d.fxk && d.fxv === undefined) || (d.nk && d.nv === undefined)){ lookChange(t); return; }
+  if ((d.lk && d.lv === undefined) || d.fxd || d.rk || (d.fxk && d.fxv === undefined) || (d.nk && d.nv === undefined)){ lookChange(t); return; }
   if (d.sf){       // show only the fields that apply (e.g. the Reminders list name)
     const cur = stack[stack.length - 1].split(":"), K = KINDS[cur[1]]; if (!K) return;
     for (const f in K.fields){ const F = K.fields[f]; if (!F.when) continue;
@@ -1384,16 +1390,17 @@ const FXLIB = (function(){
     july4:     {n:10, dots:0,  g:[["⭐",2,"fall"],["🇺🇸",1,"fall"]]},
     summer:    {n:5,  dots:0,  g:[["🦋",2,"flutter"],["🐝",1,"flutter"]]}
   };
+  // set: a name in SETS, or one of your own effects (see mine below): {n, dots, g, size, speed, spin}
   function falling(set){
     return o => {
-      const S = SETS[set], W = o.W, H = o.H, P = [], D = [];
+      const S = typeof set === "string" ? SETS[set] : set, W = o.W, H = o.H, P = [], D = [], sz = S.size || 1, sp = S.speed || 1;
       const part = init => {
-        const [g, , mo] = weighted(S.g), s = R(24, 58), depth = (s - 24) / 34;
-        const p = {g, mo, s, a:.55 + depth * .4, ph:R(0, 6.3), rot:R(-.6, .6), vr:R(-.02, .02)};
-        if (mo === "fall"){ p.x = R(0, W); p.y = init ? R(-H, H) : R(-80, -30); p.vy = R(.7, 1.3) + depth * 1.3; }
-        if (mo === "rise"){ p.x = R(0, W); p.y = init ? R(0, H * 2) : H + 50; p.vy = -(R(.6, 1.1) + depth); }
-        if (mo === "fly"){ p.x = init ? R(-W, W) : -80; p.y = R(H * .05, H * .6); p.vx = R(1.6, 3) + depth; p.rot = 0; p.vr = 0; }
-        if (mo === "flutter"){ p.x = R(0, W); p.y = R(H * .1, H * .9); p.vx = R(-1, 1); p.vy = R(-.6, .6); p.rot = 0; p.vr = 0; }
+        const [g, , mo] = weighted(S.g), s0 = R(24, 58), depth = (s0 - 24) / 34, s = s0 * sz;
+        const p = {g, mo, s, a:.55 + depth * .4, ph:R(0, 6.3), rot:S.spin === false ? 0 : R(-.6, .6), vr:S.spin === false ? 0 : R(-.02, .02)};
+        if (mo === "fall"){ p.x = R(0, W); p.y = init ? R(-H, H) : R(-80, -30) * sz; p.vy = (R(.7, 1.3) + depth * 1.3) * sp; }
+        if (mo === "rise"){ p.x = R(0, W); p.y = init ? R(0, H * 2) : H + 50 * sz; p.vy = -(R(.6, 1.1) + depth) * sp; }
+        if (mo === "fly"){ p.x = init ? R(-W, W) : -80 * sz; p.y = R(H * .05, H * .6); p.vx = (R(1.6, 3) + depth) * sp; p.rot = 0; p.vr = 0; }
+        if (mo === "flutter"){ p.x = R(0, W); p.y = R(H * .1, H * .9); p.vx = R(-1, 1) * sp; p.vy = R(-.6, .6) * sp; p.rot = 0; p.vr = 0; }
         return p;
       };
       for (let i = 0; i < Math.max(1, Math.round(S.n * o.amt)); i++) P.push(part(true));
@@ -1406,16 +1413,16 @@ const FXLIB = (function(){
         }
         for (const p of P){
           p.ph += .02;
-          if (p.mo === "fall"){ p.y += p.vy; p.x += Math.sin(p.ph) * (1 + p.s / 40); p.rot += p.vr + Math.sin(p.ph) * .01; }
+          if (p.mo === "fall"){ p.y += p.vy; p.x += Math.sin(p.ph) * (1 + p.s / 40); p.rot += p.vr + (S.spin === false ? 0 : Math.sin(p.ph) * .01); }
           if (p.mo === "rise"){ p.y += p.vy; p.x += Math.sin(p.ph) * .8; }
           if (p.mo === "fly"){ p.x += p.vx; p.y += Math.sin(p.ph * 2) * 1.2; }
           if (p.mo === "flutter"){
-            p.vx = Math.max(-1.6, Math.min(1.6, p.vx + R(-.15, .15))); p.vy = Math.max(-1, Math.min(1, p.vy + R(-.12, .12)));
+            p.vx = Math.max(-1.6 * sp, Math.min(1.6 * sp, p.vx + R(-.15, .15))); p.vy = Math.max(-sp, Math.min(sp, p.vy + R(-.12, .12)));
             p.x += p.vx; p.y += p.vy; if (p.x < -40) p.x = W + 30; if (p.x > W + 40) p.x = -30; if (p.y < 0 || p.y > H) p.vy = -p.vy;
           }
           const flap = (p.mo === "fly" || p.mo === "flutter") ? .65 + .35 * Math.abs(Math.sin(p.ph * 5)) : 0;
           drawSprite(cx, p.g, p.s, p.x, p.y, p.rot, p.a, flap);
-          if (p.y > H + 70 || p.y < -90 || p.x > W + 90) Object.assign(p, part(false));
+          if (p.y > H + 70 * sz || p.y < -90 * sz || p.x > W + 90 * sz) Object.assign(p, part(false));
         }
         return true;
       };
@@ -1562,6 +1569,21 @@ const FXLIB = (function(){
      desc:"Confetti rains down when a calendar event today has \"birthday\" in its name: when the birthday is first seen, then once an hour."}
   ];
   const BY = {}; L.forEach(d => { BY[d.id] = d; d.emoji = d.grp !== "Weather"; });     // everything but the weather is drawn with emoji
+
+  /* ----- your own effects: plain data (emoji, how they move, size, speed, spin, a season), no code. Saved in effects.mine, shared as .countertop files ----- */
+  const MOTIONS = [["fall", "Fall"], ["rise", "Float up"], ["fly", "Fly across"], ["flutter", "Wander"]];
+  const SIZE = {Small:.6, Medium:1, Big:1.5}, SPEED = {Slow:.55, Normal:1, Fast:1.7};
+  const MD = /^(1[0-2]|0?[1-9])-(3[01]|[12]\d|0?[1-9])$/;
+  function mineDef(m){
+    const mo = MOTIONS.some(x => x[0] === m.motion) ? m.motion : "fall", season = MD.test(m.from || "") && MD.test(m.to || "") ? [[m.from, m.to]] : null;
+    return {id:m.id, grp:"Yours", name:String(m.name || "My effect"), icon:m.glyphs[0], layer:"fall", mine:true, emoji:true, season,
+      desc:(MOTIONS.find(x => x[0] === mo)[1]) + ": " + m.glyphs.join(" "),
+      make:falling({n:14, dots:0, g:m.glyphs.map(g => [g, 1, mo]), size:SIZE[m.size] || 1, speed:SPEED[m.speed] || 1, spin:m.spin !== false})};
+  }
+  function setMine(list){
+    for (let i = L.length - 1; i >= 0; i--) if (L[i].mine){ delete BY[L[i].id]; L.splice(i, 1); }
+    for (const m of Array.isArray(list) ? list : []) if (m && typeof m.id === "string" && Array.isArray(m.glyphs) && m.glyphs.length && !BY[m.id]){ const d = mineDef(m); L.push(d); BY[d.id] = d; }
+  }
   const GROUPS = [["Weather", "Plays when the weather outside matches."], ["Seasons", "Things that drift across the screen at their time of year."],
     ["Shows", "Short scenes that play now and then, then leave. Always in front of the tiles."], ["Celebrations", ""]];
 
@@ -1585,7 +1607,7 @@ const FXLIB = (function(){
   // one effect's settings: what's saved, filled in with its defaults
   function conf(saved, id){
     const def = BY[id], o = (saved || []).find(x => x && x.id === id) || {};
-    return Object.assign({id, on:true, amount:"Some", when: def.wx ? "weather" : def.party ? "birthday" : "season", every: def.layer === "show" ? 15 : 0, from:"", to:""}, o);
+    return Object.assign({id, on:true, amount:"Some", when: def.wx ? "weather" : def.party ? "birthday" : def.season ? "season" : "always", every: def.layer === "show" ? 15 : 0, from:"", to:""}, o);
   }
   function whenText(c){
     const def = BY[c.id];
@@ -1593,7 +1615,7 @@ const FXLIB = (function(){
     if (c.when === "dates") return c.from && c.to ? mdTxt(c.from) + "–" + mdTxt(c.to) : "Pick dates";
     if (def.wx) return WXTXT[c.id] || "Matching weather";
     if (def.party) return "On birthdays";
-    return seasonText(def);
+    return def.season ? seasonText(def) : "All year";
   }
   function timeOk(c, d){
     if (c.when === "always") return true;
@@ -1663,7 +1685,7 @@ const FXLIB = (function(){
       size, start
     };
   }
-  return {L, BY, GROUPS, AMT, conf, whenText, timeOk, inSeason, seasonText, wxMode, Runner, mdTxt};
+  return {L, BY, GROUPS, AMT, conf, whenText, timeOk, inSeason, seasonText, wxMode, Runner, mdTxt, MOTIONS, SIZE, SPEED, MD, setMine};
 })();
 
 /* ---------- Look: looks (picture cards + a short Adjust screen), the schedule, effects, the night page ---------- */
@@ -1804,7 +1826,7 @@ function themeScreen(id){
       row({t:R.length ? "Add another time" : "Add a time", cls:"add", chev:true, attrs:'data-lact="sched" data-id="' + id + '"'}),
       "At these times it takes over from the theme in use. See every time in Themes → Schedule.");
   }
-  h += sec("", '<button class="btnrow" data-lact="dup" data-id="' + id + '">Duplicate</button>' + (t ? '<button class="btnrow red" data-lact="del" data-id="' + id + '">Delete theme</button>' : ""),
+  h += sec("", '<button class="btnrow" data-lact="dup" data-id="' + id + '">Duplicate</button><button class="btnrow" data-go="share:theme:' + id + '">Share</button>' + (t ? '<button class="btnrow red" data-lact="del" data-id="' + id + '">Delete theme</button>' : ""),
     t ? "" : "Everyday can't be deleted. Duplicate it to start a theme of your own.");
   return h;
 }
@@ -1906,12 +1928,16 @@ function effectsScreen(){
   const noEmo = (mods.general.settings.emoji || "Emoji") !== "Emoji";
   if (noEmo) h += '<div class="sec"><div class="foot">Emoji are off (Settings → Icons and emoji), so only the weather effects run. The others keep their settings for when emoji come back.</div></div>';
   if (lookVals(curLook()).fx === "Off") h += '<div class="sec"><div class="foot">The theme showing now, ' + esc(lookName(curLook())) + ', pauses every effect. Turn that off in Themes → ' + esc(lookName(curLook())) + ' → Customize → More.</div></div>';
+  const card = d => { const f = fxC(d.id), now = !d.wx && !d.party && FXLIB.timeOk(f, new Date());
+    return '<div class="fxc' + (f.on ? "" : " off") + '" data-go="fx:' + d.id + '"><canvas data-fx="' + d.id + '"></canvas><div class="fxt"><div><b>' + esc(d.name) + '</b><small>' + esc(FXLIB.whenText(f)) + (now && f.on ? ' · <span class="nowtag">now</span>' : "") + '</small></div>' +
+      sw(f.on, 'data-fxon="' + d.id + '"') + '</div></div>'; };
   for (const [g, foot] of FXLIB.GROUPS){
     const L = FXLIB.L.filter(d => d.grp === g);
-    h += '<div class="sec"><h2>' + esc(g) + '</h2><div class="fxgrid">' + L.map(d => { const f = fxC(d.id), now = !d.wx && !d.party && FXLIB.timeOk(f, new Date());
-      return '<div class="fxc' + (f.on ? "" : " off") + '" data-go="fx:' + d.id + '"><canvas data-fx="' + d.id + '"></canvas><div class="fxt"><div><b>' + esc(d.name) + '</b><small>' + esc(FXLIB.whenText(f)) + (now && f.on ? ' · <span class="nowtag">now</span>' : "") + '</small></div>' +
-        sw(f.on, 'data-fxon="' + d.id + '"') + '</div></div>'; }).join("") + '</div>' + (foot ? '<div class="foot">' + esc(foot) + '</div>' : "") + '</div>';
+    h += '<div class="sec"><h2>' + esc(g) + '</h2><div class="fxgrid">' + L.map(card).join("") + '</div>' + (foot ? '<div class="foot">' + esc(foot) + '</div>' : "") + '</div>';
   }
+  h += '<div class="sec"><h2>Yours</h2><div class="fxgrid">' + FXLIB.L.filter(d => d.mine).map(card).join("") +
+    '<div class="fxc new" data-fxa="new"><div class="fxplus">＋</div><div class="fxt"><div><b>New effect</b><small>Your own emoji, falling or floating</small></div></div></div></div>' +
+    '<div class="foot">Effects you make or open from a file. Share one from its page; open one in Library → Import a file.</div></div>';
   return h;
 }
 function fxScreen(id){
@@ -1923,8 +1949,8 @@ function fxScreen(id){
   let rows = '<div class="row col"><div class="t"><b>How much</b></div>' + seg("amount", [["Few", "Few"], ["Some", "Some"], ["Lots", "Lots"]]) + '</div>';
   if (!d.party){
     const W = d.wx ? [[(d.wx[0] === "sun" || d.wx[0] === "stars") ? "Matching weather" : "Matching weather", "weather"], ["Always", "always"]]
-      : [["In season", "season"], ["All year", "always"], ["My dates", "dates"]];
-    rows += '<div class="row col"><div class="t"><b>When</b><small>' + esc(d.wx ? "Matching weather: " + FXLIB.whenText(Object.assign({}, f, {when:"weather"})).toLowerCase() : "In season: " + FXLIB.seasonText(d)) + '</small></div>' + seg("when", W) + '</div>';
+      : d.season ? [["In season", "season"], ["All year", "always"], ["My dates", "dates"]] : [["All year", "always"], ["My dates", "dates"]];
+    rows += '<div class="row col"><div class="t"><b>When</b>' + (d.wx || d.season ? '<small>' + esc(d.wx ? "Matching weather: " + FXLIB.whenText(Object.assign({}, f, {when:"weather"})).toLowerCase() : "In season: " + FXLIB.seasonText(d)) + '</small>' : "") + '</div>' + seg("when", W) + '</div>';
     if (f.when === "dates"){
       const mon = (x, k) => '<select ' + a + ' data-fxk="' + k + '" data-t="md-m"><option value="">—</option>' + MONTHS.map((m, i) => '<option value="' + (i + 1) + '"' + (x && +x.split("-")[0] === i + 1 ? " selected" : "") + '>' + m + '</option>').join("") + '</select>' +
         ' <input type="number" min="1" max="31" style="width:64px" ' + a + ' data-fxk="' + k + '" data-t="md-d" value="' + (x ? +x.split("-")[1] : "") + '">';
@@ -1936,6 +1962,8 @@ function fxScreen(id){
   h += sec("Settings", rows, d.layer === "sky" ? "Drawn behind the tiles, on the background." : d.layer === "show" ? "Shows play in front of the tiles and last a few seconds." :
     (mods.effects.settings.front !== false ? "Drawn in front of the tiles (see Effects)." : "Drawn behind the tiles (see Effects)."));
   if (!ECHO) h += sec("", '<button class="btnrow blue" data-fxplay="' + id + '">Play it on the preview</button>', "Plays it once on the dashboard preview to the right, whatever the date or weather.");
+  if (d.mine) h += sec("", '<button class="btnrow" data-go="fxedit:' + id + '">Edit</button><button class="btnrow" data-go="share:effect:' + id + '">Share</button><button class="btnrow red" data-fxa="del" data-id="' + id + '">Delete effect</button>',
+    "Your own effect. Edit changes its emoji and how they move; Share makes a file to send.");
   return h;
 }
 // little live previews on the effect cards; only the ones on screen animate
@@ -1971,6 +1999,165 @@ function fxPreviews(){
       if (e.isIntersecting) start(e.target); else if (p.r) p.r.pause(true); }));
     cvs.forEach(cv => fxObs.observe(cv));
   } else cvs.forEach(start);
+}
+
+/* ----- your own effects: designed as a draft (Save, Cancel), like themes ----- */
+const mineList = () => (mods.effects.settings.mine = mods.effects.settings.mine || []);
+const mineById = id => mineList().find(m => m.id === id);
+const FX_KEYS = ["name", "glyphs", "motion", "size", "speed", "spin", "from", "to"];
+const fxPlain = m => { const o = {}; FX_KEYS.forEach(k => { if (m[k] !== undefined) o[k] = m[k]; }); return o; };
+let FXDRAFT = null;
+function fxDraftStart(id){
+  const m = id === "new" ? {name:"My effect", glyphs:["⭐"], motion:"fall", size:"Medium", speed:"Normal", spin:true, from:"", to:""} : mineById(id);
+  if (!m) return;
+  FXDRAFT = Object.assign(fxPlain(m), {id: id === "new" ? "my" + Date.now().toString(36) : id, isNew: id === "new"});
+  FXDRAFT.orig = JSON.stringify(fxPlain(FXDRAFT));
+}
+const fxDirty = () => !!FXDRAFT && (FXDRAFT.isNew || JSON.stringify(fxPlain(FXDRAFT)) !== FXDRAFT.orig);
+// what FXLIB knows about: your saved effects, plus the one being designed or opened from a file
+function fxRegister(){
+  const extra = FXDRAFT ? [FXDRAFT] : LIB.fimp && navStack()[navStack().length - 1] === "fximp" ? [Object.assign({}, LIB.fimp, {id:"__imp"})] : [];
+  FXLIB.setMine(mineList().filter(m => !extra.some(e => e.id === m.id)).concat(extra));
+}
+function fxEditScreen(id){
+  if (!FXDRAFT || (FXDRAFT.id !== id && !(id === "new" && FXDRAFT.isNew))){ fxDraftStart(id); fxRegister(); }
+  const D = FXDRAFT; if (!D) return '<div class="big">Not found</div>';
+  const seg = (k, opts) => '<span class="seg wide">' + opts.map(([v, l]) => '<button data-fxd="' + k + '" data-fxdv="' + esc(String(v)) + '"' + (String(D[k]) === String(v) ? ' class="on"' : "") + '>' + esc(l) + '</button>').join("") + '</span>';
+  const mon = (x, k) => '<select data-fxd="' + k + '" data-t="md-m"><option value="">—</option>' + MONTHS.map((m, i) => '<option value="' + (i + 1) + '"' + (x && +x.split("-")[0] === i + 1 ? " selected" : "") + '>' + m + '</option>').join("") + '</select>' +
+    ' <input type="number" min="1" max="31" style="width:64px" data-fxd="' + k + '" data-t="md-d" value="' + (x ? +x.split("-")[1] : "") + '">';
+  let h = '<div class="big">' + esc(D.isNew ? "New effect" : D.name) + '</div><div class="fxc big"><canvas data-fx="' + esc(D.id) + '"></canvas></div>' +
+    '<p class="intro">Emoji that drift across the screen. The picture above follows your changes; the screen changes when you save.</p>';
+  h += sec("Name", '<div class="row"><input type="text" data-fxd="name" maxlength="60" value="' + esc(D.name) + '" style="flex:1"></div>');
+  h += sec("Emoji", '<div class="row col"><div class="t"><b style="font-size:28px;letter-spacing:4px">' + esc(D.glyphs.join(" ")) + '</b><small>Type or paste up to 8. They\'re mixed at random.</small></div>' +
+    '<input type="text" data-fxd="glyphs" value="' + esc(D.glyphs.join(" ")) + '" style="width:100%"></div>');
+  h += sec("How they move", '<div class="row col">' + seg("motion", FXLIB.MOTIONS) + '</div>' +
+    '<div class="row col"><div class="t"><b>Size</b></div>' + seg("size", Object.keys(FXLIB.SIZE).map(k => [k, k])) + '</div>' +
+    '<div class="row col"><div class="t"><b>Speed</b></div>' + seg("speed", Object.keys(FXLIB.SPEED).map(k => [k, k])) + '</div>' +
+    (D.motion === "fall" ? row({t:"Spin as they fall", post: sw(D.spin !== false, 'data-fxd="spin"')}) : ""));
+  h += sec("Its season", row({t:"From", post:mon(D.from, "from")}) + row({t:"Until", post:mon(D.to, "to")}),
+    "Optional. With a season it plays only then (you can still pick All year on its page). Leave both empty for all year.");
+  h += '<div class="draftbar"><span>' + (fxDirty() ? (D.isNew ? "Not saved yet" : "Unsaved changes") : "No changes yet") + '</span><button data-fxa="cancel">Cancel</button><button class="pri" data-fxa="save"' + (fxDirty() ? "" : " disabled") + '>Save</button></div>';
+  return h;
+}
+function fxAction(a, id){
+  if (a === "new"){ FXDRAFT = null; go("fxedit:new"); return; }
+  if (a === "cancel"){ FXDRAFT = null; fxRegister(); navStack().pop(); show(); return; }
+  if (a === "save"){
+    const D = FXDRAFT; if (!D) return;
+    const m = Object.assign(fxPlain(D), {id:D.id, name:(D.name || "").trim() || "My effect"});
+    const L = mineList(), i = L.findIndex(x => x.id === m.id);
+    if (i < 0) L.push(m); else L[i] = m;
+    FXDRAFT = null; fxRegister(); save(); toast("Saved " + m.name, "ok");
+    navStack().pop(); if (D.isNew) go("fx:" + m.id); else show(); return;
+  }
+  if (a === "del"){
+    const m = mineById(id); if (!m || !confirmDel({one:"effect"}, id)) return;
+    mods.effects.settings.mine = mineList().filter(x => x.id !== id); mods.effects.settings.items = fxItemsC().filter(x => x.id !== id);
+    fxRegister(); save(); navStack().pop(); show(); return;
+  }
+  if (a === "add"){        // an effect opened from a file
+    const f = LIB.fimp; if (!f) return;
+    const m = Object.assign(fxPlain(f), {id:"my" + Date.now().toString(36)});
+    mineList().push(m); LIB.fimp = null; fxRegister(); save(); toast("Added " + m.name + " to your effects", "ok");
+    navStack().pop(); go("fx:" + m.id); return;
+  }
+}
+function fxDraftSet(k, v){
+  const D = FXDRAFT; if (!D) return;
+  if (k === "glyphs"){ const g = (String(v).match(EMO_RE) || []).slice(0, 8); if (!g.length){ toast("Type or paste one or more emoji", "bad"); show(); return; } v = g; }
+  if (k === "name") v = String(v).slice(0, 60);
+  D[k] = v; fxRegister(); show();
+}
+
+/* ----- sharing a theme or one of your own effects as a small file ----- */
+const SHARE = {key:"", name:"", desc:""};
+function sharePack(key){
+  const [kind, id] = [key.split(":")[0], key.split(":").slice(1).join(":")];
+  const base = {countertop:kind, format:LIB_FMT, name:SHARE.name.trim() || (kind === "theme" ? "Shared theme" : "Shared effect"), description:SHARE.desc.trim(), made:new Date().toISOString().slice(0, 10)};
+  if (kind === "theme"){ const v = lookVals(id), values = {}; LOOK_KEYS.forEach(k => { if (v[k] !== undefined) values[k] = v[k]; }); return Object.assign(base, {values}); }
+  const m = mineById(id); if (!m) return null;
+  const e = fxPlain(m); delete e.name;
+  return Object.assign(base, {effect:e});
+}
+function shareScreen(key){
+  const kind = key.split(":")[0], id = key.split(":").slice(1).join(":");
+  const known = kind === "theme" ? id === "default" || lookById(id) : mineById(id);
+  if (!known) return '<div class="big">Not found</div>';
+  if (SHARE.key !== key) Object.assign(SHARE, {key, name: kind === "theme" ? lookName(id) : mineById(id).name, desc:""});
+  const pkg = sharePack(key), what = kind === "theme" ? "theme" : "effect";
+  let h = '<div class="big">Share ' + esc(kind === "theme" ? lookName(id) : mineById(id).name) + '</div>' + (kind === "theme" ? lookPic(lookVals(id), "big") : '<div class="fxc big"><canvas data-fx="' + esc(id) + '"></canvas></div>');
+  h += '<p class="intro">A small file of this ' + what + ' to send to a friend or keep as a backup. They open it in Library → Import a file, and it joins their ' + what + 's only when they add it.' +
+    (kind === "theme" ? " It holds colors, background, tiles and text size; " + (lookVals(id).bg === "Photos" ? "your photos stay here (theirs show instead)." : "nothing else.") : " It holds the emoji and how they move; no code.") + '</p>';
+  h += sec("Name", '<div class="row"><input type="text" data-sh="name" maxlength="80" value="' + esc(SHARE.name) + '" style="flex:1"></div>');
+  h += sec("What it\'s for", '<div class="row"><textarea data-sh="desc" maxlength="500" rows="2" style="flex:1" placeholder="' + (kind === "theme" ? "Warm and dim for evenings." : "Pumpkins and bats for October.") + '">' + esc(SHARE.desc) + '</textarea></div>');
+  h += sec("", (ECHO ? "" : '<button class="btnrow blue" data-sha="download">Download file</button>') + '<button class="btnrow' + (ECHO ? " blue" : "") + '" data-sha="copy">Copy share code</button>');
+  h += sec("Share code", '<div class="row"><textarea class="code" readonly data-sh="code" rows="3" style="flex:1;font-size:12px;word-break:break-all">' + esc(libCode(pkg)) + '</textarea></div>', "The same " + what + " as text, for pasting into a message.");
+  return h;
+}
+function fileSave(pkg, fallback){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(pkg, null, 1)], {type:"application/json"}));
+  a.download = (String(pkg.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || fallback) + ".countertop";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+async function textCopy(box, msg){
+  if (!box) return;
+  try{ await navigator.clipboard.writeText(box.value); }
+  catch(e){ box.select(); try{ document.execCommand("copy"); }catch(e2){} }      // plain http on the home network has no clipboard API
+  toast(msg, "ok");
+}
+document.addEventListener("input", e => {
+  const t = e.target; if (!t.dataset || !t.dataset.sh || t.dataset.sh === "code") return;
+  SHARE[t.dataset.sh] = t.value;
+  const box = document.querySelector('[data-sh="code"]'), pkg = sharePack(SHARE.key); if (box && pkg) box.value = libCode(pkg);
+});
+
+/* ----- a theme or an effect opened from a file: see it first, then add it ----- */
+function themeImpScreen(){
+  const T = LIB.timp; if (!T) return '<div class="big">Nothing to open</div>';
+  const v = Object.assign(lookVals("default"), T.values);
+  const same = ["default"].concat(looks().map(t => t.id)).find(id => LOOK_KEYS.every(k => String(lookVals(id)[k]) === String(v[k])));
+  let h = '<div class="big">' + esc(T.name) + '</div>' + lookPic(v, "big");
+  h += '<p class="intro">' + esc(T.desc || "A theme from a shared file.") + (T.made ? " Made " + esc(T.made) + "." : "") + (ECHO ? "" : " The preview shows it with your own pages.") + '</p>';
+  if (same) h += '<div class="sec"><div class="foot">You already have this theme: ' + esc(lookName(same)) + '.</div></div>';
+  h += '<div class="saverow"><button class="pri" data-tia="use">Add and use it</button><button data-tia="add">Add to my themes</button></div>';
+  h += '<div class="sec"><div class="foot">Adding it changes nothing on the screen until you use it. Everyday stays as it is.</div></div>';
+  return h;
+}
+function themeImpAction(a){
+  const T = LIB.timp; if (!T) return;
+  const nid = "t" + Date.now().toString(36), base = T.name, name = looks().some(t => t.name === base) ? base + " " + (looks().length + 1) : base;
+  looks().push({id:nid, name, values:Object.assign(lookVals("default"), T.values), from:"file"});
+  if (a === "use") LS().use = nid;
+  LIB.timp = null; save(); toast(a === "use" ? "Using " + name : "Added " + name + " to your themes", "ok");
+  navStack().pop(); go("theme:" + nid);
+}
+function fxImpScreen(){
+  const f = LIB.fimp; if (!f) return '<div class="big">Nothing to open</div>';
+  let h = '<div class="big">' + esc(f.name) + '</div><div class="fxc big"><canvas data-fx="__imp"></canvas></div>';
+  h += '<p class="intro">' + esc(f.desc || "An effect from a shared file.") + (f.made ? " Made " + esc(f.made) + "." : "") + '</p>';
+  h += sec("", row({t:"Emoji", v:f.glyphs.join(" ")}) + row({t:"How they move", v:(FXLIB.MOTIONS.find(x => x[0] === f.motion) || [, ""])[1] + " · " + f.size + " · " + f.speed}) +
+    row({t:"When", v: f.from && f.to ? FXLIB.mdTxt(f.from) + "–" + FXLIB.mdTxt(f.to) : "All year"}));
+  h += '<div class="saverow"><button class="pri" data-fxa="add">Add to my effects</button></div>';
+  h += '<div class="sec"><div class="foot">It\'s plain data: emoji and how they move, with no code. It starts on; turn it off or change when it plays on its page.</div></div>';
+  return h;
+}
+// files: what's in a theme or an effect is checked against what this Countertop knows
+function themeRead(j){
+  const str = (v, n) => typeof v === "string" ? v.trim().slice(0, n) : "", LSD = (schema.look && schema.look.settings) || {}, values = {};
+  for (const k of LOOK_KEYS) if (j.values && j.values[k] !== undefined){ const c = libClean(LSD[k], j.values[k]); if (c !== undefined) values[k] = c; }
+  if (!Object.keys(values).length) throw new Error("This theme has no colors or settings in it.");
+  return {name:str(j.name, 80) || "Shared theme", desc:str(j.description, 500), made:str(j.made, 10), values};
+}
+function fxRead(j){
+  const str = (v, n) => typeof v === "string" ? v.trim().slice(0, n) : "", e = j.effect && typeof j.effect === "object" ? j.effect : {};
+  const glyphs = (Array.isArray(e.glyphs) ? e.glyphs : []).filter(g => typeof g === "string" && g && (g.match(EMO_RE) || []).join("") === g).slice(0, 8);
+  if (!glyphs.length) throw new Error("This effect has no emoji in it.");
+  const one = (v, L, d) => L.includes(v) ? v : d, md = v => typeof v === "string" && FXLIB.MD.test(v) ? v : "";
+  const from = md(e.from), to = md(e.to);
+  return {name:str(j.name, 60) || "Shared effect", desc:str(j.description, 500), made:str(j.made, 10), glyphs,
+    motion:one(e.motion, FXLIB.MOTIONS.map(x => x[0]), "fall"), size:one(e.size, Object.keys(FXLIB.SIZE), "Medium"), speed:one(e.speed, Object.keys(FXLIB.SPEED), "Normal"),
+    spin:e.spin !== false, from: from && to ? from : "", to: from && to ? to : ""};
 }
 
 /* ----- actions ----- */
@@ -2017,6 +2204,11 @@ function mdVal(el){ const row = el.closest(".row"), m = row.querySelector('[data
 function lookClick(t){
   const d = t.dataset;
   if (d.lact){ lookAction(d.lact, d.id); return true; }
+  if (d.fxa){ fxAction(d.fxa, d.id); return true; }
+  if (d.tia){ themeImpAction(d.tia); return true; }
+  if (d.sha){ const pkg = sharePack(SHARE.key); if (!pkg) return true; if (d.sha === "download") fileSave(pkg, pkg.countertop); else textCopy(document.querySelector('[data-sh="code"]'), "Share code copied"); return true; }
+  if (d.fxd && d.fxdv !== undefined){ fxDraftSet(d.fxd, d.fxdv); return true; }
+  if (d.fxd === "spin"){ fxDraftSet("spin", !(FXDRAFT && FXDRAFT.spin !== false)); return true; }
   if (d.ract){ ruleAction(d.ract, d.id, t); return true; }
   if (d.fxon){ const v = !fxC(d.fxon).on; fxSet(d.fxon, "on", v); show(); return true; }
   if (d.fxk && d.fxv !== undefined){ const v = d.fxk === "every" ? +d.fxv : d.fxv; fxSet(d.fxid, d.fxk, v); show(); return true; }
@@ -2029,6 +2221,9 @@ function lookClick(t){
 }
 function lookChange(t){
   const d = t.dataset;
+  if (d.fxd){ if (d.fxd !== "from" && d.fxd !== "to"){ fxDraftSet(d.fxd, t.value); return true; }
+    const r = t.closest(".row"), m = r.querySelector('[data-t="md-m"]').value, dd = parseInt(r.querySelector('[data-t="md-d"]').value, 10);
+    fxDraftSet(d.fxd, m ? m + "-" + (dd ? Math.max(1, Math.min(31, dd)) : 1) : ""); return true; }      // a month on its own starts on the 1st
   if (d.lk === "__name"){ if (DRAFT && DRAFT.id === d.lid){ DRAFT.name = t.value; show(); } return true; }
   if (d.lk){ let v = t.value; if (t.type === "range") v = +v; lookSet(d.lid, d.lk, v); if (t.type === "range"){ const s = t.nextElementSibling; if (s) s.textContent = v + "%"; } show(); return true; }
   if (d.rk){ const r = ruleById(d.rid); r.when = r.when || {};
@@ -2143,7 +2338,7 @@ function libOpen(view){
   defsLoad.then(libShow); libShow();
 }
 function libClose(){
-  LIB.pick = ""; DRAFT = null; LIB.trial = ""; LIB.pvq = ""; LIB.sub = [];
+  LIB.pick = ""; DRAFT = null; if (FXDRAFT || LIB.fimp){ FXDRAFT = null; LIB.fimp = null; fxRegister(); } LIB.timp = null; LIB.trial = ""; LIB.pvq = ""; LIB.sub = [];
   libEl().hidden = true; document.body.classList.remove("libopen");
   LIB.item = ""; LIB.pvKey = ""; const f = libEl().querySelector(".lbig iframe"); if (f) f.src = "about:blank";
 }
@@ -2422,13 +2617,17 @@ function libDesign(v, depth = 0){
   }
   return o;
 }
-function libRead(text){
+// a .countertop file or share code: {countertop: "layout" | "theme" | "effect", format, name, ...}
+function libParse(text){
   text = String(text || "").trim();
   let j;
   try{ j = JSON.parse(/^CT1\./.test(text) ? b64dec(text.slice(4).replace(/\s+/g, "")) : text); }
-  catch(e){ throw new Error("That isn't a layout file or share code."); }
-  if (!j || j.countertop !== "layout") throw new Error("That isn't a Countertop layout.");
-  if (+j.format > LIB_FMT) throw new Error("This layout was made by a newer Countertop. Update Countertop to open it.");
+  catch(e){ throw new Error("That isn't a Countertop file or share code."); }
+  if (!j || !["layout", "theme", "effect"].includes(j.countertop)) throw new Error("That isn't a Countertop layout, theme or effect.");
+  if (+j.format > LIB_FMT) throw new Error("This " + j.countertop + " was made by a newer Countertop. Update Countertop to open it.");
+  return j;
+}
+function libRead(j){
   const pg = Array.isArray(j.pages) && j.pages[0];
   if (!pg || !Array.isArray(pg.boxes)) throw new Error("This layout has no page in it.");
   const num = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(+v) || 0));
@@ -2474,7 +2673,7 @@ function libFill(type, values){
   }
 }
 function libImport(){
-  return '<h2 class="ltitle">Import a layout</h2><p class="ldesc">Open a .countertop file someone shared, or paste a share code. You\'ll see it with your own weather and calendars before anything changes.</p>' +
+  return '<h2 class="ltitle">Import a file</h2><p class="ldesc">Open a .countertop file someone shared, or paste a share code: a layout, a theme or an effect. You\'ll see it with your own weather and calendars before anything changes.</p>' +
     '<div class="lpanel lwide">' + (ECHO ? "" : '<div class="lrow"><div class="t">A file<small>Ends in .countertop</small></div><label class="lbtn">Choose a file<input type="file" accept=".countertop,.json,application/json" data-l="file" hidden></label></div>') +
     '<div class="lrow col"><div class="t">Or a share code<small>Starts with CT1.</small></div><textarea class="code" data-l="paste" rows="4" placeholder="CT1.…"></textarea>' +
     '<div class="lact"><button class="lbtn pri" data-l="openpaste">Open</button></div></div>' +
@@ -2482,7 +2681,10 @@ function libImport(){
 }
 function libLoadImport(text){
   try{
-    LIB.imp = libRead(text); LIB.impErr = ""; LIB.slots = {}; LIB.look = true; LIB.pvKey = "";
+    const j = libParse(text);
+    if (j.countertop === "theme"){ LIB.timp = themeRead(j); LIB.ttrial = ""; LIB.impErr = ""; libGo("themes"); LIB.sub = ["looks", "timp"]; libShow(); return; }
+    if (j.countertop === "effect"){ LIB.fimp = fxRead(j); LIB.impErr = ""; libGo("effects"); LIB.sub = ["effects", "fximp"]; libShow(); return; }
+    LIB.imp = libRead(j); LIB.impErr = ""; LIB.slots = {}; LIB.look = true; LIB.pvKey = "";
     libGo("import", "import");
   }catch(e){ LIB.impErr = e.message; LIB.imp = null; libGo("import"); }
 }
@@ -2508,7 +2710,10 @@ function libShow(){
 function libSubShow(){
   const S = LIB.sub.length ? LIB.sub : (LIB.sub = [LIB_SUB[LIB.view]]), cur = S[S.length - 1];
   if (!cur.startsWith("look:") && DRAFT) DRAFT = null;            // left Customize (Save, Cancel or back): the draft is gone
+  if (!cur.startsWith("fxedit:") && FXDRAFT) FXDRAFT = null;      // the same for an effect being designed
+  if (cur !== "timp") LIB.ttrial = "";
   if (!DRAFT) LIB.trial = "";
+  fxRegister();
   const {h, title} = screenFor(cur);
   const side = (S.length > 1 ? '<button class="lback" data-l="sback">‹ ' + esc(backLabel(S[S.length - 2])) + '</button>' : "") +
     (h.startsWith('<div class="big">') ? "" : '<div class="big">' + esc(title) + '</div>') + h;
@@ -2526,11 +2731,21 @@ function libPv(){
   const cur = LIB.sub[LIB.sub.length - 1] || "";
   let q;
   if (cur.startsWith("look:")){ if (!LIB.trial){ draftPreview(true); return; } q = "&trial=" + LIB.trial + "&theme=default"; }
+  else if (cur === "timp" && LIB.timp){ if (!LIB.ttrial){ themeImpTrial(); return; } q = "&trial=" + LIB.ttrial + "&theme=default"; }
   else { const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : ""; q = want ? "&theme=" + want : ""; }
   libPvFit();
   if (q === LIB.pvq) return;
   LIB.pvq = q; f.onload = () => setTimeout(() => f.classList.add("on"), 700);
   f.src = "/dash/content?preview=1" + q + "&t=" + Date.now();
+}
+async function themeImpTrial(){
+  const T = LIB.timp; if (!T) return;
+  try{
+    const r = await fetch("/trial", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pages:gpAll(), tiles:tileList(), look:Object.assign(lookVals("default"), T.values), name:T.name})});
+    const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+    if (LIB.timp !== T) return;
+    LIB.ttrial = j.id; libPv();
+  }catch(e){}
 }
 function libPvFit(){
   const f = document.getElementById("libpv"); if (!f) return;
@@ -2538,7 +2753,7 @@ function libPvFit(){
   f.style.width = W + "px"; f.style.height = (displayMode === "auto" ? 1080 : 1920) + "px"; f.style.transform = "scale(" + f.parentNode.clientWidth / W + ")";
 }
 function libDirty(){
-  if (!(DRAFT && draftDirty())) return false;
+  if (!(DRAFT && draftDirty()) && !fxDirty()) return false;
   toast("Save or Cancel your changes first", "bad"); const b = libEl().querySelector(".draftbar"); if (b) b.scrollIntoView({block:"nearest"});
   return true;
 }
