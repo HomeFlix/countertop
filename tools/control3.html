@@ -209,6 +209,9 @@
   .lc small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
   .lc small.clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   .lbadge{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.65);color:#fff;font-size:12px;padding:3px 8px;border-radius:99px}
+  .ladd{position:absolute;top:8px;right:8px;z-index:2;background:var(--accent);color:#06121f;font-weight:600;font-size:13px;padding:4px 10px;border-radius:99px;opacity:0;transition:opacity .15s}
+  .lc:hover .ladd,.lc:focus-within .ladd,html.echo .ladd{opacity:1}
+  @media (hover:none){ .ladd{opacity:1} }
   .ltag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#1b3326;color:var(--ok);margin-top:6px}
   .lempty{color:var(--faint);padding:18px;background:var(--group);border-radius:14px;margin-bottom:26px}
   .tp{position:relative;display:block;width:100%;aspect-ratio:16/10;overflow:hidden;background:#0b0e12}
@@ -2018,7 +2021,7 @@ document.addEventListener("click", e => {
    A layout can be tried on the screen for two minutes, or shared as a small .countertop file or share code.
    Shared layouts are plain data: which calendars, lists and other sources a tile uses, and settings marked
    share:false in a tile file (your own text, picture links), are left out; whoever opens the file picks their own. */
-const LIB = {view:"layouts", item:"", q:"", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
+const LIB = {view:"layouts", item:"", q:"", addTo:"main", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
 const LIB_CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
 let DEFS = {};            // tile type -> its definition (title, cat, desc, size, settings), read from the tile files
 const defsLoad = fetch("/tiles.js").then(r => r.text()).then(txt => {
@@ -2095,6 +2098,7 @@ function libTiles(){
     h += '<div class="lh">' + esc(c) + '</div><div class="lgrid tiles">' + L.map(([t, d]) => {
       const used = tileList().filter(x => x.type === t).length;
       return '<button class="lc ltile" data-l="open" data-id="tile:' + t + '">' + libTileShot(t, d) +
+        '<span class="ladd" data-l="addtile" data-id="' + t + '" role="button" title="Add to ' + esc(libAddName()) + '">+ Add</span>' +
         '<span class="tx"><b>' + esc(d.title || t) + '</b><small class="clamp">' + esc(d.desc || "") + '</small>' + (used ? '<span class="ltag">In use</span>' : "") + '</span></button>';
     }).join("") + '</div>';
   }
@@ -2130,8 +2134,10 @@ function libTileItem(t){
       '<div class="lrow"><div class="t">Sizes<small>Starts at ' + sz[0] + ' × ' + sz[1] + ' on the 48 × 32 grid, and can be as small as ' + (sz[2] || sz[0]) + ' × ' + (sz[3] || sz[1]) + '</small></div></div>' +
       (labels.length ? '<div class="lrow"><div class="t">Settings<small>' + esc(labels.slice(0, 8).join(" · ")) + (labels.length > 8 ? " …" : "") + '</small></div></div>' : "") +
       '<div class="lrow"><div class="t">' + (used ? "On your dashboard" : "Not on your dashboard yet") + '<small>' + (used ? used + (used === 1 ? " tile" : " tiles") + " of this kind" : "Add it to any box in the editor") + '</small></div></div></div>' +
-    '<div class="lact"><button class="lbtn pri" data-l="edit">' + (ECHO ? "Edit the screen" : "Add it on screen") + '</button></div>' +
-    '<p class="lnote">In the editor, pick a box (or draw a new one), then choose ' + esc(d.title || t) + ' from Add to this box.</p></div></div>';
+    '<label class="lfield">Add it to<select data-l="addto">' + [["main", "Main"]].concat(cpList().map(p => [p.id, p.name])).map(([v, l]) =>
+      '<option value="' + esc(v) + '"' + (v === LIB.addTo ? " selected" : "") + '>' + esc(l) + '</option>').join("") + '</select></label>' +
+    '<div class="lact"><button class="lbtn pri" data-l="addtile" data-id="' + esc(t) + '">Add ' + esc(d.title || t) + '</button></div>' +
+    '<p class="lnote">It goes in an empty spot on that page' + (ECHO ? ", then the editor opens so you can move it and change its settings." : ", and the editor opens on it so you can move it, resize it and change its settings.") + '</p></div></div>';
 }
 
 /* ----- one layout: a live preview with your own weather, calendars and lists, then put it on Main or add it as a page ----- */
@@ -2402,6 +2408,40 @@ async function libTry(key){
     setTimeout(() => { if (LIB.trialEnd && LIB.trialEnd <= Date.now() + 500){ LIB.trialEnd = 0; libShow(); } }, 120.5e3);
   }catch(e){ toast("Couldn't show it: " + e.message, "bad"); }
 }
+// a tile straight from the Library: a new box in the first empty spot big enough (its usual size, then its smallest),
+// or, on a full page, a turn in the biggest box
+const libAddName = () => LIB.addTo === "main" || !cpById(LIB.addTo) ? "Main" : cpById(LIB.addTo).name;
+function libFreeSpot(slots, w, h){
+  const used = (x, y) => slots.some(s => x < s.x + s.w && x + w > s.x && y < s.y + s.h && y + h > s.y);
+  for (let y = 0; y + h <= 32; y++) for (let x = 0; x + w <= GC; x++) if (!used(x, y)) return {x, y};
+  return null;
+}
+function libAddTile(type, pid){
+  const d = DEFS[type]; if (!d) return;
+  const page = gpAll().find(p => p.id === pid) || gpAll().find(p => p.id === "main");
+  const settings = {};
+  for (const [k, s] of Object.entries(d.settings || {})) if (s.type === "source"){ const L = SRC[s.kind] || []; settings[k] = s.multi ? [] : (L[0] || {}).id || ""; }
+  const tid = type.slice(0, 6) + "_" + newUid().slice(-8), tile = {id:tid, type, settings};
+  const [w, h, mw, mh] = d.size || [12, 8, 8, 6];
+  let spot = null, sw = w, sh = h;
+  for (const [a, b] of [[w, h], [Math.min(w, 24), Math.min(h, 16)], [mw || w, mh || h]]){ spot = libFreeSpot(page.slots || [], a, b); if (spot){ sw = a; sh = b; break; } }
+  tileList().push(tile);
+  let note = "";
+  if (spot) (page.slots = page.slots || []).push({id:newUid() + "s", x:spot.x, y:spot.y, w:sw, h:sh, mod:tid});
+  else {
+    const big = (page.slots || []).slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];
+    if (!big){ page.slots = [{id:newUid() + "s", x:0, y:0, w, h, mod:tid}]; }
+    else if (!big.mod) big.mod = tid;
+    else { big.more = (big.more || []).concat(tid); big.every = big.every || 45; note = "The page was full, so it takes turns with " + tileName(big.mod) + "."; }
+  }
+  LIB.addTo = page.id;
+  try{ if (!ECHO && pvWin().dashEditing()) pvWin().dashEdit(false); }catch(e){}       // the preview reloads with the new box, then opens the editor on it
+  save(); libClose(); stack = ["root"];
+  toast(note || (d.title || type) + " added to " + (page.id === "main" ? "Main" : page.name), "ok");
+  if (ECHO){ setTimeout(() => { location.href = displayHref(true); }, 900); return; }
+  PV.editPage = page.id; PV.editTile = tid;
+  go("page:" + page.id);
+}
 function libDup(id){
   const sp = savedById(id); if (!sp) return;
   const uid = newUid();
@@ -2436,7 +2476,7 @@ function libTap(t){
     if (mods.tiles) mods.tiles.settings.items = tileList().filter(x => !gone.has(x.id));
     mods.pages.settings.items = gpAll().filter(x => x !== sp); save(); toast("Deleted", "ok"); libGo("mine"); return;
   }
-  if (a === "edit"){ libClose(); if (ECHO){ location.href = displayHref(true); return; } stack = ["root"]; show(); act("edit", "main"); return; }
+  if (a === "addtile"){ libAddTile(d.id, LIB.addTo || "main"); return; }
   if (a === "setup"){ libClose(); stack = ["root", "src:" + d.id]; show(); return; }
   if (a === "download"){ libDownload(); return; }
   if (a === "copy"){ libCopy(); return; }
@@ -2457,6 +2497,7 @@ function libInit(){
   el.addEventListener("change", e => {
     const t = e.target, d = t.dataset;
     if (d.l === "slot"){ LIB.slots[d.id] = t.value; libShow(); return; }
+    if (d.l === "addto"){ LIB.addTo = t.value; return; }
     if (d.l === "shareof"){ LIB.shareOf = t.value; libShow(); return; }
     if (d.l === "rename"){ const sp = savedById(d.id); if (sp){ sp.name = t.value.trim().slice(0, 80) || sp.name; t.value = sp.name; save(); } return; }
     if (d.l === "file" && t.files && t.files[0]){ t.files[0].text().then(libLoadImport, () => { LIB.impErr = "Couldn't read that file."; libShow(); }); }
@@ -2509,7 +2550,10 @@ if (!ECHO){
   document.body.classList.add("desk");
   $("pv").hidden = false;
   $("pvf").addEventListener("load", () => setTimeout(() => {
-    try{ if (PV.editPage){ const id = PV.editPage; PV.editPage = ""; act("edit", id); } else if (PV.page) pvWin().showPage(PV.page); }catch(e){}
+    try{
+      if (PV.editTile){ const tile = PV.editTile; PV.editTile = PV.editPage = ""; pvWin().dashEdit(true, tile); }      // a tile just added from the Library
+      else if (PV.editPage){ const id = PV.editPage; PV.editPage = ""; act("edit", id); } else if (PV.page) pvWin().showPage(PV.page);
+    }catch(e){}
     pvTabs();
   }, 1200));
   $("pvpage").addEventListener("click", e => {

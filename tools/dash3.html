@@ -2258,6 +2258,9 @@ window.dashEditing = () => EDIT.on;
 // Controls changed a dashboard-wide setting while the editor is open: use it here too, so Save keeps it
 window.dashApply = mods => {
   for (const id in mods) if (CFG[id] && mods[id].settings && id !== "pages" && id !== "tiles" && !tileItem(id)) CFG[id].settings = JSON.parse(JSON.stringify(mods[id].settings));
+  // tiles a page added in Controls brings with it (a premade layout, the Library): without them its boxes would be empty here, and Save would lose them
+  const wantT = mods.tiles && mods.tiles.settings && mods.tiles.settings.items;
+  if (wantT) for (const t of wantT) if (!tileItem(t.id)){ const it = JSON.parse(JSON.stringify(t)); tileItems().push(it); tileMount(it); refeed(it.id); }
   const want = mods.pages && mods.pages.settings && mods.pages.settings.items;
   if (want){        // pages added, renamed, turned on or off, or deleted in Controls; their boxes stay as edited here
     const have = pgItems();

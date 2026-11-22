@@ -1,0 +1,1 @@
+- **New pages showed empty boxes while editing.** A premade layout added as a page while the editor was open showed its boxes without their tiles, and saving the editor then lost them.
