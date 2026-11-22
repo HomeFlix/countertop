@@ -226,6 +226,9 @@
   .tp.big{border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.45)}
   .tp iframe{position:absolute;left:0;top:0;width:1920px;height:1080px;border:0;transform-origin:0 0;pointer-events:none}
   .tpname{position:absolute;inset:0;display:grid;place-items:center;color:var(--faint);font-size:15px}
+  .lsplit{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:28px;align-items:start}
+  .lpvcol{position:sticky;top:0}
+  .lside .lcards{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
   .ldet{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:26px;align-items:start}
   .ldet > div > .tp{border-radius:14px}
   .lbig{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000;box-shadow:0 10px 40px rgba(0,0,0,.45)}
@@ -255,7 +258,7 @@
     #lib{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
     .lrail{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}
     .lrail h1,.lsep{display:none} .lrail button{white-space:nowrap}
-    .ldet{grid-template-columns:1fr} .lmain{padding:14px 14px 60px}
+    .ldet,.lsplit{grid-template-columns:1fr} .lpvcol{position:static;order:-1} .lmain{padding:14px 14px 60px}
   }
 </style>
 </head>
@@ -351,6 +354,7 @@ async function load(){
 }
 function pvRefresh(){
   if (ECHO) return;
+  if (libSub()){ LIB.pvq = ""; libPv(); }
   let ed = false; try{ ed = pvWin().dashEditing(); }catch(e){}
   if (ed){ try{ pvWin().dashApply(mods); }catch(e){} } else pvLoad();
 }
@@ -426,9 +430,9 @@ function rootScreen(){
     row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
     row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-act="libpick" data-id="page"'}),
     "Swipe left and right on the screen to move between pages. The night page takes over the screen overnight." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
-  h += sec("Style", row({t:"Theme", sub:"Showing now: " + lookName(curLook()) + (rules().some(r => r.on !== false && lookById(r.look)) ? " · changes on a schedule" : ""), chev:true, attrs:'data-go="looks"',
+  h += sec("Style", row({t:"Theme", sub:"Showing now: " + lookName(curLook()) + (rules().some(r => r.on !== false && lookById(r.look)) ? " · changes on a schedule" : ""), chev:true, attrs:'data-act="lib" data-id="themes"',
       pre:'<span class="tthumb">' + lookPic(lookVals(curLook())) + '</span>'}) +
-    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}),
+    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-act="lib" data-id="effects"'}),
     "Colors, background, tiles and text size, and the little animations on the screen.");
   h += sec("", row({t:"Library", sub:(SV.length ? SV.length + (SV.length === 1 ? " saved layout" : " saved layouts") + " · " : "") + "Premade layouts, every tile, sharing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
     "Your saved layouts, every premade layout and every tile. Share a layout as a file.");
@@ -935,8 +939,8 @@ async function locate(){
     }catch(e){ $("locres").innerHTML = '<div class="help">Search isn\'t reachable; type the latitude and longitude below instead.</div>'; }
   }, 350); });
 }
-function show(){
-  const cur = stack[stack.length - 1];
+// one screen's content and title; Controls shows it, and so does the Library's Themes and Effects views
+function screenFor(cur){
   let h, title;
   if (cur === "root"){ h = rootScreen(); title = ""; }
   else if (cur === "display"){ h = displayScreen(); title = "Screen orientation"; }
@@ -958,6 +962,17 @@ function show(){
   else if (cur.startsWith("emo:")){ h = emoScreen(cur); title = "Swap emoji"; }
   else if (cur.startsWith("fx:")){ h = fxScreen(cur.slice(3)); title = (FXLIB.BY[cur.slice(3)] || {}).name || "Effect"; }
   else { const m = cur.slice(4); h = schema[m] ? modScreen(m) : ""; title = schema[m] ? schema[m].title : ""; }
+  return {h, title};
+}
+function backLabel(prev){
+  const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Themes", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New theme"};
+  return !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? "Customize" : prev.startsWith("theme:") ? lookName(prev.slice(6)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
+    prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "saved" ? "Saved layouts" : prev.startsWith("fx:") ? (FXLIB.BY[prev.slice(3)] || {}).name || "Effect" : "Back";
+}
+function show(){
+  if (libSub()){ libShow(); return; }          // Themes and Effects are open in the Library
+  const cur = stack[stack.length - 1];
+  const {h, title} = screenFor(cur);
   $("screen").innerHTML = h;
   if (document.getElementById("llitems")) llRefresh();      // a list's items, ready to edit
   const choice = cur === "wiz" && WIZ.step === 4 ? WIZ.starter || (sameEverydayLayout() ? "everyday" : "") : "";
@@ -966,10 +981,7 @@ function show(){
   if (!choice && !ECHO) pvFit();
   $("title").textContent = title;
   $("back").hidden = stack.length < 2;
-  const prev = stack[stack.length - 2];
-  const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Themes", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New theme"};
-  $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? "Customize" : prev.startsWith("theme:") ? lookName(prev.slice(6)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
-    prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "saved" ? "Saved layouts" : "Back";
+  $("backlbl").textContent = backLabel(stack[stack.length - 2]);
   const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
   if (!cur.startsWith("look:") && DRAFT) DRAFT = null;          // left the Customize screen (Save, Cancel or back): the draft is gone
   if (!ECHO && cur.startsWith("look:")){ if (!PV.trial) draftPreview(true); }
@@ -977,13 +989,18 @@ function show(){
   fxPreviews();
   if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
 }
-function go(to){ stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
+function go(to){
+  if (libSub()){ LIB.sub.push(to); libShow(); libEl().querySelector(".lmain").scrollTop = 0; return; }
+  stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad();
+}
+// the screen stack that's showing: the Library's while its Themes or Effects view is open, otherwise Controls'
+const navStack = () => libSub() ? LIB.sub : stack;
 /* ---------- Status: is everything working, is there a new version, and a diagnostics file for bug reports ---------- */
 let STATUS = null;
 async function statusLoad(check){
   try{ STATUS = await (await fetch("/status" + (check ? "?check=1" : ""), {cache:"no-store"})).json(); }catch(e){ STATUS = null; }
   const cur = stack[stack.length - 1];
-  if (cur === "root" || cur === "status") show();
+  if (!libSub() && (cur === "root" || cur === "status")) show();
 }
 setInterval(() => { if (!document.hidden) statusLoad(); }, 60e3);
 setInterval(() => { if (!document.hidden && document.getElementById("llitems")) llRefresh(); }, 10e3);   // a list's items, while its screen is open
@@ -1676,9 +1693,9 @@ function draftSave(){
   const d = DRAFT; if (!d) return;
   if (d.id === "default") Object.assign(LS(), d.values);
   else { const t = lookById(d.id); if (t){ t.values = Object.assign(t.values || {}, d.values); t.name = d.name.trim() || t.name; } }
-  DRAFT = null; save(); toast("Saved " + lookName(d.id), "ok"); stack.pop(); show();
+  DRAFT = null; save(); toast("Saved " + lookName(d.id), "ok"); navStack().pop(); show();
 }
-function draftCancel(){ DRAFT = null; stack.pop(); show(); }
+function draftCancel(){ DRAFT = null; navStack().pop(); show(); }
 let draftT = null;
 function draftPreview(now){
   if (ECHO || !DRAFT) return;
@@ -1690,6 +1707,7 @@ function draftPreview(now){
       const r = await fetch("/trial", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pages:gpAll(), tiles:tileList(), look, name:d.name})});
       const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
       if (DRAFT !== d) return;
+      if (libSub()){ LIB.trial = j.id; libPv(); return; }
       PV.trial = j.id; PV.theme = "default"; PV.night = false; pvLoad();
     }catch(e){}
   }, now ? 0 : 400);
@@ -1960,12 +1978,12 @@ function lookAction(act, id){
   if (act === "make"){
     const p = PRESETS[+id], nid = "t" + Date.now().toString(36);
     looks().push({id:nid, name: looks().some(t => t.name === p.name) ? p.name + " " + (looks().length + 1) : p.name, values:Object.assign(lookVals(curLook()), p.values)});
-    save(); stack.pop(); go("theme:" + nid); return;
+    save(); navStack().pop(); go("theme:" + nid); return;
   }
   if (act === "dup"){
     const nid = "t" + Date.now().toString(36), base = lookName(id) + " copy";
     looks().push({id:nid, name: looks().some(t => t.name === base) ? base + " " + (looks().length + 1) : base, values:lookVals(id)});
-    save(); stack.pop(); go("theme:" + nid); toast("Made a copy. Customize it, then use it", "ok"); return;
+    save(); navStack().pop(); go("theme:" + nid); toast("Made a copy. Customize it, then use it", "ok"); return;
   }
   if (act === "use"){
     const was = LS().use || "";
@@ -1978,7 +1996,7 @@ function lookAction(act, id){
   if (act === "del"){
     if (!confirmDel({one:"theme"}, id)) return;
     if (LS().use === id) LS().use = "";
-    LS().items = looks().filter(t => t.id !== id); LS().rules = rules().filter(r => r.look !== id); save(); stack.pop(); show(); return;
+    LS().items = looks().filter(t => t.id !== id); LS().rules = rules().filter(r => r.look !== id); save(); navStack().pop(); show(); return;
   }
 }
 function ruleAction(act, id, el){
@@ -1990,7 +2008,7 @@ function ruleAction(act, id, el){
   if (act === "toggle"){ R[i].on = R[i].on === false; save(); show(); return; }
   if (act === "up" && i > 0){ [R[i - 1], R[i]] = [R[i], R[i - 1]]; save(); show(); return; }
   if (act === "down" && i < R.length - 1){ [R[i + 1], R[i]] = [R[i], R[i + 1]]; save(); show(); return; }
-  if (act === "del"){ R.splice(i, 1); save(); stack.pop(); show(); return; }
+  if (act === "del"){ R.splice(i, 1); save(); navStack().pop(); show(); return; }
   if (act === "day"){ const w = R[i].when = R[i].when || {}, d = +el.dataset.k; w.days = w.days || [];
     w.days = w.days.includes(d) ? w.days.filter(x => x !== d) : w.days.concat(d).sort(); save(); show(); return; }
 }
@@ -2002,7 +2020,7 @@ function lookClick(t){
   if (d.ract){ ruleAction(d.ract, d.id, t); return true; }
   if (d.fxon){ const v = !fxC(d.fxon).on; fxSet(d.fxon, "on", v); show(); return true; }
   if (d.fxk && d.fxv !== undefined){ const v = d.fxk === "every" ? +d.fxv : d.fxv; fxSet(d.fxid, d.fxk, v); show(); return true; }
-  if (d.fxplay){ try{ pvWin().FUN.show(d.fxplay); toast("Playing on the preview", "ok"); }catch(e){ toast("The preview isn't ready yet", "bad"); } return true; }
+  if (d.fxplay){ try{ (libSub() ? $("libpv").contentWindow : pvWin()).FUN.show(d.fxplay); toast("Playing on the preview", "ok"); }catch(e){ toast("The preview isn't ready yet", "bad"); } return true; }
   if (d.lk && d.lv !== undefined){ const v = d.lk === "textScale" ? +d.lv : d.lv; lookSet(d.lid, d.lk, v); show(); return true; }
   if (d.lk && d.lb){ const cur = lookVals(d.lid)[d.lk], on = d.lb === "OnOff" ? cur !== "Off" : d.lk === "holiday" ? !!cur : cur !== false;
     lookSet(d.lid, d.lk, d.lb === "OnOff" ? (on ? "Off" : "On") : !on); show(); return true; }
@@ -2107,7 +2125,7 @@ document.addEventListener("click", e => {
    A layout can be tried on the screen for two minutes, or shared as a small .countertop file or share code.
    Shared layouts are plain data: which calendars, lists and other sources a tile uses, and settings marked
    share:false in a tile file (your own text, picture links), are left out; whoever opens the file picks their own. */
-const LIB = {view:"layouts", item:"", pick:"", q:"", addTo:"main", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
+const LIB = {view:"layouts", item:"", sub:[], trial:"", pvq:"", pick:"", q:"", addTo:"main", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
 const LIB_CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
 let DEFS = {};            // tile type -> its definition (title, cat, desc, size, settings), read from the tile files
 const defsLoad = fetch("/tiles.js").then(r => r.text()).then(txt => {
@@ -2117,17 +2135,19 @@ const defsLoad = fetch("/tiles.js").then(r => r.text()).then(txt => {
   }
 }).catch(() => {});
 const libEl = () => $("lib");
+const LIB_SUB = {themes:"looks", effects:"effects"};       // Library views that show Controls' own screens, and the first screen of each
+const libSub = () => !!LIB_SUB[LIB.view] && !libEl().hidden;
 function libOpen(view){
-  LIB.view = view || "layouts"; LIB.item = ""; LIB.q = ""; LIB.chip = "all";
+  LIB.view = view || "layouts"; LIB.item = ""; LIB.q = ""; LIB.chip = "all"; LIB.sub = LIB_SUB[LIB.view] ? [LIB_SUB[LIB.view]] : []; LIB.pvq = "";
   libEl().hidden = false; document.body.classList.add("libopen");
   defsLoad.then(libShow); libShow();
 }
 function libClose(){
-  LIB.pick = "";
+  LIB.pick = ""; DRAFT = null; LIB.trial = ""; LIB.pvq = ""; LIB.sub = [];
   libEl().hidden = true; document.body.classList.remove("libopen");
   LIB.item = ""; LIB.pvKey = ""; const f = libEl().querySelector(".lbig iframe"); if (f) f.src = "about:blank";
 }
-function libGo(view, item){ LIB.view = view; LIB.item = item || ""; libShow(); libEl().querySelector(".lmain").scrollTop = 0; }
+function libGo(view, item){ if (view !== LIB.view || !LIB.sub.length) LIB.sub = LIB_SUB[view] ? [LIB_SUB[view]] : []; LIB.view = view; LIB.item = item || ""; libShow(); libEl().querySelector(".lmain").scrollTop = 0; }
 
 // the layouts on offer: [key, choice]; keys are starter ids, "saved:<page id>" or "import"
 const libBuiltIn = () => Object.entries(STARTERS).filter(([, s]) => (!s.grid || LIB.pick) && (!s.needs || schema[s.needs]));      // empty grids only when picking for a page
@@ -2149,6 +2169,7 @@ function libRail(){
   const item = (v, label, n) => '<button data-l="view" data-id="' + v + '"' + (LIB.view === v ? ' class="on"' : "") + '>' + label + (n != null ? '<small>' + n + '</small>' : "") + '</button>';
   return '<button class="lback" data-l="close">‹ Controls</button><h1>Library</h1>' +
     item("layouts", "Layouts", libBuiltIn().length + savedList().length) + item("tiles", "Tiles", Object.keys(DEFS).length || "") +
+    item("themes", "Themes", looks().length + 1) + item("effects", "Effects", FXLIB.L.filter(d => fxC(d.id).on).length + " on") +
     '<div class="lsep">Yours</div>' + item("mine", "My layouts", savedList().length) +
     '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file");
 }
@@ -2469,6 +2490,7 @@ function libLoadImport(text){
 /* ----- drawing and taps ----- */
 function libShow(){
   if (libEl().hidden) return;
+  if (LIB_SUB[LIB.view]){ libSubShow(); return; }
   const it = LIB.item;
   let h;
   if (it === "import" && LIB.imp) h = libLayoutItem("import");
@@ -2481,6 +2503,44 @@ function libShow(){
   libEl().innerHTML = '<nav class="lrail">' + libRail() + '</nav><div class="lmain">' + h + '</div>';
   libFitShots();
   if (it && !it.startsWith("tile:") && choiceOf(it)) libPreview(it);
+}
+// Themes and Effects: Controls' own screens, stacked inside the Library, beside a live preview that stays put
+function libSubShow(){
+  const S = LIB.sub.length ? LIB.sub : (LIB.sub = [LIB_SUB[LIB.view]]), cur = S[S.length - 1];
+  if (!cur.startsWith("look:") && DRAFT) DRAFT = null;            // left Customize (Save, Cancel or back): the draft is gone
+  if (!DRAFT) LIB.trial = "";
+  const {h, title} = screenFor(cur);
+  const side = (S.length > 1 ? '<button class="lback" data-l="sback">‹ ' + esc(backLabel(S[S.length - 2])) + '</button>' : "") +
+    (h.startsWith('<div class="big">') ? "" : '<div class="big">' + esc(title) + '</div>') + h;
+  const el = libEl(), box = el.querySelector(".lside");
+  if (box && !ECHO){ el.querySelector(".lrail").innerHTML = libRail(); box.innerHTML = side; }      // the preview keeps running
+  else el.innerHTML = '<nav class="lrail">' + libRail() + '</nav><div class="lmain">' + (ECHO ? '<div class="lside">' + side + '</div>' :
+    '<div class="lsplit"><div class="lside">' + side + '</div><div class="lpvcol"><div class="lbig' + (displayMode === "auto" ? "" : " port") + '"><iframe id="libpv" tabindex="-1" aria-hidden="true" title="Live preview"></iframe></div>' +
+    '<p class="lnote">Your dashboard, live. Themes show here before you use them.</p></div></div>') + '</div>';
+  fxPreviews();
+  libPv();
+}
+// the preview beside Themes and Effects: the theme being looked at, the draft while customizing, otherwise what's on the screen
+function libPv(){
+  const f = document.getElementById("libpv"); if (ECHO || !f || !libSub()) return;
+  const cur = LIB.sub[LIB.sub.length - 1] || "";
+  let q;
+  if (cur.startsWith("look:")){ if (!LIB.trial){ draftPreview(true); return; } q = "&trial=" + LIB.trial + "&theme=default"; }
+  else { const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : ""; q = want ? "&theme=" + want : ""; }
+  libPvFit();
+  if (q === LIB.pvq) return;
+  LIB.pvq = q; f.onload = () => setTimeout(() => f.classList.add("on"), 700);
+  f.src = "/dash/content?preview=1" + q + "&t=" + Date.now();
+}
+function libPvFit(){
+  const f = document.getElementById("libpv"); if (!f) return;
+  const W = displayMode === "auto" ? 1920 : 1080;
+  f.style.width = W + "px"; f.style.height = (displayMode === "auto" ? 1080 : 1920) + "px"; f.style.transform = "scale(" + f.parentNode.clientWidth / W + ")";
+}
+function libDirty(){
+  if (!(DRAFT && draftDirty())) return false;
+  toast("Save or Cancel your changes first", "bad"); const b = libEl().querySelector(".draftbar"); if (b) b.scrollIntoView({block:"nearest"});
+  return true;
 }
 function libUse(key, onMain){
   const c = choiceOf(key); if (!c) return;
@@ -2551,6 +2611,8 @@ function libKeep(){
 }
 function libTap(t){
   const d = t.dataset, a = d.l;
+  if ((a === "close" || a === "view" || a === "sback") && libDirty()) return;
+  if (a === "sback"){ LIB.sub.pop(); libShow(); return; }
   if (a === "close"){ libClose(); show(); return; }
   if (a === "view"){ if (d.item) LIB.shareOf = d.item; else if (d.id === "share") LIB.shareOf = LIB.shareOf || "main"; LIB.q = ""; LIB.chip = "all"; libGo(d.id); return; }
   if (a === "chip"){ LIB.chip = d.id; libShow(); return; }
@@ -2597,8 +2659,8 @@ function libInit(){
     if (d.l === "rename"){ const sp = savedById(d.id); if (sp){ sp.name = t.value.trim().slice(0, 80) || sp.name; t.value = sp.name; save(); } return; }
     if (d.l === "file" && t.files && t.files[0]){ t.files[0].text().then(libLoadImport, () => { LIB.impErr = "Couldn't read that file."; libShow(); }); }
   });
-  addEventListener("keydown", e => { if (e.key === "Escape" && !el.hidden){ if (LIB.item) libGo(LIB.item === "import" ? "import" : LIB.view); else { libClose(); show(); } } });
-  addEventListener("resize", () => { if (!el.hidden) libFitShots(); });
+  addEventListener("keydown", e => { if (e.key === "Escape" && !el.hidden){ if (libSub() && libDirty()) return; if (libSub() && LIB.sub.length > 1){ LIB.sub.pop(); libShow(); } else if (LIB.item) libGo(LIB.item === "import" ? "import" : LIB.view); else { libClose(); show(); } } });
+  addEventListener("resize", () => { if (!el.hidden){ libFitShots(); libPvFit(); } });
 }
 libInit();
 

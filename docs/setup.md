@@ -61,7 +61,7 @@ The first time you open Controls, a short setup guide asks for your location, a 
 
 - **Add page** opens the Library to pick a page to swipe to: a dashboard, a **Full-screen** page with one big tile (a month calendar, the next hours, deals or a photo frame), or an empty grid.
 - Tap **Main**, then **Change layout**, to pick a different layout for your start page in the Library. Your old layout goes to **My layouts**, where you can put it back on Main, add it as a page or delete it. **Save a copy** keeps the current layout there too.
-- A dashboard can come with its own theme. Leave **Comes with the … theme** on to add that theme and use it; your Everyday theme stays as it is, and you can switch back in **Controls → Theme**. Themes apply to every page, and scheduled themes still take effect at their usual times.
+- A dashboard can come with its own theme. Leave **Comes with the … theme** on to add that theme and use it; your Everyday theme stays as it is, and you can switch back in **Library → Themes**. Themes apply to every page, and scheduled themes still take effect at their usual times.
 - Drag **⋮⋮** to change the order of your pages. Open a page to turn it off or delete it.
 
 Your location and formats live in **Controls → Settings**: search for your town under **Location**, and pick your language, temperature and time formats under **Language and formats**.
