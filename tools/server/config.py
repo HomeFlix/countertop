@@ -33,6 +33,7 @@ SCHEMA = {
     "effects": {"title": "Effects", "global": True, "desc": "Little animations on the screen: weather, the seasons and short shows. Turn on the ones you like and choose when they play.", "settings": {
         "front": {"type": "bool", "label": "Rain, snow and falling things in front of the tiles", "default": True},
         "items": {"type": "effects", "label": "Effects", "default": []},
+        "mine": {"type": "effects", "label": "Your own effects", "default": []},
     }},
     "look": {"title": "Themes", "global": True, "theme": True,
              "desc": "How the dashboard looks. Everyday, plus your own themes: one in use, and others the schedule can switch to.", "settings": {

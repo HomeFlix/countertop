@@ -953,16 +953,17 @@ const FXLIB = (function(){
     july4:     {n:10, dots:0,  g:[["⭐",2,"fall"],["🇺🇸",1,"fall"]]},
     summer:    {n:5,  dots:0,  g:[["🦋",2,"flutter"],["🐝",1,"flutter"]]}
   };
+  // set: a name in SETS, or one of your own effects (see mine below): {n, dots, g, size, speed, spin}
   function falling(set){
     return o => {
-      const S = SETS[set], W = o.W, H = o.H, P = [], D = [];
+      const S = typeof set === "string" ? SETS[set] : set, W = o.W, H = o.H, P = [], D = [], sz = S.size || 1, sp = S.speed || 1;
       const part = init => {
-        const [g, , mo] = weighted(S.g), s = R(24, 58), depth = (s - 24) / 34;
-        const p = {g, mo, s, a:.55 + depth * .4, ph:R(0, 6.3), rot:R(-.6, .6), vr:R(-.02, .02)};
-        if (mo === "fall"){ p.x = R(0, W); p.y = init ? R(-H, H) : R(-80, -30); p.vy = R(.7, 1.3) + depth * 1.3; }
-        if (mo === "rise"){ p.x = R(0, W); p.y = init ? R(0, H * 2) : H + 50; p.vy = -(R(.6, 1.1) + depth); }
-        if (mo === "fly"){ p.x = init ? R(-W, W) : -80; p.y = R(H * .05, H * .6); p.vx = R(1.6, 3) + depth; p.rot = 0; p.vr = 0; }
-        if (mo === "flutter"){ p.x = R(0, W); p.y = R(H * .1, H * .9); p.vx = R(-1, 1); p.vy = R(-.6, .6); p.rot = 0; p.vr = 0; }
+        const [g, , mo] = weighted(S.g), s0 = R(24, 58), depth = (s0 - 24) / 34, s = s0 * sz;
+        const p = {g, mo, s, a:.55 + depth * .4, ph:R(0, 6.3), rot:S.spin === false ? 0 : R(-.6, .6), vr:S.spin === false ? 0 : R(-.02, .02)};
+        if (mo === "fall"){ p.x = R(0, W); p.y = init ? R(-H, H) : R(-80, -30) * sz; p.vy = (R(.7, 1.3) + depth * 1.3) * sp; }
+        if (mo === "rise"){ p.x = R(0, W); p.y = init ? R(0, H * 2) : H + 50 * sz; p.vy = -(R(.6, 1.1) + depth) * sp; }
+        if (mo === "fly"){ p.x = init ? R(-W, W) : -80 * sz; p.y = R(H * .05, H * .6); p.vx = (R(1.6, 3) + depth) * sp; p.rot = 0; p.vr = 0; }
+        if (mo === "flutter"){ p.x = R(0, W); p.y = R(H * .1, H * .9); p.vx = R(-1, 1) * sp; p.vy = R(-.6, .6) * sp; p.rot = 0; p.vr = 0; }
         return p;
       };
       for (let i = 0; i < Math.max(1, Math.round(S.n * o.amt)); i++) P.push(part(true));
@@ -975,16 +976,16 @@ const FXLIB = (function(){
         }
         for (const p of P){
           p.ph += .02;
-          if (p.mo === "fall"){ p.y += p.vy; p.x += Math.sin(p.ph) * (1 + p.s / 40); p.rot += p.vr + Math.sin(p.ph) * .01; }
+          if (p.mo === "fall"){ p.y += p.vy; p.x += Math.sin(p.ph) * (1 + p.s / 40); p.rot += p.vr + (S.spin === false ? 0 : Math.sin(p.ph) * .01); }
           if (p.mo === "rise"){ p.y += p.vy; p.x += Math.sin(p.ph) * .8; }
           if (p.mo === "fly"){ p.x += p.vx; p.y += Math.sin(p.ph * 2) * 1.2; }
           if (p.mo === "flutter"){
-            p.vx = Math.max(-1.6, Math.min(1.6, p.vx + R(-.15, .15))); p.vy = Math.max(-1, Math.min(1, p.vy + R(-.12, .12)));
+            p.vx = Math.max(-1.6 * sp, Math.min(1.6 * sp, p.vx + R(-.15, .15))); p.vy = Math.max(-sp, Math.min(sp, p.vy + R(-.12, .12)));
             p.x += p.vx; p.y += p.vy; if (p.x < -40) p.x = W + 30; if (p.x > W + 40) p.x = -30; if (p.y < 0 || p.y > H) p.vy = -p.vy;
           }
           const flap = (p.mo === "fly" || p.mo === "flutter") ? .65 + .35 * Math.abs(Math.sin(p.ph * 5)) : 0;
           drawSprite(cx, p.g, p.s, p.x, p.y, p.rot, p.a, flap);
-          if (p.y > H + 70 || p.y < -90 || p.x > W + 90) Object.assign(p, part(false));
+          if (p.y > H + 70 * sz || p.y < -90 * sz || p.x > W + 90 * sz) Object.assign(p, part(false));
         }
         return true;
       };
@@ -1131,6 +1132,21 @@ const FXLIB = (function(){
      desc:"Confetti rains down when a calendar event today has \"birthday\" in its name: when the birthday is first seen, then once an hour."}
   ];
   const BY = {}; L.forEach(d => { BY[d.id] = d; d.emoji = d.grp !== "Weather"; });     // everything but the weather is drawn with emoji
+
+  /* ----- your own effects: plain data (emoji, how they move, size, speed, spin, a season), no code. Saved in effects.mine, shared as .countertop files ----- */
+  const MOTIONS = [["fall", "Fall"], ["rise", "Float up"], ["fly", "Fly across"], ["flutter", "Wander"]];
+  const SIZE = {Small:.6, Medium:1, Big:1.5}, SPEED = {Slow:.55, Normal:1, Fast:1.7};
+  const MD = /^(1[0-2]|0?[1-9])-(3[01]|[12]\d|0?[1-9])$/;
+  function mineDef(m){
+    const mo = MOTIONS.some(x => x[0] === m.motion) ? m.motion : "fall", season = MD.test(m.from || "") && MD.test(m.to || "") ? [[m.from, m.to]] : null;
+    return {id:m.id, grp:"Yours", name:String(m.name || "My effect"), icon:m.glyphs[0], layer:"fall", mine:true, emoji:true, season,
+      desc:(MOTIONS.find(x => x[0] === mo)[1]) + ": " + m.glyphs.join(" "),
+      make:falling({n:14, dots:0, g:m.glyphs.map(g => [g, 1, mo]), size:SIZE[m.size] || 1, speed:SPEED[m.speed] || 1, spin:m.spin !== false})};
+  }
+  function setMine(list){
+    for (let i = L.length - 1; i >= 0; i--) if (L[i].mine){ delete BY[L[i].id]; L.splice(i, 1); }
+    for (const m of Array.isArray(list) ? list : []) if (m && typeof m.id === "string" && Array.isArray(m.glyphs) && m.glyphs.length && !BY[m.id]){ const d = mineDef(m); L.push(d); BY[d.id] = d; }
+  }
   const GROUPS = [["Weather", "Plays when the weather outside matches."], ["Seasons", "Things that drift across the screen at their time of year."],
     ["Shows", "Short scenes that play now and then, then leave. Always in front of the tiles."], ["Celebrations", ""]];
 
@@ -1154,7 +1170,7 @@ const FXLIB = (function(){
   // one effect's settings: what's saved, filled in with its defaults
   function conf(saved, id){
     const def = BY[id], o = (saved || []).find(x => x && x.id === id) || {};
-    return Object.assign({id, on:true, amount:"Some", when: def.wx ? "weather" : def.party ? "birthday" : "season", every: def.layer === "show" ? 15 : 0, from:"", to:""}, o);
+    return Object.assign({id, on:true, amount:"Some", when: def.wx ? "weather" : def.party ? "birthday" : def.season ? "season" : "always", every: def.layer === "show" ? 15 : 0, from:"", to:""}, o);
   }
   function whenText(c){
     const def = BY[c.id];
@@ -1162,7 +1178,7 @@ const FXLIB = (function(){
     if (c.when === "dates") return c.from && c.to ? mdTxt(c.from) + "–" + mdTxt(c.to) : "Pick dates";
     if (def.wx) return WXTXT[c.id] || "Matching weather";
     if (def.party) return "On birthdays";
-    return seasonText(def);
+    return def.season ? seasonText(def) : "All year";
   }
   function timeOk(c, d){
     if (c.when === "always") return true;
@@ -1232,7 +1248,7 @@ const FXLIB = (function(){
       size, start
     };
   }
-  return {L, BY, GROUPS, AMT, conf, whenText, timeOk, inSeason, seasonText, wxMode, Runner, mdTxt};
+  return {L, BY, GROUPS, AMT, conf, whenText, timeOk, inSeason, seasonText, wxMode, Runner, mdTxt, MOTIONS, SIZE, SPEED, MD, setMine};
 })();
 
 /* ---------- shared helpers ---------- */
@@ -1782,7 +1798,7 @@ const fxOn = () => FXCFG.any && !FXD.paused;
 const fxEmojiOk = def => !def.emoji || !LOOK.plain;          // with emoji turned off, the emoji effects rest too
 function fxInit(){ if (!FXD.back){ FXD.back = FXLIB.Runner($("fx"), {full:true, fps:22}); FXD.front = FXLIB.Runner($("fun2"), {full:true, fps:30}); } }
 function fxUpdate(){
-  fxInit();
+  fxInit(); FXLIB.setMine(S("effects").mine);
   const B = [], F = [], d = new Date();
   if (fxOn()) for (const def of FXLIB.L){
     if (def.layer === "show" || !fxEmojiOk(def)) continue;

@@ -172,5 +172,16 @@ class Themes(unittest.TestCase):
         self.assertEqual(ct.config_load()["modules"]["look"]["settings"]["use"], "tglass")
 
 
+class OwnEffects(unittest.TestCase):
+    def test_own_effects_are_kept(self):
+        reset()
+        mods = ct.config_load()["modules"]
+        self.assertEqual(mods["effects"]["settings"]["mine"], [])
+        mine = [{"id": "myab12", "name": "Pumpkin fall", "glyphs": ["\U0001F383"], "motion": "fall", "size": "Big", "speed": "Slow", "spin": True, "from": "10-1", "to": "10-31"}]
+        mods["effects"]["settings"]["mine"] = mine
+        ct.config_save({"modules": mods})
+        self.assertEqual(ct.config_load()["modules"]["effects"]["settings"]["mine"], mine)
+
+
 if __name__ == "__main__":
     unittest.main()
