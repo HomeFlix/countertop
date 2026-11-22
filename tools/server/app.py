@@ -71,7 +71,7 @@ class Handler(BaseHTTPRequestHandler):
             # shell page: owns fullscreen + keep-alive, hosts the dashboard in an iframe
             self._send(200, (HERE / "shell.html").read_bytes(), "text/html; charset=utf-8")
         elif p in ("/dash/content", "/dashboard"):
-            self._send(200, (HERE / "dash3.html").read_bytes(), "text/html; charset=utf-8")
+            self._send(200, page("dash"), "text/html; charset=utf-8")
         elif p == "/config":
             cfg = config_load()
             tid = parse_qs(urlparse(self.path).query).get("trial", [""])[0]
@@ -92,7 +92,7 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/sources":
             self._json({"sources": sources_public(), "kinds": SOURCE_KINDS})
         elif p == "/control":
-            self._send(200, (HERE / "control3.html").read_bytes(), "text/html; charset=utf-8")
+            self._send(200, page("control"), "text/html; charset=utf-8")
         elif p == "/team":
             self._json(team_matches(parse_qs(urlparse(self.path).query).get("id", [""])[0]))
         elif p == "/photos":
@@ -135,7 +135,7 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/version":
             # the shell polls this and reloads the iframe when the dashboard page, a tile file, the settings or Setup change
             v = 0
-            for f in [HERE / "dash3.html", CONFIG_FILE, SOURCES_FILE] + sorted((HERE / "tiles").glob("*.js")):
+            for f in page_files("dash") + [CONFIG_FILE, SOURCES_FILE] + sorted((HERE / "tiles").glob("*.js")):
                 try:
                     v = max(v, int(f.stat().st_mtime))
                 except OSError:
@@ -368,6 +368,7 @@ from server.feeds.sky import iss_now, planes_near, radar_frames, space_picture  
 from server.feeds.sports import team_matches  # noqa: E402
 from server.feeds.stocks import stocks  # noqa: E402
 from server.homeassistant import ha_entities, ha_test, ha_view  # noqa: E402
+from server.pages import page, page_files  # noqa: E402
 from server.library import trial_add, trial_apply, trial_screen, trial_stop, trial_version  # noqa: E402
 from server.lists import list_push, local_list_apply, local_list_source, local_list_view, notes_apply, notes_view, pushed_list, reminders_apply, reminders_list_name, reminders_loop  # noqa: E402
 from server.sources import SOURCES_FILE, SOURCE_KINDS, sources_apply, sources_load, sources_public  # noqa: E402

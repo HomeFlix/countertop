@@ -59,10 +59,22 @@ Only one Countertop app can run at a time, and both use port 8090. On a Mac wher
 | `homeassistant.py` | Home Assistant states and controls |
 | `tiledata.py` | Each tile's own saved data ([Writing a tile](tile-api.md)) |
 | `library.py` | Previewing and trying layouts |
+| `pages.py` | Puts the dashboard and Controls pages together from their parts (below) |
 | `status.py` | Controls > Status, update notice, diagnostics |
 | `feeds/` | Data for built-in tiles: calendar, sports, sky (radar, space, ISS, planes), stocks, meals, sales, cams, photos |
 
 A module imports the names it needs at load time at the top, and names it only uses inside functions at the bottom, so modules can use each other without import loops. `tools/countertop.py` re-exports every name, so `countertop.config_load()` and friends still work in tests and scripts. To swap a function out in a test, use `countertop.patch_everywhere(name, value)`, which replaces it in every file that uses it.
+
+## Where the pages' code lives
+
+The dashboard (`/dash`) and Controls (`/control`) are each a folder of plain files. There's still no build step: the server puts each page together when it's asked for it, so the browser gets one page as before.
+
+- `tools/dash/index.html` and `tools/control/index.html` hold the page's HTML. A line `<!--#include dash/editor.js-->` in them is replaced by that file.
+- `tools/dash/`: `style.css`; `core.js` (start-up, settings, language, weather words, sky colors); `tile-api.js` (what every tile can use, see [Writing a tile](tile-api.md)); `screen.js` (pages, data feeds, the night page, the clock tick, boot); `grid.js` (boxes on the 48×32 grid); `editor.js`; `designer.js` (laying out a tile's parts); `demo.js` (made-up data for the Library's examples); `looks.js`.
+- `tools/control/`: `style.css`; `core.js` (start-up and helpers); `screens.js`; `lists.js`; `status.js`; `setup-guide.js`; `edits.js`; `look.js`; `emoji.js`; `library.js`; `preview.js`.
+- `tools/shared/effects.js`: the effects library, used by both pages (full-screen on the dashboard, small previews in Controls).
+
+Each page is still one script, so a name defined in one file can be used in the others. Keep each file whole top-level statements, and add a new file to the page's `index.html` where it should run. `node tests/check-js.js` checks every part on its own and each page put together.
 
 ## Run the checks
 

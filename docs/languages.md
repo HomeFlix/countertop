@@ -34,6 +34,6 @@ The dashboard looks words up with `tr("Partly cloudy")` or `tr("Rain likely arou
 
 1. Edit `tools/lang/fr.json`, or copy it to a new file such as `tools/lang/de.json` and translate the values.
 2. Run `node tests/check-lang.js` to see which words are still missing and whether any placeholder was dropped. It also lists words the code no longer uses.
-3. For a new language, add it to the Language choices in `tools/countertop.py` (`SCHEMA["general"]`) and to `LANGS` in `tools/dash3.html`, with the region to use for dates in `langSetup()`.
+3. For a new language, add it to the Language choices in `tools/countertop.py` (`SCHEMA["general"]`) and to `LANGS` in `tools/dash/core.js`, with the region to use for dates in `langSetup()`.
 
 Open a pull request. A native speaker's review is welcome on any language file.

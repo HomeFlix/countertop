@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kitchen</title>
+<!-- Home dashboard. Pages, tiles and settings come from GET /config; tile types from /tiles.js. Edit on screen (hold a tile) or at /control. -->
+<style>
+<!--#include dash/style.css-->
+</style>
+</head>
+<body>
+<div id="sky"><div id="skyA"></div><div id="skyB" style="opacity:0"></div></div>
+<canvas id="fx"></canvas>
+<div id="pages">
+  <section class="page gpage" id="p1"></section>
+</div>
+<canvas id="fun2"></canvas>
+<div id="dots"><i class="on"></i></div>
+<div id="gear" hidden>⚙</div>
+<div id="hint">Touch once to arm keep-alive</div>
+
+<script>
+/* separate block on purpose: if the main script below has a syntax error, this one still reports it */
+window.addEventListener("error", function(e){
+  if (window.__mainLoaded) return;
+  try{ fetch("/report", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({task:"js-error", ok:false, error:"boot: " + e.message, result:{src:e.filename, line:e.lineno, page:"dash2"}})}); }catch(x){}
+});
+</script>
+<script>
+<!--#include dash/core.js-->
+<!--#include shared/effects.js-->
+<!--#include dash/tile-api.js-->
+<!--#include dash/screen.js-->
+<!--#include dash/grid.js-->
+<!--#include dash/editor.js-->
+<!--#include dash/designer.js-->
+<!--#include dash/demo.js-->
+<!--#include dash/looks.js-->
+</script>
+<script src="/tiles.js"></script>
+<script>boot();</script>
+</body>
+</html>

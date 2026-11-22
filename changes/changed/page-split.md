@@ -1,0 +1,1 @@
+- **Dashboard and Controls code split into smaller files.** The dashboard's code now lives in `tools/dash/` and Controls' in `tools/control/`, a file per area, and the effects library both use is one file in `tools/shared/`. There's still no build step: the server puts each page together when it's opened, and the pages work the same as before.
