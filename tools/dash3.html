@@ -2357,7 +2357,7 @@ function panelAdd(){
   const tgt = EDIT.addTo && slotById(EDIT.addTo);
   let h = '<div class="ph"><button data-act="back">‹ Back</button><b>' + (tgt ? "Add to this box" : "Add a tile") + '</b></div>';
   h += '<p class="pd">' + (tgt ? "Tap a tile to add it to the selected box. Tiles in the same box take turns." :
-    "Drag a tile onto an empty spot to give it its own box, or onto a box to have them take turns. Or tap it to put it in the first free space.") + '</p>';
+    "Drag a tile onto an empty spot to give it its own box, or onto a box to have them take turns. Or tap it to put it in the first free space. Add as many as you like, then tap a tile on the page to change its settings.") + '</p>';
   for (const cat of CATS){
     const L = Object.values(TYPES).filter(T => T.cat === cat && !T.hidden);
     if (!L.length) continue;
@@ -2616,8 +2616,12 @@ function addTile(type, s){
   const id = newTile(type);
   const L = live(s); L.push(id); setSmods(s, L);
   if (!pg.slots.includes(s)) pg.slots.push(s);
-  EDIT.sel = s.id; EDIT.tile = id; EDIT.panel = null; EDIT.addTo = null;
+  // from Add a tile, stay in the list so a whole page can be filled in one go; the new box is highlighted, and tapping
+  // any box opens its settings. Adding to a chosen box (Add to this box) goes straight to that box's settings.
+  const more = EDIT.panel === "add" && !EDIT.addTo;
+  EDIT.sel = s.id; EDIT.tile = id; EDIT.panel = more ? "add" : null; EDIT.addTo = null;
   relayout(); refeed(id);
+  if (more) flash("Added " + TYPES[type].title + ". Add more, or tap it on the page for its settings", true);
 }
 function addTileAnywhere(type){
   const tgt = EDIT.addTo && slotById(EDIT.addTo);
@@ -2656,7 +2660,8 @@ function edDown(e){
   if (act){ boxAct(act.dataset.act, act); return; }
   const box = t.closest(".eslot"), pg = curPg(), s = box && pg.slots.find(v => v.id === box.dataset.slot);
   if (!s){ if (EDIT.sel || EDIT.panel){ EDIT.sel = null; EDIT.panel = null; edPaint(true); } return; }
-  if (EDIT.panel === "add" && EDIT.addTo !== s.id){ EDIT.addTo = s.id; EDIT.sel = s.id; edPaint(true); return; }    // pick which box to add to
+  if (EDIT.panel === "add" && EDIT.addTo && EDIT.addTo !== s.id){ EDIT.addTo = s.id; EDIT.sel = s.id; edPaint(true); return; }    // Add to this box: pick another box to add to
+  if (EDIT.panel === "add" && !EDIT.addTo){ EDIT.sel = null; EDIT.panel = null; }       // Add a tile: a tap on a box opens its settings
   if (EDIT.sel !== s.id){ EDIT.sel = s.id; EDIT.tile = live(s)[0] || null; EDIT.panel = null; }
   const [c, r] = cellAt(e.clientX, e.clientY);
   if (t.dataset.h) EDIT.drag = {k:"rs", s, dir:t.dataset.h, orig:{x:s.x, y:s.y, w:s.w, h:s.h}, snap:JSON.stringify(CFG)};
@@ -3058,7 +3063,7 @@ function panelDesign(){
     h += '<div class="kv col"><span>Weight</span><div class="seg2">' + [["Light", 200], ["Regular", 400], ["Bold", 700]].map(([l, w]) => '<button data-act="dzw" data-v="' + w + '"' + (Math.abs((o.w || 400) - w) < 100 ? ' class="on"' : "") + '>' + l + '</button>').join("") + '</div></div>';
     h += '<div class="kv col"><span>Line up by its<small>Which edge stays put when the text gets longer</small></span><div class="seg2">' + [["Left edge", "l"], ["Middle", "c"], ["Right edge", "r"]].map(([l, a]) => '<button data-act="dza" data-v="' + a + '"' + ((o.a || "l") === a ? ' class="on"' : "") + '>' + l + '</button>').join("") + '</div></div>';
     h += '<label class="kv"><span>Capital letters</span><input type="checkbox" class="sw" data-dz="tt"' + (o.tt === "uppercase" ? " checked" : "") + '></label>';
-    if ((p.icon || p.emoji) && LOOK.plain) h += '<div class="kv"><span>Emoji<small>Off everywhere, from Controls → Setup → Location &amp; units → Icons</small></span></div>';
+    if ((p.icon || p.emoji) && LOOK.plain) h += '<div class="kv"><span>Emoji<small>Off everywhere, from Controls → Settings → Icons and emoji</small></span></div>';
     else if (p.icon) h += '<div class="kv col"><span>Icon style</span><div class="seg2">' + ["Emoji", "Symbols"].map(x => '<button data-act="dzset" data-v="' + x + '"' + ((o.set || "Emoji") === x ? ' class="on"' : "") + '>' + (x === "Emoji" ? "Color emoji ⛅" : "Simple ☁︎") + '</button>').join("") + '</div></div>';
     if (p.emoji && !LOOK.plain) h += '<label class="kv"><span>Emoji in it<small>Off shows just the words</small></span><input type="checkbox" class="sw" data-dz="emoji"' + (o.noemoji ? "" : " checked") + '></label>';
     h += '</div><div class="btns"><button data-act="dzcenter">Center it across</button></div>';
@@ -3255,12 +3260,12 @@ function activeTheme(d){
   if (FORCE_THEME) return FORCE_THEME === "default" ? null : items.find(t => t.id === FORCE_THEME) || null;
   if (SOLO) return null;
   for (let i = rules.length - 1; i >= 0; i--){ const r = rules[i], t = items.find(x => x.id === r.look); if (t && themeMatches(r, d || new Date())) return t; }
-  return null;
+  return items.find(x => x.id === L.use) || null;          // the theme picked with Use this theme; none = Everyday
 }
 let THEME = null, THEMEV = {};
 const PREFS = ["dateFmt", "weekStart", "h24", "emoji", "swap"];      // set once in Setup, the same in every look
 function themeValues(){
-  const base = Object.assign({}, S("look")); delete base.items; delete base.rules;
+  const base = Object.assign({}, S("look")); delete base.items; delete base.rules; delete base.use;
   THEME = activeTheme();
   const v = Object.assign(base, THEME ? THEME.values || {} : {}), g = S("general");
   PREFS.forEach(k => { if (g[k] !== undefined) v[k] = g[k]; });

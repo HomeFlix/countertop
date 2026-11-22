@@ -159,5 +159,18 @@ class Language(unittest.TestCase):
             json.loads((ROOT / "tools" / "lang" / (codes[choice] + ".json")).read_text())
 
 
+
+class Themes(unittest.TestCase):
+    def test_everyday_until_a_theme_is_picked_and_the_pick_is_kept(self):
+        reset()
+        look = ct.config_load()["modules"]["look"]["settings"]
+        self.assertEqual(look["use"], "")            # older files have no pick: Everyday shows
+        mods = ct.config_load()["modules"]
+        mods["look"]["settings"]["items"] = [{"id": "tglass", "name": "Glass", "values": {"tiles": "See-through"}}]
+        mods["look"]["settings"]["use"] = "tglass"
+        ct.config_save({"modules": mods})
+        self.assertEqual(ct.config_load()["modules"]["look"]["settings"]["use"], "tglass")
+
+
 if __name__ == "__main__":
     unittest.main()
