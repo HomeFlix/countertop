@@ -1,4 +1,4 @@
-# Sharing layouts, themes and effects
+# Sharing layouts, themes and effects, and the community gallery
 
 Open **Library** in Controls to see your saved layouts, the premade ones, every tile, your themes and the effects. **Share a layout** turns Main or any saved layout into a small `.countertop` file or a share code. A theme's page and your own effect's page have **Share** too. **Import a file** opens any of them.
 
@@ -80,3 +80,17 @@ Your own effects (Library → Effects → **New effect**) are plain data: emoji 
 - `from` and `to`: an optional season, as month-day. Without one, it plays all year.
 
 The built-in effects are drawn by code, so they can't be shared as files.
+
+## The community gallery
+
+**Library → Community** lists layouts, themes and effects other people made, from the [Countertop gallery](https://github.com/kizit/countertop-gallery). Open a card to see it with your own weather, calendars and pages, then press **Download**.
+
+- Nothing from the gallery is part of your Library until you press Download. A download is an ordinary saved layout, theme or effect, and you can change it like one. It remembers where it came from.
+- **Updates.** When the author shares a new version, its card says *Update available*, and the Library rail shows how many. Updating replaces your copy; changes you made to it are lost.
+- **Remove** takes a download out of your Library. A removed item can be downloaded again.
+- **Taken down.** If the gallery takes something down, Community tells you. It stays in your Library and keeps working until you remove it.
+- Everything is checked again when you download it, the same way as a file from a friend. Effects have no code in them.
+- Countertop reads the gallery's list only when you open Community (and when you press Refresh), keeps it for ten minutes, and sends nothing about your install.
+- **Submit yours** opens the gallery's submission form. Paste a share code (Share, then Copy share code); it's checked right away and reviewed before it appears.
+
+Layouts with a *Your own tile* (one that runs its own code) can't be in the gallery yet.
