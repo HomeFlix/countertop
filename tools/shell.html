@@ -19,6 +19,12 @@
     html[data-orientation=left] iframe{transform:translateY(var(--screen-height)) rotate(-90deg)}
     html[data-orientation=right] iframe{transform:translateX(100vw) rotate(90deg)}
   }
+  /* Landscape: a browser that reports a tall screen still gets the landscape dashboard, turned a quarter clockwise */
+  @media (orientation:portrait){
+    html[data-orientation=landscape] iframe{inset:0 auto auto 0;width:100vh;height:100vw;transform-origin:0 0;
+      transform:translateX(100vw) rotate(90deg)}
+    @supports (height:100dvh){ html[data-orientation=landscape] iframe{width:100dvh} }
+  }
 </style>
 </head>
 <body>
@@ -36,9 +42,9 @@
   var VERSION_POLL = 30e3;       // how often to look for a new dashboard.html
   var STALL_MS = 120e3;          // reload the iframe if it stops ticking this long
 
-  // Rotate the iframe so dashboard layout and input both use portrait coordinates.
+  // Rotate the iframe so dashboard layout and input both use the chosen orientation's coordinates.
   window.shellSetOrientation = function(mode){
-    document.documentElement.dataset.orientation = mode === "left" || mode === "right" ? mode : "auto";
+    document.documentElement.dataset.orientation = mode === "left" || mode === "right" || mode === "landscape" ? mode : "auto";
   };
 
   function report(task, ok, result, error){

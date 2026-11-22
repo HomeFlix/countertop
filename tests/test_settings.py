@@ -118,6 +118,24 @@ class DamagedFile(unittest.TestCase):
         self.assertEqual(len(list(Path(TMP.name).glob("dashboard.broken-*.json"))), 1)
 
 
+class ScreenOrientation(unittest.TestCase):
+    def test_every_choice_is_kept_and_a_layout_save_leaves_it(self):
+        reset()
+        ct.config_load()
+        for mode in ("landscape", "left", "right", "auto"):
+            ct.config_save({"orientation": mode}, quiet=True)
+            self.assertEqual(ct.dashboard_orientation(), mode)
+        ct.config_save({"orientation": "landscape"}, quiet=True)
+        ct.config_save({"modules": stored()["modules"]}, quiet=True)
+        self.assertEqual(ct.dashboard_orientation(), "landscape")
+
+    def test_unknown_choice_is_refused(self):
+        reset()
+        ct.config_load()
+        with self.assertRaises(ValueError):
+            ct.config_save({"orientation": "sideways"}, quiet=True)
+
+
 class Backups(unittest.TestCase):
     def test_routine_saves_are_spaced_and_capped(self):
         reset()

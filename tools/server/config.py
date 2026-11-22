@@ -83,7 +83,7 @@ def config_defaults():
     return out
 
 
-ORIENTATIONS = ("auto", "left", "right")
+ORIENTATIONS = ("auto", "landscape", "left", "right")
 
 
 def dashboard_orientation(saved=None):
