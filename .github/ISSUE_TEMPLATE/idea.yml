@@ -1,0 +1,28 @@
+name: I have an idea
+description: Suggest a tile, a feature, or a change to how something works.
+labels: ["idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Describe what you'd like the screen to do for your household. You don't need to know how to build it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like Countertop to do?
+      description: What you'd see or be able to do. A sketch or photo of something similar helps.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: When would you use it?
+      description: The moment in your day this helps with.
+  - type: dropdown
+    id: build
+    attributes:
+      label: Would you like to build it?
+      options:
+        - No, just suggesting it
+        - Yes, with some help
+        - Yes, I'll open a pull request

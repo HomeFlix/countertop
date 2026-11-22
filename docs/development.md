@@ -1,5 +1,7 @@
 # Developing Countertop
 
+New here? [CONTRIBUTING.md](../CONTRIBUTING.md) covers how to propose and submit a change. This page is the hands-on detail.
+
 You can work on Countertop on the same computer that runs your real dashboard. Keep two copies apart:
 
 | | Everyday copy | Development copy |
@@ -59,6 +61,7 @@ Only one Countertop app can run at a time, and both use port 8090. On a Mac wher
 | `homeassistant.py` | Home Assistant states and controls |
 | `tiledata.py` | Each tile's own saved data ([Writing a tile](tile-api.md)) |
 | `library.py` | Previewing and trying layouts |
+| `community.py` | The Community gallery's list ([sharing](sharing-layouts.md#the-community-gallery)) |
 | `pages.py` | Puts the dashboard and Controls pages together from their parts (below) |
 | `status.py` | Controls > Status, update notice, diagnostics |
 | `feeds/` | Data for built-in tiles: calendar, sports, sky (radar, space, ISS, planes), stocks, meals, sales, cams, photos |
@@ -88,7 +91,7 @@ node tests/browser-check.js               # the pages open with the demo data an
 node tests/tile-data-check.js            # two Daily to-do tiles keep separate lists on a real screen (needs Playwright)
 ```
 
-Repeating calendar events use python-dateutil when it's installed and a built-in expander when it isn't, so the calendar tests run against both. When you change how settings are stored, add a step to `CONFIG_UPGRADES` in `tools/countertop.py`, bump `CONFIG_SCHEMA`, and add a test with a settings file in the old shape.
+Repeating calendar events use python-dateutil when it's installed and a built-in expander when it isn't, so the calendar tests run against both. When you change how settings are stored, add a step to `CONFIG_UPGRADES` in `tools/server/upgrades.py`, bump `CONFIG_SCHEMA` in `tools/server/config.py`, and add a test with a settings file in the old shape.
 
 ## Your settings are backed up
 
