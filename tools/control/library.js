@@ -416,7 +416,7 @@ function libPv(){
   else if (cur === "timp" && LIB.timp){ if (!LIB.ttrial){ themeImpTrial(); return; } q = "&trial=" + LIB.ttrial + "&theme=default"; }
   else { const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : ""; q = want ? "&theme=" + want : ""; }
   libPvFit();
-  if (q === LIB.pvq) return;
+  if (q === LIB.pvq && f.getAttribute("src")) return;       // already showing this; a fresh frame (no address yet) still loads, even for the plain "what's on the screen" preview
   LIB.pvq = q; f.onload = () => setTimeout(() => f.classList.add("on"), 700);
   f.src = "/dash/content?preview=1" + q + "&t=" + Date.now();
 }

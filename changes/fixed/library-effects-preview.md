@@ -1,0 +1,1 @@
+- **Library > Effects preview.** Opening Effects straight from Controls now loads the live preview beside it, so Play works without visiting Themes first.
