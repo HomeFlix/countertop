@@ -19,6 +19,8 @@ The workflow:
 - builds and tests the Docker image and pushes `ghcr.io/kizit/countertop:vX.Y.Z` and `:latest`,
 - builds and tests the Mac app for Apple Silicon and Intel, and attaches both zips to the release.
 
+If `changes/release-story.md` exists, its text opens the release notes and the generated notes follow under "What's changed" (see [changes/README.md](../changes/README.md)).
+
 It takes about 15 minutes. It stops before changing anything if there are no notes in `changes/`.
 
 Unraid's **Check for Updates** and `docker compose pull` pick up `:latest`. Within 12 hours, every install's Controls shows the update notice with a link to the release notes, and the Mac app shows **Install Countertop vX.Y.Z** in its menu.
