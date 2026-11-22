@@ -7,8 +7,11 @@ body:
       value: |
         Thanks for taking the time to report this. The quickest way to get it fixed is the diagnostics file:
         open **Controls → Status**, press **Download diagnostics**, and drag the zip into the box below.
-        It has your settings, version and recent logs. Calendar, album and list links, sync keys, your location
-        and network addresses are removed, and list items aren't included. Feel free to open it and check first.
+        It has your settings, version and recent logs. Calendar, album and list links, sync keys, tokens, your location
+        and network addresses are removed, and list items aren't included.
+
+        **This issue is public. Please unzip the file and look through it before you upload it**, and remove or
+        black out anything you don't want shared. If it contains something sensitive, leave it out and say so below.
   - type: textarea
     id: what
     attributes:
@@ -55,6 +58,6 @@ body:
     id: diagnostics
     attributes:
       label: Diagnostics file
-      description: Drag the countertop-diagnostics zip from Controls → Status here.
+      description: Drag the countertop-diagnostics zip from Controls → Status here, after you've looked through it.
     validations:
       required: false
