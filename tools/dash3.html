@@ -422,9 +422,6 @@
   #edbar > button:disabled{opacity:.35;cursor:default}
   #edbar > #edundo,#edbar > #edredo{font-size:19px;padding:6px 12px}
   #edbar > button.pri{background:#5aa9ff;color:#06121f}
-  #edori{display:flex;gap:2px;background:#14181e;border:1px solid #2b323b;border-radius:12px;padding:3px;flex:none}
-  #edori button{font:600 14px inherit;font-family:inherit;color:#c3cad3;background:none;border:0;border-radius:9px;padding:7px 11px;cursor:pointer;white-space:nowrap}
-  #edori button.on{background:#2a313b;color:#fff}
   #edpanel{position:absolute;right:0;top:0;bottom:0;width:384px;pointer-events:auto;background:#101318;border-left:1px solid #252b33;overflow-y:auto;padding:16px 18px 30px;box-sizing:border-box}
   #edpanel .ph{display:flex;align-items:center;gap:10px;margin:0 0 14px}
   #edpanel .ph b{font-size:21px}
@@ -1914,7 +1911,7 @@ const U = 2, LC = 24 * U, LR = 16 * U, GAP = 16;     // sizes below are written 
 const PC = LR, PR = LC;
 let GC = LC, GR = LR;                                // the grid being edited (32x48 while the editor shows portrait)
 const dims = o => o === "p" ? [PC, PR] : [LC, LR];
-// which arrangement is showing: the editor's pick while editing, otherwise the screen's shape
+// which arrangement is showing: the screen's shape, which Screen orientation in Settings sets on a turned Echo
 function ori(){ return EDIT.on ? EDIT.ori : PORTQ.matches ? "p" : "l"; }
 const portOwn = pg => (pg.slots || []).some(s => s.p);
 function slotPage(s){ return pgItems().find(p => (p.slots || []).includes(s)); }
@@ -2237,10 +2234,7 @@ function newBox(pg, R, size, o = EDIT.ori){
   pg.slots.push(b);
   return b;
 }
-function setOri(o){
-  EDIT.ori = o; [GC, GR] = dims(o);
-  placeAll(); edFrame(); render(); edPaint(true);
-}
+
 function remember(){ EDIT.hist.push(JSON.stringify(CFG)); if (EDIT.hist.length > 80) EDIT.hist.shift(); EDIT.fut = []; }
 function relayout(){ layout(); render(); stackTick(); lookApply && LOOK.ready && lookApply(document.body); edFrame(); edPaint(true); }
 // a feed a new or changed tile needs (only loaded while some tile uses it)
@@ -2253,7 +2247,6 @@ function editUI(){
   const d = document.createElement("div"); d.id = "edl"; d.tabIndex = -1;
   d.innerHTML = '<div id="edcanvas"></div><div id="edgrid"></div><div id="edboxes"></div><div id="edph" hidden><span></span></div>' +
     '<div id="edbar"><span id="edtabs"></span><span id="edhint"></span>' +
-    '<span id="edori" role="group" aria-label="Arrangement"><button data-ori="l" title="Arrange this page for a landscape screen">Landscape</button><button data-ori="p" title="Arrange this page for a portrait screen">Portrait</button></span>' +
     '<button id="edundo" title="Undo (Ctrl+Z)">↶</button><button id="edredo" title="Redo (Shift+Ctrl+Z)">↷</button>' +
     '<button id="edcancel">Cancel</button><button id="edsave" class="pri">Save</button>' +
     (PREVIEW ? "" : '<button id="edmore" title="Location, calendars, looks, effects, pages">⚙ Settings</button>') + '</div>' +
@@ -2371,7 +2364,7 @@ let resizeFrame;
 addEventListener("resize", () => {
   cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => {
-    if (EDIT.on) edFrame();
+    if (EDIT.on){ const o = PORTQ.matches ? "p" : "l"; if (o !== EDIT.ori){ EDIT.drag = null; EDIT.ori = o; [GC, GR] = dims(o); placeAll(); } edFrame(); }
     render();
     if (EDIT.on) edPaint(true);
   });
@@ -2383,7 +2376,6 @@ function edPaint(force){
   if (!EDIT.on) return;
   const pg = curPg(), G = pgGrid(); if (!pg || !G) return;
   $("edundo").disabled = !EDIT.hist.length; $("edredo").disabled = !EDIT.fut.length;
-  document.querySelectorAll("#edori button").forEach(b => { const on = b.dataset.ori === EDIT.ori; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
   const names = pageList().filter(n => gridOf(n));
   $("edtabs").innerHTML = names.map(n => '<button data-tab="' + n + '"' + (n === EDIT.page ? ' class="on"' : "") + '>' + esc(pageName(gridOf(n))) + '</button>').join("") +
     '<button data-tab="+" title="Add a page">＋ Page</button>';
@@ -2436,9 +2428,8 @@ function panelNew(){
 function panelPage(pg){
   const isMain = pg.id === "main" || pg.id === "night";
   let h = '<div class="ph"><b>' + esc(pageName(pg)) + ' page</b></div>';
-  if (EDIT.ori === "p") h += portOwn(pg) ? '<p class="pd">You arranged this page for portrait screens. Landscape screens keep their own arrangement of the same tiles.</p><button class="wide" data-act="portauto">Arrange portrait automatically again</button>'
-    : '<p class="pd">Portrait screens arrange this page automatically from landscape, as shown. Move or resize a box to arrange portrait yourself.</p>';
-  else if (portOwn(pg)) h += '<p class="pd">This page also has its own portrait arrangement. Switch to Portrait above to see it.</p>';
+  if (EDIT.ori === "p") h += portOwn(pg) ? '<p class="pd">Your screen is in portrait, so you are arranging this page for portrait. If you turn the screen back to landscape, it keeps its landscape arrangement of the same tiles.</p><button class="wide" data-act="portauto">Start over from the landscape layout</button>'
+    : '<p class="pd">Your screen is in portrait. This page was arranged automatically from its landscape layout. Move or resize any box to make it your own.</p>';
   if (pg.id === "night") h += '<p class="pd">' + (ON("night") ? "Takes over the screen from " + hr12(S("night").start) + " to " + hr12(S("night").end) + ", dimmed. A touch shows the main page for a minute."
     : "The night page is off. Turn it on and set its hours in Controls → Night page.") + '</p>';
   h += '<button class="wide pri" data-act="add">＋ Add a tile</button>';
@@ -2759,7 +2750,6 @@ function removeTile(id){
 function edDown(e){
   const t = e.target;
   if (t.closest("#edbar")){
-    const ob = t.closest("button[data-ori]"); if (ob){ if (ob.dataset.ori !== EDIT.ori){ EDIT.drag = null; setOri(ob.dataset.ori); } return; }
     const b = t.closest("button[data-tab]"); if (!b) return;
     if (b.dataset.tab === "+"){ EDIT.sel = null; EDIT.panel = "new"; edPaint(true); return; }
     EDIT.sel = null; EDIT.panel = null; goEditPage(b.dataset.tab); return;

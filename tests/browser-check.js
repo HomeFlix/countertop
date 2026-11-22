@@ -59,7 +59,7 @@ async function main() {
         if (!text.includes(w)) throw new Error("missing " + JSON.stringify(w) + " in " + JSON.stringify(text.slice(0, 300)));
     }]);
     // the editor on a portrait screen edits a portrait page: a tall canvas on a 32x48 grid. Moving a box there gives
-    // the page its own portrait arrangement and leaves landscape as it was; switching to Landscape shows the 48x32 grid.
+    // the page its own portrait arrangement and leaves landscape as it was; turning the screen shows the 48x32 grid.
     pages.push(["editor, portrait", "/dash/content?preview=1", { width: 1080, height: 1920 }, async page => {
       const r = await page.evaluate(async () => {
         window.dashEdit(true);
@@ -69,9 +69,13 @@ async function main() {
         const before = portOwn(pg);
         EDIT.sel = s.id; const g = RG(s); remember(); touch(pg); Object.assign(RG(s), {h: Math.max(1, g.h - 2)}); relayout();
         const after = {own: portOwn(pg), land: JSON.stringify([s.x, s.y, s.w, s.h]), p: !!s.p};
-        document.querySelector('#edori button[data-ori="l"]').dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
+        return {tall: c.height > c.width, cols, before, after, land};
+      });
+      await page.setViewportSize({ width: 1920, height: 1080 });
+      await sleep(600);
+      r.lcols = await page.evaluate(() => {
         const lcols = getComputedStyle(document.getElementById("edgrid")).gridTemplateColumns.split(" ").length;
-        return {tall: c.height > c.width, cols, before, after, land, lcols};
+        return lcols;
       });
       if (!r.tall) throw new Error("the editor's canvas isn't portrait");
       if (r.cols !== 32 || r.lcols !== 48) throw new Error("grid columns " + r.cols + " / " + r.lcols + ", not 32 / 48");
