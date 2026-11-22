@@ -1,0 +1,1 @@
+- **Typing then tapping in New effect and Customize.** After typing a name or emoji, the first tap on Save or another button was lost. Taps now work straight away.
