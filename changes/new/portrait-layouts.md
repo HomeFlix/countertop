@@ -1,0 +1,1 @@
+- **Portrait layouts.** The editor now shows a tall page on a portrait screen, and a Landscape / Portrait switch lets you arrange either from any screen. A page starts with an automatic portrait arrangement. Once you move or resize a box in portrait, the page keeps your arrangement, while the tiles and their settings stay shared with landscape.

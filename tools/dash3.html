@@ -348,27 +348,28 @@
   .stkdots:active{background:rgba(255,255,255,.08)}
   .stkdots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.3)}
   .stkdots i.on{background:rgba(255,255,255,.85)}
-  @media (orientation:portrait){
-    body:not(.editing) .cgrid{inset:clamp(12px,2.4vw,26px) clamp(12px,2.4vw,26px) 36px;
-      grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:var(--portrait-rows,none);gap:clamp(8px,1.5vw,16px)}
-    body:not(.editing) .cgrid > .slot{grid-column:var(--portrait-col);grid-row:var(--portrait-row);overflow:hidden}
-    body:not(.editing) .cgrid > .slot.empty,body:not(.editing) .cgrid > .slot.idle{display:none}
-    body:not(.editing) .m-week{grid-auto-flow:row;gap:clamp(6px,1.1vw,12px);min-width:0}
-    body:not(.editing) .m-week .day{min-width:0;min-height:0;padding:clamp(6px,1.15vw,14px)}
-    body:not(.editing) .day .w{gap:clamp(2px,.7vw,8px);font-size:clamp(16px,2.4vw,26px)}
-    body:not(.editing) .day .w span{font-size:1.1em}
-    body:not(.editing) .day .w small{font-size:.68em}
-    body:not(.editing) .day .ev{font-size:clamp(13px,1.75vw,19px)}
-    body:not(.editing) .m-month .grid{grid-template-columns:repeat(7,minmax(0,1fr))}
-    body:not(.editing) .m-month .cell{padding:6px clamp(2px,.75vw,10px)}
-    body:not(.editing) .m-month .cell .e{font-size:clamp(12px,1.5vw,16px);flex:none;
-      white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    body:not(.editing) .m-groc.narrow.two .gl{column-gap:10px}
-    body:not(.editing) .m-groc.narrow.two .gi{gap:7px;flex-wrap:wrap;font-size:clamp(15px,2.25vw,20px)}
-    body:not(.editing) .m-groc.narrow.two .gi span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-    body:not(.editing) .m-groc.narrow.two .gi u{margin-left:0;padding-inline:4px}
-    body:not(.editing) .m-sales.cards .sgrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,350px),1fr))}
-  }
+  /* portrait: a page arranged for portrait uses a 32x48 grid; one that isn't (.pflow) is arranged automatically, in rows */
+  body.portrait .cgrid{grid-template-columns:repeat(32,1fr);grid-template-rows:repeat(48,1fr)}
+  .cgrid > .slot.off{display:none}
+  body.portrait:not(.editing) .cgrid.pflow{inset:clamp(12px,2.4vw,26px) clamp(12px,2.4vw,26px) 36px;
+    grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:var(--portrait-rows,none);gap:clamp(8px,1.5vw,16px)}
+  body.portrait:not(.editing) .cgrid.pflow > .slot{grid-column:var(--portrait-col);grid-row:var(--portrait-row);overflow:hidden}
+  body.portrait:not(.editing) .cgrid.pflow > .slot.empty,body.portrait:not(.editing) .cgrid.pflow > .slot.idle{display:none}
+  body.portrait .m-week{grid-auto-flow:row;gap:clamp(6px,1.1vw,12px);min-width:0}
+  body.portrait .m-week .day{min-width:0;min-height:0;padding:clamp(6px,1.15vw,14px)}
+  body.portrait .day .w{gap:clamp(2px,.7vw,8px);font-size:clamp(16px,2.4vw,26px)}
+  body.portrait .day .w span{font-size:1.1em}
+  body.portrait .day .w small{font-size:.68em}
+  body.portrait .day .ev{font-size:clamp(13px,1.75vw,19px)}
+  body.portrait .m-month .grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+  body.portrait .m-month .cell{padding:6px clamp(2px,.75vw,10px)}
+  body.portrait .m-month .cell .e{font-size:clamp(12px,1.5vw,16px);flex:none;
+    white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  body.portrait .m-groc.narrow.two .gl{column-gap:10px}
+  body.portrait .m-groc.narrow.two .gi{gap:7px;flex-wrap:wrap;font-size:clamp(15px,2.25vw,20px)}
+  body.portrait .m-groc.narrow.two .gi span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  body.portrait .m-groc.narrow.two .gi u{margin-left:0;padding-inline:4px}
+  body.portrait .m-sales.cards .sgrid{grid-template-columns:repeat(auto-fill,minmax(min(100%,350px),1fr))}
   /* the editor: the page shrinks into a frame on the left, the panel sits on the right */
   body.editing #gear,body.editing #dots,body.editing #hint{display:none}
   body.editing #pages{transition:none}
@@ -378,7 +379,7 @@
   #edl:focus{outline:none}
   #edl [hidden]{display:none!important}
   #edcanvas{position:absolute;pointer-events:auto;border-radius:12px;box-shadow:0 0 0 2px rgba(255,255,255,.18),0 24px 70px rgba(0,0,0,.55)}
-  #edgrid{position:absolute;display:grid;grid-template-rows:repeat(32,1fr);opacity:0;transition:opacity .15s;pointer-events:none}
+  #edgrid{position:absolute;display:grid;opacity:0;transition:opacity .15s;pointer-events:none}
   #edgrid i{border-radius:6px;background:rgba(90,169,255,.10);outline:1px solid rgba(90,169,255,.18)}
   body.ed-drag #edgrid{opacity:1}
   #edboxes{position:absolute;inset:0;pointer-events:none}
@@ -421,6 +422,9 @@
   #edbar > button:disabled{opacity:.35;cursor:default}
   #edbar > #edundo,#edbar > #edredo{font-size:19px;padding:6px 12px}
   #edbar > button.pri{background:#5aa9ff;color:#06121f}
+  #edori{display:flex;gap:2px;background:#14181e;border:1px solid #2b323b;border-radius:12px;padding:3px;flex:none}
+  #edori button{font:600 14px inherit;font-family:inherit;color:#c3cad3;background:none;border:0;border-radius:9px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+  #edori button.on{background:#2a313b;color:#fff}
   #edpanel{position:absolute;right:0;top:0;bottom:0;width:384px;pointer-events:auto;background:#101318;border-left:1px solid #252b33;overflow-y:auto;padding:16px 18px 30px;box-sizing:border-box}
   #edpanel .ph{display:flex;align-items:center;gap:10px;margin:0 0 14px}
   #edpanel .ph b{font-size:21px}
@@ -516,7 +520,6 @@
   #edfocus .fh.sel{border-color:#ffc850;background:rgba(255,200,80,.06);z-index:2}
   #edfocus .fr{position:absolute;right:-13px;bottom:-13px;width:24px;height:24px;border-radius:50%;background:#ffc850;border:3px solid #1a1f26;cursor:nwse-resize}
   #edfocus .ftip{position:absolute;left:0;right:0;bottom:22px;text-align:center;color:#9aa3ad;font-size:17px}
-  body.ed-stacked{--page-w:1920px;--page-h:1080px}
   .ed-stacked #edbar{right:16px;left:16px;height:auto;flex-wrap:wrap}
   .ed-stacked #edtabs{flex:1 0 100%;max-width:none;height:38px}
   .ed-stacked #edhint{min-width:0;overflow:hidden}
@@ -1502,7 +1505,15 @@ function renderFeed(...F){ render(...Object.keys(MOUNTED).filter(id => MODULES[i
 
 /* ---------- layout: every page is a grid of boxes ---------- */
 const MOUNTED = {};                                  // tile id → element
+const PORTQ = matchMedia("(orientation:portrait)");
+// the screen turned (or the editor switched arrangement): put every box where it goes now
+function placeAll(){
+  document.body.classList.toggle("portrait", ori() === "p");
+  document.querySelectorAll(".cgrid").forEach(g => { if (g._boxes) for (const [s, d] of g._boxes) placeSlot(d, s, g._pg); });
+}
+PORTQ.addEventListener && PORTQ.addEventListener("change", () => { if (!EDIT.on){ placeAll(); render(); } });
 function layout(){
+  document.body.classList.toggle("portrait", ori() === "p");
   for (const id in MOUNTED){ const m = MODULES[id]; if (m && m.hide && MOUNTED[id]._shownT) try{ m.hide(MOUNTED[id]); }catch(e){} delete MOUNTED[id]; }
   const SLOT = cpagesBuild();
   for (const id of Object.keys(SLOT)){
@@ -1895,8 +1906,56 @@ async function boot(){
   // ?edit=1 (Controls' "Edit the screen" on the Echo): open the editor once the tiles have drawn
   if (/[?&]edit=1/.test(location.search) && !PREVIEW){ history.replaceState(null, "", location.pathname); setTimeout(() => editEnter(null), 900); }
 }
-/* ---------- pages: every page is boxes on a 48x32 grid; a box holds one tile, or several that take turns ---------- */
-const U = 2, GC = 24 * U, GR = 16 * U, GAP = 16;     // sizes below are written in 24x16 units and scaled by U
+/* ---------- pages: every page is boxes on a 48x32 grid; a box holds one tile, or several that take turns ----------
+   A page has one set of boxes with two arrangements. Landscape is the box's x, y, w, h on 48x32. Portrait is s.p on a
+   32x48 grid (the same cells turned on their side) once someone arranges the page for portrait; until then portrait is
+   worked out from landscape. A box with no room in one of them is left off that screen (s.loff, s.p.off). */
+const U = 2, LC = 24 * U, LR = 16 * U, GAP = 16;     // sizes below are written in 24x16 units and scaled by U
+const PC = LR, PR = LC;
+let GC = LC, GR = LR;                                // the grid being edited (32x48 while the editor shows portrait)
+const dims = o => o === "p" ? [PC, PR] : [LC, LR];
+// which arrangement is showing: the editor's pick while editing, otherwise the screen's shape
+function ori(){ return EDIT.on ? EDIT.ori : PORTQ.matches ? "p" : "l"; }
+const portOwn = pg => (pg.slots || []).some(s => s.p);
+function slotPage(s){ return pgItems().find(p => (p.slots || []).includes(s)); }
+// where box s sits in arrangement o ("l" or "p"), or null when it isn't on that screen
+function geo(s, o, pg){
+  if (o !== "p") return s.loff ? null : s;
+  if (s.p) return s.p.off ? null : s.p;
+  pg = pg || slotPage(s);
+  return pg && portSeed(pg)[s.id] || null;
+}
+// portrait places for boxes that have none yet: the whole page from landscape (in rows, like a portrait screen
+// arranges it), or, on a page arranged for portrait, a free spot for a box added since
+function portSeed(pg){
+  const S = pg.slots || [];
+  const sig = JSON.stringify(S.map(s => [s.id, s.x, s.y, s.w, s.h, s.loff ? 1 : 0, s.p || 0, smods(s)]));
+  if (pg._seed && pg._seed.sig === sig) return pg._seed.m;
+  const m = {};
+  if (!portOwn(pg)){
+    const rows = portraitRows(S.filter(s => !s.loff), () => true, true), tot = rows.reduce((a, r) => a + r.height, 0);
+    let acc = 0, y = 0;
+    for (const r of rows){
+      acc += r.height; const y1 = Math.round(acc / tot * PR), n = r.boxes.length;
+      if (y1 > y) r.boxes.forEach((b, i) => { m[b.id] = {x:i * PC / n, y, w:PC / n, h:y1 - y}; });
+      y = y1;
+    }
+  } else {
+    const taken = S.filter(s => s.p && !s.p.off).map(s => s.p);
+    for (const t of S) if (!t.p){ const R = spotFree(taken, [t.w, t.h].concat(bmin(t)), "p"); if (R){ m[t.id] = R; taken.push(R); } }
+  }
+  Object.defineProperty(pg, "_seed", {value:{sig, m}, writable:true, configurable:true});
+  return m;
+}
+// the first free place, top-left first, for a box of this size [w, h, minW, minH], shrinking down to its smallest
+function spotFree(taken, size, o){
+  const [C, R] = dims(o), [dw, dh, mw, mh] = size, sizes = [];
+  for (let w = Math.min(dw, C); w >= Math.min(mw, C); w -= U) for (let h = Math.min(dh, R); h >= Math.min(mh, R); h -= U) sizes.push([w, h]);
+  sizes.push([Math.min(mw, C), Math.min(mh, R)]);
+  sizes.sort((a, b) => b[0] * b[1] - a[0] * a[1]);
+  for (const [w, h] of sizes) for (let y = 0; y + h <= R; y++) for (let x = 0; x + w <= C; x++){ const r = {x, y, w, h}; if (!taken.some(t => hits(t, r))) return r; }
+  return null;
+}
 const xU = o => { for (const k in o) o[k] = o[k].map(v => Array.isArray(v) ? v.map(n => n * U) : v * U); return o; };
 const PAGE_TEMPLATES = xU({
   "Top row + two columns": [[0, 0, 24, 4], [0, 4, 14, 12], [14, 4, 10, 12]],
@@ -1909,22 +1968,22 @@ function pgItems(){
   const P = CFG && CFG.pages; if (!P) return [];
   P.settings = P.settings || {};
   const items = P.settings.items = P.settings.items || [];
-  for (const p of items) if (p.cols !== GC){        // pages made on an older, coarser grid (12x8, then 24x16)
-    const f = GC / (p.cols || 12);
+  for (const p of items) if (p.cols !== LC){        // pages made on an older, coarser grid (12x8, then 24x16)
+    const f = LC / (p.cols || 12);
     (p.slots || []).forEach(s => { s.x *= f; s.y *= f; s.w *= f; s.h *= f; });
-    p.cols = GC;
+    p.cols = LC;
   }
   return items;
 }
 function mainGrid(){
   const L = pgItems(); let m = L.find(p => p.id === "main");
-  if (!m && CFG && CFG.pages){ m = {id:"main", name:"Main", on:true, cols:GC, slots:[]}; L.unshift(m); }
+  if (!m && CFG && CFG.pages){ m = {id:"main", name:"Main", on:true, cols:LC, slots:[]}; L.unshift(m); }
   return m || null;
 }
 // the night page is built in like Main: it takes over the screen between the night hours
 function nightGrid(){
   const L = pgItems(); let n = L.find(p => p.id === "night");
-  if (!n && CFG && CFG.pages && !SOLO){ n = {id:"night", name:"Night", on:true, cols:GC, slots:[]}; L.push(n); }
+  if (!n && CFG && CFG.pages && !SOLO){ n = {id:"night", name:"Night", on:true, cols:LC, slots:[]}; L.push(n); }
   return n || null;
 }
 function cpages(){ return pgItems().filter(p => p.id !== "main" && p.id !== "night"); }
@@ -1941,7 +2000,7 @@ function bmin(s){ const L = live(s); return L.length ? [Math.max(...L.map(id => 
 function boxName(s){ const L = live(s); return !L.length ? "Empty box" : L.length === 1 ? titleOf(L[0]) : L.map(titleOf).join(" / "); }
 function newPage(tpl){
   const items = pgItems(), id = "p" + Date.now().toString(36);
-  const pg = {id, name:"Page " + (cpages().length + 2), on:true, back:0, cols:GC,
+  const pg = {id, name:"Page " + (cpages().length + 2), on:true, back:0, cols:LC,
     slots:(PAGE_TEMPLATES[tpl] || PAGE_TEMPLATES["Top row + two columns"]).map((r, i) => ({id:"s" + i + id, x:r[0], y:r[1], w:r[2], h:r[3], mod:null}))};
   items.push(pg);
   return pg;
@@ -2013,17 +2072,21 @@ function cardFit(el){
   walk(el, true);
 }
 const FITOBS = typeof ResizeObserver === "function" ? new ResizeObserver(E => E.forEach(e => { for (const el of e.target.children) if (el.classList.contains("card") && !el.hidden && !(MODULES[el.dataset.mod] || {}).noFit) cardFit(el); })) : null;
-const NARROW = 7 * U;    // a box this narrow (or narrower) gets the compact look
-function placeSlot(d, s){ d.style.setProperty("--slot-col", (s.x + 1) + " / span " + s.w); d.style.setProperty("--slot-row", (s.y + 1) + " / span " + s.h);
-  const n = s.w <= NARROW;
+const NARROW = 7 * U * 40;    // a box this narrow (in pixels on a 1920x1080 screen, or 1080x1920) or narrower gets the compact look
+function placeSlot(d, s, pg){
+  const o = ori(), r = geo(s, o, pg);
+  d.classList.toggle("off", !r);
+  if (!r) return;
+  d.style.setProperty("--slot-col", (r.x + 1) + " / span " + r.w); d.style.setProperty("--slot-row", (r.y + 1) + " / span " + r.h);
+  const n = r.w * (o === "p" ? 1080 / PC : 1920 / LC) <= NARROW;
   if (d.classList.contains("narrow") !== n){ d.classList.toggle("narrow", n); if (d.isConnected) live(s).forEach(id => render(id)); } }
-function portraitRows(slots, showing){
-  const boxes = slots.filter(s => live(s).length && showing(s)).sort((a, b) => a.y - b.y || a.x - b.x);
+function portraitRows(slots, showing, all){
+  const boxes = slots.filter(s => (all || live(s).length) && showing(s)).sort((a, b) => a.y - b.y || a.x - b.x);
   const rows = [];
   for (const box of boxes){
     const types = live(box).map(id => MODULES[id].type);
     const week = types.includes("week");
-    const wide = box.w > GC / 2 || week || types.includes("month");
+    const wide = box.w > LC / 2 || week || types.includes("month");
     const height = week ? 12 : Math.max(5, Math.min(box.h, 12));
     const last = rows[rows.length - 1], first = last && last.boxes[0];
     // Pair neighboring boxes from the same band. A wide box starts its own row.
@@ -2041,7 +2104,7 @@ function gridEl(sec, pg){
   for (const sl of slots){
     const d = document.createElement("div"); d.className = "slot"; d.dataset.slot = sl.id;
     if (FITOBS) FITOBS.observe(d);
-    placeSlot(d, sl); g.appendChild(d);
+    placeSlot(d, sl, pg); g.appendChild(d);
     boxes.set(sl, d);
     const L = live(sl);
     L.forEach(id => { SLOT[id] = d; });
@@ -2049,7 +2112,8 @@ function gridEl(sec, pg){
     if (L.length > 1){ d.classList.add("stack"); const dots = document.createElement("div"); dots.className = "stkdots"; dots.innerHTML = L.map(() => "<i></i>").join(""); d.appendChild(dots);
       dots.addEventListener("click", e => { if (EDIT.on) return; e.stopPropagation(); stackNext(d); }); }
   }
-  g._slots = slots; g._boxes = boxes;
+  g._slots = slots; g._boxes = boxes; g._pg = pg;
+  g.classList.toggle("pflow", !portOwn(pg));          // not arranged for portrait: a portrait screen puts its boxes in rows
   portraitFlow(g);
   return SLOT;
 }
@@ -2137,7 +2201,7 @@ window.dashGoPage = name => { const i = pageList().indexOf(name); if (i >= 0){ i
 // Hold any tile (or "Edit on screen" in Controls). The page shrinks into a frame; the panel on the right
 // shows what is selected: the page, a box (its tiles and their settings), or the tile list to add from.
 // Keys: arrows move, Shift+arrows resize, Delete removes, Esc deselects, Ctrl/Cmd+Z undo, Shift+Ctrl/Cmd+Z redo, Ctrl/Cmd+S save.
-const EDIT = {on:false, page:"main", sel:null, tile:null, drag:null, hist:[], fut:[], k:0, ox:0, oy:0, panel:null, addTo:null};
+const EDIT = {on:false, ori:"l", page:"main", sel:null, tile:null, drag:null, hist:[], fut:[], k:0, ox:0, oy:0, panel:null, addTo:null};
 const PANEL_W = 384;
 const inFrame = () => { try{ return window.parent !== window && !!window.parent.dashSetup; }catch(e){ return false; } };
 function curPg(){ return gridOf(EDIT.page); }
@@ -2151,8 +2215,32 @@ function cellAt(x, y){ const G = pgGrid(); return [Math.floor((x - G.r.left) / G
 function cellRect(s){ const G = pgGrid(), gap = GAP * EDIT.k;
   return {left:G.r.left + s.x * G.cw, top:G.r.top + s.y * G.ch, width:s.w * G.cw - gap, height:s.h * G.ch - gap}; }
 const hits = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-function blocked(pg, r, skip){ return (pg.slots || []).some(o => o !== skip && o.id !== (skip && skip.id) && hits(o, r)); }
-function inGrid(r){ return r.x >= 0 && r.y >= 0 && r.w >= 1 && r.h >= 1 && r.x + r.w <= GC && r.y + r.h <= GR; }
+// box s in the arrangement being edited (null: not on this screen)
+const RG = (s, pg) => geo(s, EDIT.ori, pg || curPg());
+const at = (r, c, y) => r && c >= r.x && c < r.x + r.w && y >= r.y && y < r.y + r.h;
+function blocked(pg, r, skip, o = EDIT.ori){ return (pg.slots || []).some(v => { if (v === skip || v.id === (skip && skip.id)) return false; const g = geo(v, o, pg); return g && hits(g, r); }); }
+function inGrid(r, o = EDIT.ori){ const [C, R] = dims(o); return r.x >= 0 && r.y >= 0 && r.w >= 1 && r.h >= 1 && r.x + r.w <= C && r.y + r.h <= R; }
+// before the first move in portrait, the page's worked-out portrait places become its own
+function touch(pg){
+  if (EDIT.ori !== "p" || !pg) return;
+  const m = portSeed(pg);
+  for (const s of pg.slots || []) if (!s.p) s.p = m[s.id] ? Object.assign({}, m[s.id]) : {off:true};
+}
+// a new box at R in arrangement o, with a place in the other one too (size: what it would like)
+function newBox(pg, R, size, o = EDIT.ori){
+  const b = {id:"s" + Date.now().toString(36), mod:null};
+  if (o === "p"){
+    touch(pg);
+    const L = freeSpot(pg, size, "l");
+    Object.assign(b, L || {x:0, y:0, w:1, h:1, loff:true}, {p:Object.assign({}, R)});
+  } else Object.assign(b, R);                   // portrait finds it a place (portSeed)
+  pg.slots.push(b);
+  return b;
+}
+function setOri(o){
+  EDIT.ori = o; [GC, GR] = dims(o);
+  placeAll(); edFrame(); render(); edPaint(true);
+}
 function remember(){ EDIT.hist.push(JSON.stringify(CFG)); if (EDIT.hist.length > 80) EDIT.hist.shift(); EDIT.fut = []; }
 function relayout(){ layout(); render(); stackTick(); lookApply && LOOK.ready && lookApply(document.body); edFrame(); edPaint(true); }
 // a feed a new or changed tile needs (only loaded while some tile uses it)
@@ -2165,6 +2253,7 @@ function editUI(){
   const d = document.createElement("div"); d.id = "edl"; d.tabIndex = -1;
   d.innerHTML = '<div id="edcanvas"></div><div id="edgrid"></div><div id="edboxes"></div><div id="edph" hidden><span></span></div>' +
     '<div id="edbar"><span id="edtabs"></span><span id="edhint"></span>' +
+    '<span id="edori" role="group" aria-label="Arrangement"><button data-ori="l" title="Arrange this page for a landscape screen">Landscape</button><button data-ori="p" title="Arrange this page for a portrait screen">Portrait</button></span>' +
     '<button id="edundo" title="Undo (Ctrl+Z)">↶</button><button id="edredo" title="Redo (Shift+Ctrl+Z)">↷</button>' +
     '<button id="edcancel">Cancel</button><button id="edsave" class="pri">Save</button>' +
     (PREVIEW ? "" : '<button id="edmore" title="Location, calendars, looks, effects, pages">⚙ Settings</button>') + '</div>' +
@@ -2191,18 +2280,25 @@ function undo(dir){
   if (EDIT.tile && !MODULES[EDIT.tile]) EDIT.tile = null;
   relayout(); goEditPage(EDIT.page);
 }
+// the page is drawn at a screen's size and shrunk into the frame: this screen's own size when it is the shape being
+// edited, otherwise 1920x1080 (or 1080x1920). The panel goes on the right, or below when that leaves the page bigger.
 function edFrame(){
-  const W = innerWidth, H = innerHeight, pad = 24;
-  const stacked = matchMedia("(orientation:portrait)").matches || W < 840;
+  const W = innerWidth, H = innerHeight, pad = 24, P = EDIT.ori === "p";
+  const fixed = P ? [1080, 1920] : [1920, 1080], side = P === PORTQ.matches ? [W, H] : fixed;
+  const kSide = Math.min((W - PANEL_W - pad * 3) / side[0], (H - 68 - pad) / side[1]);
+  const kStack = Math.min((W - pad * 2) / fixed[0], (H * .58 - 120 - pad) / fixed[1]);
+  const stacked = W < 840 || kStack > kSide;
   document.body.classList.toggle("ed-stacked", stacked);
+  const [PW, PH] = stacked ? fixed : side;
+  document.body.style.setProperty("--page-w", PW + "px"); document.body.style.setProperty("--page-h", PH + "px");
   const top = stacked ? $("edbar").getBoundingClientRect().bottom + 12 : 68;
   if (stacked){
-    EDIT.k = Math.max(.01, Math.min((W - pad * 2) / 1920, (H * .58 - top - pad) / 1080));
-    EDIT.ox = (W - 1920 * EDIT.k) / 2;
-    document.body.style.setProperty("--ed-split", (top + 1080 * EDIT.k + pad) + "px");
+    EDIT.k = Math.max(.01, Math.min((W - pad * 2) / PW, (H * .58 - top - pad) / PH));
+    EDIT.ox = (W - PW * EDIT.k) / 2;
+    document.body.style.setProperty("--ed-split", (top + PH * EDIT.k + pad) + "px");
   } else {
-    EDIT.k = Math.min((W - PANEL_W - pad * 3) / W, (H - top - pad) / H);
-    EDIT.ox = pad;
+    EDIT.k = Math.min((W - PANEL_W - pad * 3) / PW, (H - top - pad) / PH);
+    EDIT.ox = pad + Math.max(0, (W - PANEL_W - pad * 3 - PW * EDIT.k) / 2);
   }
   EDIT.oy = top;
   pagesXform();
@@ -2228,6 +2324,7 @@ function editEnter(sel){
   const cur = pageList()[PAGE] || "main";
   EDIT.on = true; EDIT.focus = null; EDIT.orig = JSON.stringify(CFG); EDIT.hist = []; EDIT.fut = []; EDIT.panel = null; EDIT.sel = null; EDIT.tile = null;
   EDIT.page = gridOf(cur) ? cur : "main";
+  EDIT.ori = PORTQ.matches ? "p" : "l"; [GC, GR] = dims(EDIT.ori);
   editUI(); document.body.classList.add("editing");
   edFrame();
   clearTimeout(pageTimer);
@@ -2286,6 +2383,7 @@ function edPaint(force){
   if (!EDIT.on) return;
   const pg = curPg(), G = pgGrid(); if (!pg || !G) return;
   $("edundo").disabled = !EDIT.hist.length; $("edredo").disabled = !EDIT.fut.length;
+  document.querySelectorAll("#edori button").forEach(b => { const on = b.dataset.ori === EDIT.ori; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
   const names = pageList().filter(n => gridOf(n));
   $("edtabs").innerHTML = names.map(n => '<button data-tab="' + n + '"' + (n === EDIT.page ? ' class="on"' : "") + '>' + esc(pageName(gridOf(n))) + '</button>').join("") +
     '<button data-tab="+" title="Add a page">＋ Page</button>';
@@ -2294,15 +2392,16 @@ function edPaint(force){
   $("edhint").textContent = dzx ? "Designing “" + dzx.name + "” · tap Done when finished" : dirty ? "Unsaved changes" : "";
   const fr = {left:G.r.left - 2, top:G.r.top - 2, width:G.r.width + 4, height:G.r.height + 4};
   Object.assign($("edcanvas").style, px(fr)); Object.assign($("edgrid").style, px(G.r));
-  $("edgrid").style.gridTemplateColumns = "repeat(" + GC + ",1fr)"; $("edgrid").style.gap = (GAP * EDIT.k) + "px";
+  $("edgrid").style.gridTemplateColumns = "repeat(" + GC + ",1fr)"; $("edgrid").style.gridTemplateRows = "repeat(" + GR + ",1fr)"; $("edgrid").style.gap = (GAP * EDIT.k) + "px";
   const B = $("edboxes"); B.innerHTML = "";
   for (const s of pg.slots || []){
+    const r = RG(s, pg); if (!r) continue;
     const o = document.createElement("div"), sel = EDIT.sel === s.id, has = live(s).length > 0;
     o.className = "eslot" + (sel ? " sel" : "") + (has ? "" : " empty") + (EDIT.addTo === s.id && EDIT.panel === "add" ? " target" : ""); o.dataset.slot = s.id;
-    Object.assign(o.style, px(cellRect(s)));
+    Object.assign(o.style, px(cellRect(r)));
     o.innerHTML = '<span class="lbl">' + esc(boxName(s)) + '</span>' + (has ? "" : '<em>Empty box<br>Drag a tile here</em>') +
       (sel ? ["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(h => '<i class="hd ' + h + '" data-h="' + h + '"></i>').join("") +
-        '<span class="tb"><b>' + s.w + ' × ' + s.h + '</b><button data-act="del">Remove box</button></span>' : "");
+        '<span class="tb"><b>' + r.w + ' × ' + r.h + '</b><button data-act="del">Remove box</button></span>' : "");
     B.appendChild(o);
   }
   edPanel(force); stackTick();
@@ -2337,7 +2436,9 @@ function panelNew(){
 function panelPage(pg){
   const isMain = pg.id === "main" || pg.id === "night";
   let h = '<div class="ph"><b>' + esc(pageName(pg)) + ' page</b></div>';
-  if (matchMedia("(orientation:portrait)").matches) h += '<p class="pd">Edit the shared layout here. Portrait displays arrange these boxes automatically.</p>';
+  if (EDIT.ori === "p") h += portOwn(pg) ? '<p class="pd">You arranged this page for portrait screens. Landscape screens keep their own arrangement of the same tiles.</p><button class="wide" data-act="portauto">Arrange portrait automatically again</button>'
+    : '<p class="pd">Portrait screens arrange this page automatically from landscape, as shown. Move or resize a box to arrange portrait yourself.</p>';
+  else if (portOwn(pg)) h += '<p class="pd">This page also has its own portrait arrangement. Switch to Portrait above to see it.</p>';
   if (pg.id === "night") h += '<p class="pd">' + (ON("night") ? "Takes over the screen from " + hr12(S("night").start) + " to " + hr12(S("night").end) + ", dimmed. A touch shows the main page for a minute."
     : "The night page is off. Turn it on and set its hours in Controls → Night page.") + '</p>';
   h += '<button class="wide pri" data-act="add">＋ Add a tile</button>';
@@ -2346,7 +2447,8 @@ function panelPage(pg){
   const S0 = pg.slots || [];
   h += '<div class="sh">On this page</div>';
   h += S0.length ? '<div class="grp">' + S0.map(s => '<div class="kv rowbtn" data-act="selbox" data-id="' + s.id + '"><span>' + esc(boxName(s)) +
-      (live(s).length > 1 ? '<small>' + live(s).length + ' tiles taking turns</small>' : "") + '</span><b>›</b></div>').join("") + '</div>'
+      (live(s).length > 1 ? '<small>' + live(s).length + ' tiles taking turns</small>' : "") +
+      (RG(s, pg) ? "" : '<small>Not on ' + (EDIT.ori === "p" ? "portrait" : "landscape") + ' screens: there was no room</small>') + '</span><b>›</b></div>').join("") + '</div>'
     : '<p class="pd">Nothing here yet. Add a tile, or an empty box to fill later.</p>';
   h += '<div class="btns"><button data-act="box">Add an empty box</button></div>';
   if (!isMain) h += '<button class="wide red" data-act="delpage">Delete this page</button>';
@@ -2384,7 +2486,7 @@ function panelBox(s){
   h += '<div class="sh">Box</div>';
   if (L.length) h += '<div class="kv0">Text size</div><div class="seg2">' + TSZ.map(([n, v]) => '<button data-act="ts" data-v="' + v + '"' + (((+s.ts || 1) === v) ? ' class="on"' : "") + '>' + n + '</button>').join("") + '</div>' +
     '<p class="pd">Text also shrinks a little on its own when the box is too small for it.</p>';
-  h += '<div class="grp"><div class="kv"><span>Size</span><b>' + s.w + ' × ' + s.h + ' squares</b></div>' + (L.length ? '<div class="kv"><span>Smallest it can be</span><b>' + mw + ' × ' + mh + '</b></div>' : "") + '</div>';
+  h += '<div class="grp"><div class="kv"><span>Size' + (EDIT.ori === "p" ? " in portrait" : "") + '</span><b>' + (RG(s) ? RG(s).w + ' × ' + RG(s).h + ' squares' : "Not on this screen") + '</b></div>' + (L.length ? '<div class="kv"><span>Smallest it can be</span><b>' + mw + ' × ' + mh + '</b></div>' : "") + '</div>';
   h += '<div class="btns">' + (L.length ? '<button data-act="fit">Usual size</button>' : "") + '<button data-act="grow">Fill free space</button></div>';
   h += '<button class="wide red" data-act="del">Remove this box</button>';
   h += '<p class="pd">Drag the box to move it; drop it on another box to swap them. Drag an edge or corner to resize. Keys: arrows move, Shift+arrows resize, Delete removes, Esc goes back.</p>';
@@ -2588,31 +2690,39 @@ function fitAt(pg, size, c, r, skip){
   return null;
 }
 // the first free place, top-left first, for a tile of this size (shrinking down to its smallest)
-function freeSpot(pg, size){
-  const [dw, dh, mw, mh] = size, sizes = [];
-  for (let w = dw; w >= mw; w -= U) for (let h = dh; h >= mh; h -= U) sizes.push([w, h]);
+function freeSpot(pg, size, o = EDIT.ori){
+  const [C, H] = dims(o), [dw, dh, mw, mh] = size, sizes = [];
+  for (let w = Math.min(dw, C); w >= mw; w -= U) for (let h = Math.min(dh, H); h >= mh; h -= U) sizes.push([w, h]);
   sizes.sort((a, b) => b[0] * b[1] - a[0] * a[1]);
-  for (const [w, h] of sizes) for (let y = 0; y + h <= GR; y++) for (let x = 0; x + w <= GC; x++){ const R = {x, y, w, h}; if (!blocked(pg, R)) return R; }
+  for (const [w, h] of sizes) for (let y = 0; y + h <= H; y++) for (let x = 0; x + w <= C; x++){ const R = {x, y, w, h}; if (!blocked(pg, R, null, o)) return R; }
   return null;
 }
 function growFree(s){         // stretch right, then down, then left and up, until something is in the way
-  const pg = curPg(); remember();
-  const tryStep = (k, d) => { const t = Object.assign({}, s); if (k === "x"){ t.x -= d; t.w += d; } else if (k === "y"){ t.y -= d; t.h += d; } else t[k] += d;
-    if (inGrid(t) && !blocked(pg, t, s)){ Object.assign(s, t); return true; } return false; };
+  const pg = curPg(); if (!RG(s, pg)) return;
+  remember(); touch(pg);
+  const g = RG(s, pg);
+  const tryStep = (k, d) => { const t = {x:g.x, y:g.y, w:g.w, h:g.h}; if (k === "x"){ t.x -= d; t.w += d; } else if (k === "y"){ t.y -= d; t.h += d; } else t[k] += d;
+    if (inGrid(t) && !blocked(pg, t, s)){ Object.assign(g, t); return true; } return false; };
   let more = true;
   while (more){ more = false; for (const k of ["w", "h", "x", "y"]) if (tryStep(k, 1)) more = true; }
   relayout();
 }
+// a new box's place. While portrait is still worked out from landscape it fills the screen, so a new box gets a
+// landscape place and portrait makes room for it
+function newSpot(pg, size){
+  return EDIT.ori === "p" && !portOwn(pg) ? {o:"l", R:freeSpot(pg, size, "l")} : {o:EDIT.ori, R:freeSpot(pg, size)};
+}
 function addEmptyBox(){
-  const pg = curPg(), R = freeSpot(pg, [12 * U, 8 * U, 1, 1]);
+  const pg = curPg(), size = [12 * U, 8 * U, 1, 1], {o, R} = newSpot(pg, size);
   if (!R){ flash("No room left: make a box smaller first"); return; }
-  remember(); const s = Object.assign({id:"s" + Date.now().toString(36), mod:null}, R);
-  pg.slots.push(s); EDIT.sel = s.id; EDIT.tile = null; relayout();
+  remember(); const s = newBox(pg, R, size, o);
+  EDIT.sel = s.id; EDIT.tile = null; relayout();
 }
 function flash(t, ok){ const h = $("edhint"); h.textContent = t; h.classList.toggle("warn", !ok); h.classList.toggle("ok", !!ok); setTimeout(() => { h.classList.remove("warn", "ok"); edPaint(); }, 3000); }
 // make a new tile of this type and put it in box s (an existing box, or a new one given as a rectangle)
 function addTile(type, s){
   const pg = curPg(); remember();
+  if (s.rect) s = newBox(pg, s.rect, TYPES[type].size, s.o);         // a new box, given as where it goes
   const id = newTile(type);
   const L = live(s); L.push(id); setSmods(s, L);
   if (!pg.slots.includes(s)) pg.slots.push(s);
@@ -2626,9 +2736,9 @@ function addTile(type, s){
 function addTileAnywhere(type){
   const tgt = EDIT.addTo && slotById(EDIT.addTo);
   if (tgt) return addTile(type, tgt);
-  const R = freeSpot(curPg(), TYPES[type].size);
+  const {o, R} = newSpot(curPg(), TYPES[type].size);
   if (!R){ flash("No free space: drag it onto a box to share that box, or make room first"); return; }
-  addTile(type, Object.assign({id:"s" + Date.now().toString(36), mod:null}, R));
+  addTile(type, {rect:R, o});
 }
 function stackAct(a, id){
   const s = selSlot(); if (!s) return;
@@ -2649,6 +2759,7 @@ function removeTile(id){
 function edDown(e){
   const t = e.target;
   if (t.closest("#edbar")){
+    const ob = t.closest("button[data-ori]"); if (ob){ if (ob.dataset.ori !== EDIT.ori){ EDIT.drag = null; setOri(ob.dataset.ori); } return; }
     const b = t.closest("button[data-tab]"); if (!b) return;
     if (b.dataset.tab === "+"){ EDIT.sel = null; EDIT.panel = "new"; edPaint(true); return; }
     EDIT.sel = null; EDIT.panel = null; goEditPage(b.dataset.tab); return;
@@ -2663,9 +2774,9 @@ function edDown(e){
   if (EDIT.panel === "add" && EDIT.addTo && EDIT.addTo !== s.id){ EDIT.addTo = s.id; EDIT.sel = s.id; edPaint(true); return; }    // Add to this box: pick another box to add to
   if (EDIT.panel === "add" && !EDIT.addTo){ EDIT.sel = null; EDIT.panel = null; }       // Add a tile: a tap on a box opens its settings
   if (EDIT.sel !== s.id){ EDIT.sel = s.id; EDIT.tile = live(s)[0] || null; EDIT.panel = null; }
-  const [c, r] = cellAt(e.clientX, e.clientY);
-  if (t.dataset.h) EDIT.drag = {k:"rs", s, dir:t.dataset.h, orig:{x:s.x, y:s.y, w:s.w, h:s.h}, snap:JSON.stringify(CFG)};
-  else EDIT.drag = {k:"pend", s, x0:e.clientX, y0:e.clientY, dc:c - s.x, dr:r - s.y};
+  const [c, r] = cellAt(e.clientX, e.clientY), g = RG(s, pg);
+  if (t.dataset.h) EDIT.drag = {k:"rs", s, dir:t.dataset.h, orig:{x:g.x, y:g.y, w:g.w, h:g.h}, snap:JSON.stringify(CFG)};
+  else EDIT.drag = {k:"pend", s, x0:e.clientX, y0:e.clientY, dc:c - g.x, dr:r - g.y};
   edPaint(true);
 }
 function boxAct(a, el){
@@ -2682,8 +2793,9 @@ function boxAct(a, el){
   else if (a === "setup") openSetup(el.dataset.kind);
   else if (a.startsWith("ent")) entAct(a, el);
   else if (a === "ai"){ const m = MODULES[EDIT.tile]; copyText(aiPrompt(m && m.s.ask)); }
-  else if (a === "fit" && s){ const pg = curPg(), [dw, dh] = tsize(EDIT.tile || s.mod), R = {x:Math.min(s.x, GC - dw), y:Math.min(s.y, GR - dh), w:dw, h:dh};
-    if (blocked(pg, R, s)){ flash("Not enough room here for its usual size"); return; } remember(); Object.assign(s, R); relayout(); }
+  else if (a === "fit" && s && RG(s)){ const pg = curPg(), g = RG(s, pg), [dw, dh] = tsize(EDIT.tile || s.mod).map((v, i) => Math.min(v, i ? GR : GC)), R = {x:Math.min(g.x, GC - dw), y:Math.min(g.y, GR - dh), w:dw, h:dh};
+    if (blocked(pg, R, s)){ flash("Not enough room here for its usual size"); return; } remember(); touch(pg); Object.assign(RG(s, pg), R); relayout(); }
+  else if (a === "portauto"){ const pg = curPg(); remember(); (pg.slots || []).forEach(v => { delete v.p; }); relayout(); }
   else if (a === "grow" && s) growFree(s);
   else if (a === "box") addEmptyBox();
   else if (a === "delpage"){
@@ -2709,15 +2821,15 @@ function edMove(e){
   const x = e.clientX, y = e.clientY, pg = curPg(), ph = $("edph");
   if (D.k === "pend" && Math.hypot(x - D.x0, y - D.y0) > 6){ D.k = "mv"; D.snap = JSON.stringify(CFG); document.body.classList.add("ed-drag"); }
   if (D.k === "mv"){
-    const [c, r] = cellAt(x, y), s = D.s;
-    const R = {x:Math.max(0, Math.min(GC - s.w, c - D.dc)), y:Math.max(0, Math.min(GR - s.h, r - D.dr)), w:s.w, h:s.h};
+    const [c, r] = cellAt(x, y), s = D.s, sg = RG(s, pg);
+    const R = {x:Math.max(0, Math.min(GC - sg.w, c - D.dc)), y:Math.max(0, Math.min(GR - sg.h, r - D.dr)), w:sg.w, h:sg.h};
     const o = document.querySelector('.eslot[data-slot="' + s.id + '"]');
     if (o) o.classList.add("moving");
     const g = $("edghost"); g.textContent = boxName(s); g.hidden = false;
     g.style.left = (x + 14) + "px"; g.style.top = (y + 10) + "px";
-    const under = (pg.slots || []).find(v => v !== s && c >= v.x && c < v.x + v.w && r >= v.y && r < v.y + v.h);
+    const under = (pg.slots || []).find(v => v !== s && at(RG(v, pg), c, r));
     if (!blocked(pg, R, s)) D.to = {k:"move", R};
-    else if (under) D.to = {k:"swap", R:under, with:under};
+    else if (under) D.to = {k:"swap", R:RG(under, pg), with:under};
     else D.to = null;
     showPh(D.to ? D.to.R : R, D.to ? D.to.k : "bad", D.to && D.to.k === "swap" ? "Swap" : D.to ? "" : "No room");
   } else if (D.k === "rs"){
@@ -2733,8 +2845,8 @@ function edMove(e){
     step(() => x1, v => { x1 = v; }, o.x + o.w); step(() => x0, v => { x0 = v; }, o.x);
     step(() => y1, v => { y1 = v; }, o.y + o.h); step(() => y0, v => { y0 = v; }, o.y);
     if (!blocked(pg, T(), s)){
-      const R = T();
-      if (R.x !== s.x || R.y !== s.y || R.w !== s.w || R.h !== s.h){ Object.assign(s, R); const el = pgSec().querySelector('[data-slot="' + s.id + '"]'); if (el) placeSlot(el, s); edPaint(true); }
+      const R = T(), g = RG(s, pg);
+      if (R.x !== g.x || R.y !== g.y || R.w !== g.w || R.h !== g.h){ touch(pg); Object.assign(RG(s, pg), R); const el = pgSec().querySelector('[data-slot="' + s.id + '"]'); if (el) placeSlot(el, s, pg); edPaint(true); }
     }
     document.body.classList.add("ed-drag");
   } else if (D.k === "tile"){
@@ -2744,8 +2856,8 @@ function edMove(e){
     const G = pgGrid(), inside = x >= G.r.left && x <= G.r.right && y >= G.r.top && y <= G.r.bottom;
     D.to = null;
     if (inside){
-      const [c, r] = cellAt(x, y), under = (pg.slots || []).find(v => c >= v.x && c < v.x + v.w && r >= v.y && r < v.y + v.h);
-      if (under) D.to = {k:"into", s:under, R:under};
+      const [c, r] = cellAt(x, y), under = (pg.slots || []).find(v => at(RG(v, pg), c, r));
+      if (under) D.to = {k:"into", s:under, R:RG(under, pg)};
       else { const R = fitAt(pg, TYPES[D.type].size, c, r); if (R) D.to = {k:"new", R}; }
       showPh(D.to ? D.to.R : {x:c, y:r, w:1, h:1}, D.to ? (D.to.k === "into" ? "swap" : "move") : "bad",
         D.to ? (D.to.k === "into" ? (live(under).length ? "Take turns with " + boxName(under) : "Put here") : "") : "No room");
@@ -2761,16 +2873,17 @@ function edUp(){
   document.body.classList.remove("ed-drag"); $("edph").hidden = true; $("edghost").hidden = true;
   if (!D) return;
   if (D.k === "mv"){
-    const s = D.s;
-    if (D.to && D.to.k === "move" && (D.to.R.x !== s.x || D.to.R.y !== s.y)){ remember(); Object.assign(s, D.to.R); relayout(); return; }
+    const s = D.s, pg = curPg(), g = RG(s, pg);
+    if (D.to && D.to.k === "move" && (D.to.R.x !== g.x || D.to.R.y !== g.y)){ remember(); touch(pg); Object.assign(RG(s, pg), D.to.R); relayout(); return; }
     if (D.to && D.to.k === "swap"){       // the two boxes trade places (and sizes)
-      remember(); const o = D.to.with, a = {x:s.x, y:s.y, w:s.w, h:s.h};
-      Object.assign(s, {x:o.x, y:o.y, w:o.w, h:o.h}); Object.assign(o, a); relayout(); return;
+      remember(); touch(pg); const A = RG(s, pg), B = RG(D.to.with, pg), a = {x:A.x, y:A.y, w:A.w, h:A.h};
+      Object.assign(A, {x:B.x, y:B.y, w:B.w, h:B.h}); Object.assign(B, a); relayout(); return;
     }
     edPaint(true); return;
   }
   if (D.k === "rs"){
-    if (JSON.stringify(D.orig) !== JSON.stringify({x:D.s.x, y:D.s.y, w:D.s.w, h:D.s.h})){
+    const g = RG(D.s) || {};
+    if (JSON.stringify(D.orig) !== JSON.stringify({x:g.x, y:g.y, w:g.w, h:g.h})){
       EDIT.hist.push(D.snap); EDIT.fut = []; relayout();
     } else edPaint(true);
     return;
@@ -2779,7 +2892,7 @@ function edUp(){
     if (!D.started) return addTileAnywhere(D.type);          // a tap on a tile in the list
     if (!D.to) return;
     if (D.to.k === "into") addTile(D.type, D.to.s);
-    else addTile(D.type, Object.assign({id:"s" + Date.now().toString(36), mod:null}, D.to.R));
+    else addTile(D.type, {rect:D.to.R});
   }
 }
 addEventListener("pointermove", e => { if (EDIT.on) edMove(e); });
@@ -2805,11 +2918,12 @@ addEventListener("keydown", e => {
   if (k === "Delete" || k === "Backspace"){ e.preventDefault(); removeBox(s); return; }
   const dv = {ArrowLeft:[-1, 0], ArrowRight:[1, 0], ArrowUp:[0, -1], ArrowDown:[0, 1]}[k]; if (!dv) return;
   e.preventDefault();
-  const [mw, mh] = bmin(s), R = {x:s.x, y:s.y, w:s.w, h:s.h};
+  const g = RG(s); if (!g) return;
+  const [mw, mh] = bmin(s), R = {x:g.x, y:g.y, w:g.w, h:g.h};
   if (e.shiftKey){ R.w += dv[0]; R.h += dv[1]; if (R.w < mw || R.h < mh) return; }
   else { R.x += dv[0]; R.y += dv[1]; }
   if (!inGrid(R) || blocked(curPg(), R, s)) return;
-  remember(); Object.assign(s, R); relayout();
+  remember(); touch(curPg()); Object.assign(RG(s), R); relayout();
 });
 
 
