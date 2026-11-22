@@ -4,7 +4,7 @@
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ECHO = /[?&]echo=1/.test(location.search);
-const MOUNTS = {auto:"Automatic", left:"Portrait · left edge up", right:"Portrait · right edge up"};
+const MOUNTS = {auto:"Automatic", landscape:"Landscape", left:"Portrait · left edge up", right:"Portrait · right edge up"};
 const SHELL = ECHO && window.parent !== window;
 let displayMode = "auto";
 let everyday, schema = {}, mods = {}, SRC = {}, KINDS = {}, saveTimer = null, stack = ["root"];
@@ -28,7 +28,7 @@ function applyDisplayMode(mode){
   const changed = displayMode !== mode;
   displayMode = mode;
   if (changed && !ECHO){
-    const height = mode === "auto" ? 1080 : 1920;
+    const height = mode === "left" || mode === "right" ? 1920 : 1080;
     pvSize($("pvsize").querySelector('[data-h="' + height + '"]'));
   }
 }

@@ -227,7 +227,7 @@ function themeFromLayout(key, c){
 function displayScreen(){
   const options = Object.entries(MOUNTS).map(([mode, label]) =>
     '<option value="' + mode + '"' + (mode === displayMode ? " selected" : "") + '>' + label + '</option>').join("");
-  return '<p class="intro">If the dashboard appears sideways, choose which edge of the landscape screen is now at the top.</p>' +
+  return '<p class="intro">Automatic follows the shape of each screen. Pick Landscape or Portrait to keep every page in that orientation. If the dashboard appears sideways on a turned screen, choose which edge of the landscape screen is now at the top.</p>' +
     sec("", '<div class="row col"><label class="t" for="display-orientation">Orientation</label><select id="display-orientation">' + options + '</select></div>',
       "Applies to every display using this dashboard.");
 }
