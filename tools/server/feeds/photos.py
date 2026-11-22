@@ -2,6 +2,7 @@
 import json
 import time
 from urllib.request import Request, urlopen
+from server.feeds.icloud_ck import album_token, is_cloudkit_token, album as ck_album
 
 
 # --- photos: iCloud Shared Album ("Public Website" on), cached 30 minutes ---
@@ -90,8 +91,17 @@ def album_photos(sid=""):
     if PHOTO_CACHE["data"] is not None and time.time() - PHOTO_CACHE["at"] < 1800:
         return PHOTO_CACHE["data"]
     out = {"photos": [], "error": None, "album": ""}
+    token = album_token(link)
+    if is_cloudkit_token(token):            # new-style album (CloudKit share)
+        try:
+            out = ck_album(token)
+        except Exception as e:
+            out["error"] = str(e)[:200]
+        # Apple's download links last ~15 min, so cache 10 min (retry errors after 1 min)
+        PHOTO_CACHE.update(at=time.time() - (1740 if out["error"] else 1200), key=link, data=out)
+        return out
     try:
-        token = link.split("#")[-1].split(";")[0].strip("/")
+        token = album_token(link)
         n = 0
         for ch in (token[1:2] if token[0] == "A" else token[1:3]):
             n = n * 62 + B62.index(ch)
