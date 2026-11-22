@@ -1,0 +1,1 @@
+- **Themes and Effects are in the Library.** The Library now has Themes and Effects next to Layouts and Tiles, with a live preview beside them that follows the theme or effect you're looking at. The Theme and Effects rows in Controls open them there. Using, customizing and scheduling themes, and turning effects on and off, work the same as before.
