@@ -378,7 +378,17 @@ function fxDraftSet(k, v){
   const D = FXDRAFT; if (!D) return;
   if (k === "glyphs"){ const g = (String(v).match(EMO_RE) || []).slice(0, 8); if (!g.length){ toast("Type or paste one or more emoji", "bad"); show(); return; } v = g; }
   if (k === "name") v = String(v).slice(0, 60);
-  D[k] = v; fxRegister(); show();
+  D[k] = v; fxRegister();
+  if (k === "name" || k === "glyphs"){ fxDraftBits(D); return; }        // typed text: don't redraw the screen, or the next tap (Save, a button) is lost
+  show();
+}
+// brings what depends on the typed name or emoji up to date without redrawing the screen
+function fxDraftBits(D){
+  const root = libSub() ? libEl() : document, big = root.querySelector(".big");
+  if (big && D.isNew !== true) big.textContent = D.name;
+  const g = root.querySelector('input[data-fxd="glyphs"]'); if (g && g.previousElementSibling){ const b = g.previousElementSibling.querySelector("b"); if (b) b.textContent = D.glyphs.join(" "); }
+  const bar = root.querySelector(".draftbar");
+  if (bar){ const sp = bar.querySelector("span"), sv = bar.querySelector('[data-fxa="save"]'); if (sp) sp.textContent = D.isNew ? "Not saved yet" : "Unsaved changes"; if (sv) sv.disabled = !fxDirty(); }
 }
 
 /* ----- sharing a theme or one of your own effects as a small file ----- */
@@ -536,7 +546,8 @@ function lookChange(t){
   if (d.fxd){ if (d.fxd !== "from" && d.fxd !== "to"){ fxDraftSet(d.fxd, t.value); return true; }
     const r = t.closest(".row"), m = r.querySelector('[data-t="md-m"]').value, dd = parseInt(r.querySelector('[data-t="md-d"]').value, 10);
     fxDraftSet(d.fxd, m ? m + "-" + (dd ? Math.max(1, Math.min(31, dd)) : 1) : ""); return true; }      // a month on its own starts on the 1st
-  if (d.lk === "__name"){ if (DRAFT && DRAFT.id === d.lid){ DRAFT.name = t.value; show(); } return true; }
+  if (d.lk === "__name"){ if (DRAFT && DRAFT.id === d.lid){ DRAFT.name = t.value; const bar = (libSub() ? libEl() : document).querySelector(".draftbar");     // no redraw: it would swallow the next tap
+      if (bar){ const sp = bar.querySelector("span"), sv = bar.querySelector('[data-lact="save"]'); if (sp) sp.textContent = "Unsaved changes"; if (sv) sv.disabled = !draftDirty(); } } return true; }
   if (d.lk){ let v = t.value; if (t.type === "range") v = +v; lookSet(d.lid, d.lk, v); if (t.type === "range"){ const s = t.nextElementSibling; if (s) s.textContent = v + "%"; } show(); return true; }
   if (d.rk){ const r = ruleById(d.rid); r.when = r.when || {};
     if (d.rk === "look") r.look = t.value; else if (d.rk === "dFrom" || d.rk === "dTo") r.when[d.rk] = mdVal(t); else r.when[d.rk] = t.value || "";
