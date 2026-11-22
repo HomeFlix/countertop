@@ -1,1 +1,0 @@
-- **Add several tiles in a row.** In the on-screen editor, **Add a tile** now stays open after you add one, so you can fill a page in one go. The new tile is highlighted; tap any tile on the page to change its settings.

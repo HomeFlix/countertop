@@ -1,1 +1,0 @@
-- **Server code split into smaller files.** The server now lives in `tools/server/`, one file per area, instead of one 3,000-line file. It starts the same way (`python3 tools/countertop.py`) and behaves the same.

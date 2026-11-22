@@ -1,1 +1,0 @@
-- **Portrait layouts.** When your screen is in portrait, the editor shows a tall page on a portrait grid, so you can arrange each page for portrait. Pages start from an automatic arrangement of the landscape layout, and the landscape layout is kept for when the screen is turned back.

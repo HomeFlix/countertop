@@ -1,1 +1,0 @@
-- **Share a layout.** Save any layout as a small .countertop file or a share code, and open one in Library › Import a file. Calendars, lists and other sources, your own text and Home Assistant devices are left out; whoever opens it picks their own.

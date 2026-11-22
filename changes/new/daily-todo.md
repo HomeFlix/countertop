@@ -1,1 +1,0 @@
-- **Daily to-do tile.** A checklist for the day that you add to and tick off right on the screen. Each morning the ticks clear and the items stay. Every Daily to-do tile keeps its own list.

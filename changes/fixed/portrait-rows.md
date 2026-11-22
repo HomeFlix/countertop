@@ -1,1 +1,0 @@
-- **Portrait layout.** Side-by-side boxes keep their left-to-right order on a tall screen, and a box with nothing to show right now (like radar waiting for rain) no longer leaves an empty row.

@@ -1,1 +1,0 @@
-- **Add tile on a full page.** When a page has no room, adding a tile now says the page is full instead of quietly making it take turns inside an existing box.

@@ -1,1 +1,0 @@
-- **Community errors.** When the gallery's list can't be read, Community says so in plain words.

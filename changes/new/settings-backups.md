@@ -1,1 +1,0 @@
-- **Settings backups.** Countertop keeps recent copies of your settings in the data folder's `backups` folder. If the settings file is ever damaged, it is kept aside and the last good copy is put back, instead of starting over. Status in Controls says when that happens.

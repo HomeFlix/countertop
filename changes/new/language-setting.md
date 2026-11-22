@@ -1,1 +1,0 @@
-- **Language setting.** Choose English or French under Settings → Language and formats. The dashboard's weather, dates, times, greeting and tile names switch to French. Controls stays in English for now.

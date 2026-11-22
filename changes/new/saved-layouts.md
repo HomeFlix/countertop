@@ -1,1 +1,0 @@
-- **Saved layouts and full-screen pages.** Changing Main's layout keeps the old one in Saved layouts, where you can put it back, add it as a page or delete it. Add page has a new Full-screen tab with a month calendar, the next hours, deals and a photo frame.

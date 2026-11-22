@@ -1,1 +1,0 @@
-- **The Week ahead tile says "Nothing else today" on a free day**, instead of "Nothing else on", and it is now translated.

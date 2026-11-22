@@ -1,1 +1,0 @@
-- **Release notes can open with a story.** Bigger releases can start with a plain-language introduction and screenshots, followed by the usual New, Changed and Fixed notes.
