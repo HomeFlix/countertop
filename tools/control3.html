@@ -204,6 +204,8 @@
   .lchip{padding:6px 13px;border-radius:99px;background:var(--group);color:var(--dim);font-size:14px}
   .lchip.on{background:var(--fg);color:#111}
   .lh{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin:6px 0 10px}
+  .lpick{display:flex;align-items:center;gap:14px;background:#1b2636;border:1px solid #2e3b4b;border-radius:14px;padding:12px 14px;margin:0 0 14px}
+  .lpick > div{flex:1} .lpick b{display:block;font-size:17px} .lpick small{display:block;color:var(--dim);font-size:13px;margin-top:2px}
   .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;margin-bottom:26px}
   .lgrid.tiles{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
   .lc{background:var(--group);border-radius:14px;overflow:hidden;text-align:left;display:flex;flex-direction:column;position:relative}
@@ -422,7 +424,7 @@ function rootScreen(){
     CP.map(p => row({t:p.name, sub:pageShort(p), chev:true, attrs:'data-go="page:' + p.id + '" data-pid="' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : "",
       pre:(CP.length > 1 && !ECHO ? '<span class="grip" data-grip="' + p.id + '" title="Drag to change the order" aria-hidden="true">⋮⋮</span>' : "") + pagePic(p, null, "pthumb")})).join("") +
     row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
-    row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-go="newpage"'}),
+    row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-act="libpick" data-id="page"'}),
     "Swipe left and right on the screen to move between pages. The night page takes over the screen overnight." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
   h += sec("Style", row({t:"Theme", sub:"Showing now: " + lookName(curLook()) + (rules().some(r => r.on !== false && lookById(r.look)) ? " · changes on a schedule" : ""), chev:true, attrs:'data-go="looks"',
       pre:'<span class="tthumb">' + lookPic(lookVals(curLook())) + '</span>'}) +
@@ -486,7 +488,7 @@ const STARTERS = {
 };
 const GROUPS = [["dash", "Dashboards"], ["full", "Full-screen"], ["grid", "Empty grids"], ["saved", "Saved"]];
 const starterGroup = s => s.grid ? "grid" : s.full ? "full" : "dash";
-let galTab = "dash", galLook = null;     // galLook: null = the default for where it's going
+let galTab = "dash";
 // one choice in the gallery: a starter, or "saved:<page id>" for a saved layout
 function choiceOf(id){
   if (id === "import"){        // a layout opened in Library › Import a file
@@ -522,14 +524,6 @@ function starterGallery(selected, where = "page"){
     '<b>' + esc(s.name) + '</b><small>' + esc(s.sub) + '</small></button>').join("") + '</div>' +
     (selected && choiceOf(selected) ? '<div class="compactpreview">' + starterPreview(selected) + '</div>' : '');
 }
-// does picking this also bring its colors and background? Only dashboards and saved layouts have their own look.
-const hasLook = id => { const c = choiceOf(id); return !!(c && c.look); };
-const useLook = (id, where) => hasLook(id) && (galLook === null ? where !== "page" : galLook);
-function lookSwitch(id, where){
-  if (!hasLook(id)) return "";
-  return sec("", row({t:"Switch to its colors and background", sub: useLook(id, where) ? "Changes the theme of every page" : "Off: keeps your current theme (" + lookName(curLook()) + ")",
-    post: sw(useLook(id, where), 'data-act="gallook"')}));
-}
 function sameEverydayLayout(){
   const main = gpAll().find(p => p.id === "main");
   const layout = (page, tiles) => page.slots.map(slot => {
@@ -542,7 +536,8 @@ function sameEverydayLayout(){
 }
 const newUid = () => "p" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const mainDated = () => "Main, " + new Date().toLocaleDateString(undefined, {month:"short", day:"numeric"});
-const lookSnap = () => Object.fromEntries(LOOK_KEYS.filter(k => LS()[k] !== undefined).map(k => [k, LS()[k]]));
+// the colors of the theme in use, kept with a saved layout (and shared with it); theme: which theme that was
+const lookSnap = () => { const v = lookVals(usedLook()); return Object.fromEntries(LOOK_KEYS.filter(k => v[k] !== undefined).map(k => [k, v[k]])); };
 function uniqueName(base){
   const names = new Set(gpAll().map(p => p.name));
   let n = base; for (let i = 2; names.has(n); i++) n = base + " (" + i + ")";
@@ -570,13 +565,13 @@ function cloneSlots(slots, uid, tiles = tileList()){
 function keepMain(why){
   const main = gpAll().find(p => p.id === "main");
   if (!main.slots.length) return;
-  gpAll().push({id:newUid(), name:uniqueName(why ? "Main before " + why : mainDated()), cols:GC, slots:main.slots, on:false, saved:true, look:lookSnap(), at:Date.now()});
+  gpAll().push({id:newUid(), name:uniqueName(why ? "Main before " + why : mainDated()), cols:GC, slots:main.slots, on:false, saved:true, look:lookSnap(), theme:usedLook(), at:Date.now()});
 }
 function installStarter(key, onMain, withLook = onMain){
   const c = choiceOf(key); if (!c) return;
   const pages = gpAll(), main = pages.find(p => p.id === "main"), uid = newUid();
   const page = {id:uid, name:c.grid ? "Page " + (cpList().length + 2) : c.pageName || c.name, cols:GC, slots:[], on:true, back:c.back || 0};
-  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved || c.imported ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); LS().use = ""; };
+  const applyLook = () => { if (withLook && c.look) themeFromLayout(key, c); };
   if (c.saved) page.slots = cloneSlots(c.page.slots, uid);
   else if (key === "everyday"){
     if (onMain && sameEverydayLayout()){ applyLook(); return; }
@@ -609,14 +604,28 @@ function installStarter(key, onMain, withLook = onMain){
   main.slots = page.slots;
   applyLook();
 }
-let selectedStarter = "everyday";
-function starterScreen(){
-  const c = choiceOf(selectedStarter);
-  return '<div class="big">Change Main\'s layout</div><p class="intro">Pick a dashboard or an empty grid for Main. Its current layout is kept in Saved layouts.</p>' +
-    starterGallery(selectedStarter, "main") + lookSwitch(selectedStarter, "main") +
-    (c ? '<div class="saverow"><button class="pri" data-act="startermain">Use ' + esc(c.name) + ' on Main</button></div>' : '');
+// A layout's colors come in as a theme of its own and become the theme in use, so Everyday is never written over.
+// Using the same layout again reuses its theme; colors that match a theme you already have use that theme.
+function layoutTheme(key, c){            // the theme a layout would bring: {id} of one you have, or {name, values} for a new one
+  if (key === "everyday") return {id:"default"};
+  if (c.saved && c.page.theme && (c.page.theme === "default" || lookById(c.page.theme))) return {id:c.page.theme};
+  const from = c.saved ? "saved:" + c.page.id : c.imported ? "" : "starter:" + key;
+  const had = from && looks().find(x => x.from === from); if (had) return {id:had.id};
+  const values = Object.assign(lookVals("default"), c.saved || c.imported ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look);
+  const same = ["default"].concat(looks().map(x => x.id)).find(id => { const v = lookVals(id); return LOOK_KEYS.every(k => String(v[k]) === String(values[k])); });
+  if (same) return {id:same};
+  return {name:c.name, values, from};
 }
-
+const layoutThemeName = (key, c) => { const T = layoutTheme(key, c); return T.id ? lookName(T.id) : T.name; };
+function themeFromLayout(key, c){
+  const T = layoutTheme(key, c);
+  if (T.id){ LS().use = T.id === "default" ? "" : T.id; return; }
+  const names = new Set(looks().map(x => x.name)); let name = T.name;
+  for (let i = 2; names.has(name) || name === "Everyday"; i++) name = T.name + " " + i;
+  const id = "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), t = {id, name, values:T.values};
+  if (T.from) t.from = T.from;
+  looks().push(t); LS().use = id;
+}
 function displayScreen(){
   const options = Object.entries(MOUNTS).map(([mode, label]) =>
     '<option value="' + mode + '"' + (mode === displayMode ? " selected" : "") + '>' + label + '</option>').join("");
@@ -827,19 +836,13 @@ function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Ech
   delArm = id; toast("Tap Delete again to remove this " + K.one, "bad"); setTimeout(() => { if (delArm === id) delArm = ""; }, 4000);
   return false;
 }
-function newPageScreen(){
-  const c = choiceOf(selectedStarter);
-  return '<div class="big">Add page</div><p class="intro">A new page to swipe to. Every page shares the same theme.</p>' +
-    starterGallery(selectedStarter, "page") + lookSwitch(selectedStarter, "page") +
-    (c ? '<div class="saverow"><button class="pri" data-act="starterpage">Add ' + esc(c.name) + '</button></div>' : '');
-}
 function mainScreen(){
   const main = gpAll().find(p => p.id === "main");
   let h = '<div class="big">Main</div><p class="intro">The page the screen starts on, and comes back to from other pages.</p>';
     const nt = [].concat(...main.slots.map(smods)).length, nb = main.slots.length;
   h += sec("Layout", '<div class="row">' + pagePic(main, null, "pthumb") + '<div class="t"><b>' + nt + (nt === 1 ? " tile" : " tiles") + " in " + nb + (nb === 1 ? " box" : " boxes") + '</b><small>' + esc(pageSummary(main)) + '</small></div></div>' +
     (ECHO ? "" : '<button class="btnrow blue" data-act="edit" data-id="main">Edit Main on screen</button>') +
-    row({t:"Change layout", sub:"Use a premade dashboard, an empty grid or a saved layout", chev:true, attrs:'data-go="starters"'}) +
+    row({t:"Change layout", sub:"Pick a premade dashboard, an empty grid or a saved layout in the Library", chev:true, attrs:'data-act="libpick" data-id="main"'}) +
     row({t:"Save a copy", sub:"Keep this layout in My layouts, and carry on editing Main", chev:true, attrs:'data-act="savemain"'}) +
     row({t:"Browse the Library", sub:"Your saved layouts, every premade layout, sharing and importing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
     ECHO ? "To change tiles, press Done and hold any tile on the screen." : "");
@@ -875,9 +878,9 @@ function act(a, id){
   const p = cpById(id);
   if (a === "echoedit"){ location.href = displayHref(true); return; }
   if (a === "lib"){ libOpen(id); return; }
+  if (a === "libpick"){ libOpen("layouts"); LIB.pick = id; LIB.chip = "all"; libShow(); return; }      // Add page, Change layout: pick in the Library
   if (a === "pickstarter"){
-    if (stack[stack.length - 1] === "wiz") WIZ.starter = id;
-    else selectedStarter = id;
+    WIZ.starter = id;
     show();
     document.querySelector('[data-act="pickstarter"][aria-pressed="true"]').focus({preventScroll:true});
     const preview = document.querySelector(".compactpreview");
@@ -885,22 +888,9 @@ function act(a, id){
     return;
   }
   if (a === "galtab"){ galTab = id; show(); return; }
-  if (a === "gallook"){ const where = stack[stack.length - 1] === "starters" ? "main" : "page"; galLook = !useLook(selectedStarter, where); show(); return; }
-  if (a === "starterpage" || a === "startermain"){
-    const starter = choiceOf(selectedStarter);
-    if (!starter) return;
-    const onMain = a === "startermain";
-    const pid = installStarter(selectedStarter, onMain, useLook(selectedStarter, onMain ? "main" : "page"));
-    selectedStarter = "everyday"; galTab = "dash"; galLook = null; stack.pop(); save();
-    if (pid){
-      go("page:" + pid);
-      if (!ECHO && starter.grid) PV.editPage = pid;
-    } else { if (onMain) toast("Main's old layout is in Saved layouts", "ok"); show(); }
-    return;
-  }
   if (a === "savemain"){
     const main = gpAll().find(x => x.id === "main"), uid = newUid();
-    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), at:Date.now()});
+    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), theme:usedLook(), at:Date.now()});
     save(); toast("Saved a copy in Saved layouts", "ok"); show(); return;
   }
   if (a === "savedmain" || a === "savedpage"){
@@ -952,9 +942,7 @@ function show(){
   else if (cur === "display"){ h = displayScreen(); title = "Screen orientation"; }
   else if (cur === "status"){ h = statusScreen(); title = "Status"; }
   else if (cur === "wiz"){ h = wizScreen(); title = "Set up"; }
-  else if (cur === "starters"){ h = starterScreen(); title = "Change layout"; }
   else if (cur === "saved"){ h = savedScreen(); title = "Saved layouts"; }
-  else if (cur === "newpage"){ h = newPageScreen(); title = "Add page"; }
   else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = cur === "page:main" ? "Main" : p ? p.name : "Page"; }
   else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
   else if (cur.startsWith("srci:")){ const [, k, id] = cur.split(":"); h = srcItemScreen(k, id); title = KINDS[k] ? KINDS[k].title : ""; }
@@ -972,8 +960,7 @@ function show(){
   else { const m = cur.slice(4); h = schema[m] ? modScreen(m) : ""; title = schema[m] ? schema[m].title : ""; }
   $("screen").innerHTML = h;
   if (document.getElementById("llitems")) llRefresh();      // a list's items, ready to edit
-  const choice = cur === "newpage" || cur === "starters" ? selectedStarter :
-    cur === "wiz" && WIZ.step === 4 ? WIZ.starter || (sameEverydayLayout() ? "everyday" : "") : "";
+  const choice = cur === "wiz" && WIZ.step === 4 ? WIZ.starter || (sameEverydayLayout() ? "everyday" : "") : "";
   $("starterpv").innerHTML = choice && choiceOf(choice) ? starterPreview(choice) : "";
   document.body.classList.toggle("showstarter", !!(choice && choiceOf(choice)));
   if (!choice && !ECHO) pvFit();
@@ -982,7 +969,7 @@ function show(){
   const prev = stack[stack.length - 2];
   const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Themes", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New theme"};
   $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? "Customize" : prev.startsWith("theme:") ? lookName(prev.slice(6)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
-    prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "newpage" ? "Add page" : prev === "saved" ? "Saved layouts" : "Back";
+    prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "saved" ? "Saved layouts" : "Back";
   const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
   if (!cur.startsWith("look:") && DRAFT) DRAFT = null;          // left the Customize screen (Save, Cancel or back): the draft is gone
   if (!ECHO && cur.startsWith("look:")){ if (!PV.trial) draftPreview(true); }
@@ -990,7 +977,7 @@ function show(){
   fxPreviews();
   if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
 }
-function go(to){ if (to === "newpage" || to === "starters"){ galTab = "dash"; galLook = null; } stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
+function go(to){ stack.push(to); show(); scrollTo(0, 0); if (to === "status") statusLoad(); }
 /* ---------- Status: is everything working, is there a new version, and a diagnostics file for bug reports ---------- */
 let STATUS = null;
 async function statusLoad(check){
@@ -2120,7 +2107,7 @@ document.addEventListener("click", e => {
    A layout can be tried on the screen for two minutes, or shared as a small .countertop file or share code.
    Shared layouts are plain data: which calendars, lists and other sources a tile uses, and settings marked
    share:false in a tile file (your own text, picture links), are left out; whoever opens the file picks their own. */
-const LIB = {view:"layouts", item:"", q:"", addTo:"main", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
+const LIB = {view:"layouts", item:"", pick:"", q:"", addTo:"main", chip:"all", look:true, slots:{}, imp:null, impErr:"", pvKey:"", pvId:"", trialEnd:0, share:{name:"", desc:""}};
 const LIB_CATS = ["Time", "Weather", "Calendar", "Lists & food", "Home", "Sports", "Photos & video", "Around you", "Money", "Fun", "Your own"];
 let DEFS = {};            // tile type -> its definition (title, cat, desc, size, settings), read from the tile files
 const defsLoad = fetch("/tiles.js").then(r => r.text()).then(txt => {
@@ -2136,13 +2123,14 @@ function libOpen(view){
   defsLoad.then(libShow); libShow();
 }
 function libClose(){
+  LIB.pick = "";
   libEl().hidden = true; document.body.classList.remove("libopen");
   LIB.item = ""; LIB.pvKey = ""; const f = libEl().querySelector(".lbig iframe"); if (f) f.src = "about:blank";
 }
 function libGo(view, item){ LIB.view = view; LIB.item = item || ""; libShow(); libEl().querySelector(".lmain").scrollTop = 0; }
 
 // the layouts on offer: [key, choice]; keys are starter ids, "saved:<page id>" or "import"
-const libBuiltIn = () => Object.entries(STARTERS).filter(([, s]) => !s.grid && (!s.needs || schema[s.needs]));
+const libBuiltIn = () => Object.entries(STARTERS).filter(([, s]) => (!s.grid || LIB.pick) && (!s.needs || schema[s.needs]));      // empty grids only when picking for a page
 const libSaved = () => savedList().map(p => ["saved:" + p.id, choiceOf("saved:" + p.id)]);
 function libMatch(c){
   const q = LIB.q.trim().toLowerCase();
@@ -2164,11 +2152,17 @@ function libRail(){
     '<div class="lsep">Yours</div>' + item("mine", "My layouts", savedList().length) +
     '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file");
 }
+// Add page and Change layout open the Library to pick: a bar says what the pick is for
+function libPickBar(){
+  if (!LIB.pick) return "";
+  return '<div class="lpick"><div><b>' + (LIB.pick === "main" ? "Pick a new layout for Main" : "Pick a layout for a new page") + '</b><small>' +
+    (LIB.pick === "main" ? "Main's current layout is kept in My layouts, so you can switch back." : "A dashboard, a full-screen page or an empty grid.") + '</small></div><button class="lbtn" data-l="close">Cancel</button></div>';
+}
 function libLayouts(){
   const mineOnly = LIB.view === "mine";
-  let h = '<div class="ltop"><input type="search" data-l="q" placeholder="Search layouts" value="' + esc(LIB.q) + '">' +
-    '<button class="lbtn" data-l="view" data-id="import">Import a file</button><button class="lbtn pri" data-l="savemain">Save current Main</button></div>';
-  if (!mineOnly) h += '<div class="lchips">' + [["all", "All"], ["mine", "Saved"], ["dash", "Dashboards"], ["full", "Full screen"]].map(([k, l]) =>
+  let h = libPickBar() + '<div class="ltop"><input type="search" data-l="q" placeholder="Search layouts" value="' + esc(LIB.q) + '">' +
+    '<button class="lbtn" data-l="view" data-id="import">Import a file</button>' + (LIB.pick ? "" : '<button class="lbtn pri" data-l="savemain">Save current Main</button>') + '</div>';
+  if (!mineOnly) h += '<div class="lchips">' + [["all", "All"], ["mine", "Saved"], ["dash", "Dashboards"], ["full", "Full screen"]].concat(LIB.pick ? [["grid", "Empty grids"]] : []).map(([k, l]) =>
     '<button class="lchip' + (LIB.chip === k ? " on" : "") + '" data-l="chip" data-id="' + k + '">' + l + '</button>').join("") + '</div>';
   const S = libSaved().filter(([, c]) => libMatch(c));
   if (mineOnly || LIB.chip === "all" || LIB.chip === "mine"){
@@ -2176,7 +2170,7 @@ function libLayouts(){
     h += S.length ? '<div class="lgrid">' + S.map(([k, c]) => libCard(k, c, c.page.at ? new Date(c.page.at).toLocaleDateString(undefined, {month:"short", day:"numeric"}) : "")).join("") + '</div>'
       : '<div class="lempty">' + (LIB.q ? "No saved layouts match." : "Nothing saved yet. Save current Main keeps a copy here, and so does changing Main's layout.") + '</div>';
   }
-  if (!mineOnly) for (const [g, label] of [["dash", "Built in"], ["full", "Full screen"]]){
+  if (!mineOnly) for (const [g, label] of [["dash", "Built in"], ["full", "Full screen"], ["grid", "Empty grids"]]){
     if (LIB.chip !== "all" && LIB.chip !== g) continue;
     const L = libBuiltIn().filter(([, s]) => starterGroup(s) === g && libMatch(s));
     if (L.length) h += '<div class="lh">' + label + '</div><div class="lgrid">' + L.map(([k, c]) => libCard(k, c, g === "full" ? "Full screen" : "")).join("") + '</div>';
@@ -2245,7 +2239,7 @@ function libTrialBody(key){
   const real = mods; mods = JSON.parse(JSON.stringify(real));
   try{
     installStarter(key, true, LIB.look && libHasLook(key));
-    const look = {}; for (const k in LS()) if (k !== "items" && k !== "rules") look[k] = LS()[k];
+    const look = Object.assign(lookVals(usedLook()), {use:""});        // the theme it would show, as the trial's own colors
     return {pages:gpAll(), tiles:tileList(), look, name:(choiceOf(key) || {}).name || "Layout"};
   }finally{ mods = real; }
 }
@@ -2280,12 +2274,12 @@ function libLayoutItem(key){
   const c = choiceOf(key); if (!c) return '<div class="lempty">That layout isn\'t here any more.</div>';
   const saved = key.startsWith("saved:"), imp = key === "import";
   const p = saved ? c.page : null, nT = saved ? [].concat(...p.slots.map(smods)).length : 0;
-  let h = '<button class="lback" data-l="view" data-id="' + (imp ? "import" : LIB.view) + '">‹ ' + (imp ? "Import" : LIB.view === "mine" ? "My layouts" : "Layouts") + '</button>';
+  let h = libPickBar() + '<button class="lback" data-l="view" data-id="' + (imp ? "import" : LIB.view) + '">‹ ' + (imp ? "Import" : LIB.view === "mine" ? "My layouts" : "Layouts") + '</button>';
   h += '<div class="ldet"><div><div class="lbig' + (displayMode === "auto" ? "" : " port") + '">' + libPic(key) + (ECHO ? "" : '<iframe tabindex="-1" aria-hidden="true" title="Live preview"></iframe>') + '</div>' +
     (ECHO ? "" : '<p class="lnote">Live preview with your own weather, calendars and lists.</p>') + '</div><div>';
   if (saved) h += '<input class="lname" type="text" data-l="rename" data-id="' + p.id + '" value="' + esc(p.name) + '" aria-label="Name">' +
     '<div class="lsub">Saved ' + (p.at ? new Date(p.at).toLocaleDateString(undefined, {month:"long", day:"numeric"}) : "earlier") + ' · ' + nT + (nT === 1 ? " tile" : " tiles") + '</div>';
-  else h += '<h2 class="ltitle">' + esc(c.name) + '</h2><div class="lsub">' + (imp ? "From a shared file" + (LIB.imp.made ? " · made " + esc(LIB.imp.made) : "") : c.full ? "Full screen · built in" : "Built in") + '</div>';
+  else h += '<h2 class="ltitle">' + esc(c.name) + '</h2><div class="lsub">' + (imp ? "From a shared file" + (LIB.imp.made ? " · made " + esc(LIB.imp.made) : "") : c.full ? "Full screen · built in" : c.grid ? "Empty grid" : "Built in") + '</div>';
   h += '<p class="ldesc">' + esc(imp ? LIB.imp.desc : saved ? pageSummary(p) : c.sub) + '</p>';
   if (imp){
     h += libSlotRows();
@@ -2294,8 +2288,10 @@ function libLayoutItem(key){
     if (LIB.imp.code) warn.push(["Has a tile with its own code", "It runs sealed off from the rest of the dashboard, like every Your own tile."]);
     if (warn.length) h += '<div class="lpanel">' + warn.map(([t, s]) => '<div class="lrow"><div class="t">' + esc(t) + '<small>' + esc(s) + '</small></div></div>').join("") + '</div>';
   }
-  if (libHasLook(key)) h += '<div class="lpanel"><div class="lrow"><div class="t">Switch to its colors and background<small>' + (LIB.look ? "Changes the theme of every page" : "Off: keeps your current theme") + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>';
-  h += '<div class="lact"><button class="lbtn pri" data-l="use" data-id="main">Use on Main</button><button class="lbtn" data-l="use" data-id="page">Add as a new page</button></div>';
+  if (libHasLook(key)){ const tn = layoutThemeName(key, c);
+    h += '<div class="lpanel"><div class="lrow"><div class="t">Comes with the ' + esc(tn) + ' theme<small>' + (LIB.look ? (lookById(layoutTheme(key, c).id) || layoutTheme(key, c).id === "default" ? "On: switches to " + esc(tn) + ", which you already have." : "On: adds " + esc(tn) + " to your themes and shows it. Everyday stays as it is.") : "Off: keeps " + esc(lookName(curLook()))) + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>'; }
+  h += '<div class="lact">' + (LIB.pick === "page" ? "" : '<button class="lbtn pri" data-l="use" data-id="main">Use on Main</button>') +
+    (LIB.pick === "main" ? "" : '<button class="lbtn' + (LIB.pick === "page" ? " pri" : "") + '" data-l="use" data-id="page">Add as a new page</button>') + '</div>';
   h += '<div class="lact"><button class="lbtn ghost" data-l="try">' + (LIB.trialEnd > Date.now() ? "Stop trying it on the screen" : "Try it on the screen for 2 minutes") + '</button></div>';
   if (imp) h += '<div class="lact"><button class="lbtn" data-l="keep">Save to My layouts</button></div>';
   if (saved) h += '<div class="lact"><button class="lbtn" data-l="dup" data-id="' + p.id + '">Duplicate</button><button class="lbtn" data-l="view" data-id="share" data-item="saved:' + p.id + '">Share</button><button class="lbtn red" data-l="del" data-id="' + p.id + '">Delete</button></div>';
@@ -2490,7 +2486,7 @@ function libUse(key, onMain){
   const c = choiceOf(key); if (!c) return;
   const pid = installStarter(key, onMain, LIB.look && libHasLook(key));
   save(); libClose(); stack = ["root"];
-  if (pid) go("page:" + pid);
+  if (pid){ go("page:" + pid); if (!ECHO && c.grid) PV.editPage = pid; }        // an empty grid: straight into the editor to fill it
   else { toast("Your old Main is in My layouts", "ok"); show(); }
 }
 async function libTry(key){
@@ -2561,7 +2557,7 @@ function libTap(t){
   if (a === "open"){ LIB.look = true; LIB.pvKey = ""; libGo(LIB.view, d.id); return; }
   if (a === "savemain"){
     const main = gpAll().find(x => x.id === "main"), uid = newUid();
-    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), at:Date.now()});
+    gpAll().push({id:uid, name:uniqueName(mainDated()), cols:GC, slots:cloneSlots(main.slots, uid), on:false, saved:true, look:lookSnap(), theme:usedLook(), at:Date.now()});
     save(); toast("Saved a copy of Main in My layouts", "ok"); libShow(); return;
   }
   if (a === "look"){ LIB.look = !LIB.look; libShow(); return; }
