@@ -39,7 +39,7 @@ const shot = async (p, name, o) => { await fixIP(p); await p.screenshot(Object.a
   p = await open(b, '/dash/content', {nofx:true}); await p.evaluate(() => dashEdit(true)); await p.waitForTimeout(1200);
   await p.mouse.click(250, 120); await p.waitForTimeout(1000); await p.click('[data-act="dznew"]'); await p.waitForTimeout(1500); await shot(p, 'designer');
   p = await open(b, '/control', {w:1600, h:1000}); await shot(p, 'controls');
-  for (const [go, name] of [['mod:general', 'controls-location'], ['looks', 'controls-looks'], ['effects', 'controls-effects'], ['night', 'controls-night'], ['newpage', 'controls-newpage']]){
+  for (const [go, name] of [['mod:general', 'controls-location'], ['looks', 'controls-looks'], ['effects', 'controls-effects'], ['night', 'controls-night']]){
     await p.evaluate(g => document.querySelector('[data-go="' + g + '"]').click(), go); await p.waitForTimeout(1500); await shot(p, name);
     await p.evaluate(() => { const e = [...document.querySelectorAll('button,a')].find(x => /^‹/.test(x.textContent.trim())); if (e) e.click(); }); await p.waitForTimeout(800);
   }

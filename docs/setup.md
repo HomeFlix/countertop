@@ -59,9 +59,9 @@ On an Echo Show, open Silk, bookmark the dashboard, and tap the page once to sta
 
 The first time you open Controls, a short setup guide asks for your location, a calendar, your grocery list and a dashboard layout. You can skip it and come back from **Controls → Status → Run the setup guide again**. Everyday uses the fresh-install layout. Selecting a template shows a larger example using sample data. Choose **Start from scratch** for an empty page. Find these options again in **Controls → Pages**:
 
-- **Add page** adds a page to swipe to. Choose a dashboard, a **Full-screen** page with one big tile (a month calendar, the next hours, deals or a photo frame), or an empty grid.
-- Tap **Main**, then **Change layout**, to give your start page a different layout. Your old layout goes to **Saved layouts**, where you can put it back on Main, add it as a page or delete it. **Save a copy** keeps the current layout there too.
-- A dashboard can bring its own colors and background. Use the **Switch to its colors and background** option to choose. Themes apply to every page, and scheduled themes still take effect at their usual times.
+- **Add page** opens the Library to pick a page to swipe to: a dashboard, a **Full-screen** page with one big tile (a month calendar, the next hours, deals or a photo frame), or an empty grid.
+- Tap **Main**, then **Change layout**, to pick a different layout for your start page in the Library. Your old layout goes to **My layouts**, where you can put it back on Main, add it as a page or delete it. **Save a copy** keeps the current layout there too.
+- A dashboard can come with its own theme. Leave **Comes with the … theme** on to add that theme and use it; your Everyday theme stays as it is, and you can switch back in **Controls → Theme**. Themes apply to every page, and scheduled themes still take effect at their usual times.
 - Drag **⋮⋮** to change the order of your pages. Open a page to turn it off or delete it.
 
 Your location and formats live in **Controls → Settings**: search for your town under **Location**, and pick your language, temperature and time formats under **Language and formats**.
