@@ -46,7 +46,7 @@ function libRail(){
   const item = (v, label, n) => '<button data-l="view" data-id="' + v + '"' + (LIB.view === v ? ' class="on"' : "") + '>' + label + (n != null ? '<small>' + n + '</small>' : "") + '</button>';
   return '<button class="lback" data-l="close">‹ Controls</button><h1>Library</h1>' +
     item("layouts", "Layouts", libBuiltIn().length + savedList().length) + item("tiles", "Tiles", Object.keys(DEFS).length || "") +
-    item("themes", "Themes", looks().length + 1) + item("effects", "Effects", FXLIB.L.filter(d => fxC(d.id).on).length + " on") +
+    item("themes", "Themes", looks().length + 1) + item("effects", "Effects", FXLIB.L.filter(d => !(FXDRAFT && FXDRAFT.isNew && d.id === FXDRAFT.id) && fxC(d.id).on).length + " on") +
     '<div class="lsep">Yours</div>' + item("mine", "My layouts", savedList().length) +
     '<div class="lsep">Make</div>' + item("share", "Share a layout") + item("import", "Import a file") +
     '<div class="lsep">Community</div>' + item("community", "Browse community", COMM.data && commUpdates() ? commUpdates() + " new" : null);
@@ -188,13 +188,13 @@ function libLayoutItem(key){
     if (warn.length) h += '<div class="lpanel">' + warn.map(([t, s]) => '<div class="lrow"><div class="t">' + esc(t) + '<small>' + esc(s) + '</small></div></div>').join("") + '</div>';
   }
   if (libHasLook(key)){ const tn = layoutThemeName(key, c);
-    h += '<div class="lpanel"><div class="lrow"><div class="t">Comes with the ' + esc(tn) + ' theme<small>' + (LIB.look ? (lookById(layoutTheme(key, c).id) || layoutTheme(key, c).id === "default" ? "On: switches to " + esc(tn) + ", which you already have." : "On: adds " + esc(tn) + " to your themes and shows it. Everyday stays as it is.") : "Off: keeps " + esc(lookName(curLook()))) + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>'; }
+    h += '<div class="lpanel"><div class="lrow"><div class="t">Comes with the ' + esc(tn) + ' theme<small>' + (LIB.look ? (lookById(layoutTheme(key, c).id) || layoutTheme(key, c).id === "default" ? "On: switches to " + esc(tn) + ", which you already have." : "On: adds " + esc(tn) + " to your themes and shows it. " + esc(lookName(curLook())) + " stays as it is.") : "Off: keeps " + esc(lookName(curLook()))) + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>'; }
   h += '<div class="lact">' + (LIB.pick === "page" ? "" : '<button class="lbtn pri" data-l="use" data-id="main">Use on Main</button>') +
     (LIB.pick === "main" ? "" : '<button class="lbtn' + (LIB.pick === "page" ? " pri" : "") + '" data-l="use" data-id="page">Add as a new page</button>') + '</div>';
   h += '<div class="lact"><button class="lbtn ghost" data-l="try">' + (LIB.trialEnd > Date.now() ? "Stop trying it on the screen" : "Try it on the screen for 2 minutes") + '</button></div>';
   if (imp) h += '<div class="lact"><button class="lbtn" data-l="keep">Save to My layouts</button></div>';
   if (saved) h += '<div class="lact"><button class="lbtn" data-l="dup" data-id="' + p.id + '">Duplicate</button><button class="lbtn" data-l="view" data-id="share" data-item="saved:' + p.id + '">Share</button><button class="lbtn red" data-l="del" data-id="' + p.id + '">Delete</button></div>';
-  h += '<p class="lnote">' + (saved || imp ? "Use on Main keeps your current Main in My layouts first, so you can switch back." : "Your current Main is kept in My layouts first, so you can switch back any time.") + '</p>';
+  h += '<p class="lnote">' + (saved || imp ? "Use on Main keeps your current Main in My layouts first, so you can switch back." : LIB.pick === "page" ? "Main stays as it is." : "Your current Main is kept in My layouts first, so you can switch back any time.") + '</p>';
   return h + '</div></div>';
 }
 
@@ -251,7 +251,7 @@ function libShare(){
     '<label class="lfield">What it\'s for<textarea data-l="sharedesc" maxlength="500" placeholder="A month view beside the family agenda, for busy weeks.">' + esc(LIB.share.desc) + '</textarea></label>' +
     '<div class="lact">' + (ECHO ? "" : '<button class="lbtn pri" data-l="download">Download file</button>') + '<button class="lbtn' + (ECHO ? " pri" : "") + '" data-l="copy">Copy share code</button></div>' +
     '<label class="lfield">Share code<textarea class="code" readonly data-l="codebox" rows="4">' + esc(libCode(pkg)) + '</textarea></label>' +
-    '<p class="lnote">A share code is the same layout as text, for pasting into a message. A community gallery to submit layouts to is planned.</p></div></div>';
+    '<p class="lnote">A share code is the same layout as text, for pasting into a message. To put one in the community gallery, open Browse community and press Submit yours.</p></div></div>';
   return h;
 }
 function libDownload(){
@@ -407,7 +407,7 @@ function libSubShow(){
   if (box && !ECHO){ el.querySelector(".lrail").innerHTML = libRail(); box.innerHTML = side; }      // the preview keeps running
   else el.innerHTML = '<nav class="lrail">' + libRail() + '</nav><div class="lmain">' + (ECHO ? '<div class="lside">' + side + '</div>' :
     '<div class="lsplit"><div class="lside">' + side + '</div><div class="lpvcol"><div class="lbig' + (displayMode === "auto" ? "" : " port") + '"><iframe id="libpv" tabindex="-1" aria-hidden="true" title="Live preview"></iframe></div>' +
-    '<p class="lnote">Your dashboard, live. Themes show here before you use them.</p></div></div>') + '</div>';
+    '<p class="lnote">Your dashboard, live. Changes show here before you use them.</p></div></div>') + '</div>';
   fxPreviews();
   libPv();
 }
@@ -481,19 +481,14 @@ function libAddTile(type, pid){
   const [w, h, mw, mh] = d.size || [12, 8, 8, 6];
   let spot = null, sw = w, sh = h;
   for (const [a, b] of [[w, h], [Math.min(w, 24), Math.min(h, 16)], [mw || w, mh || h]]){ spot = libFreeSpot(page.slots || [], a, b); if (spot){ sw = a; sh = b; break; } }
+  if (!spot && (page.slots || []).length){ toast((page.id === "main" ? "Main" : page.name) + " is full. Make room first (shrink or remove a box), then add it again.", "bad"); return; }
   tileList().push(tile);
-  let note = "";
   if (spot) (page.slots = page.slots || []).push({id:newUid() + "s", x:spot.x, y:spot.y, w:sw, h:sh, mod:tid});
-  else {
-    const big = (page.slots || []).slice().sort((a, b) => b.w * b.h - a.w * a.h)[0];
-    if (!big){ page.slots = [{id:newUid() + "s", x:0, y:0, w, h, mod:tid}]; }
-    else if (!big.mod) big.mod = tid;
-    else { big.more = (big.more || []).concat(tid); big.every = big.every || 45; note = "The page was full, so it takes turns with " + tileName(big.mod) + "."; }
-  }
+  else page.slots = [{id:newUid() + "s", x:0, y:0, w, h, mod:tid}];       // an empty page
   LIB.addTo = page.id;
   try{ if (!ECHO && pvWin().dashEditing()) pvWin().dashEdit(false); }catch(e){}       // the preview reloads with the new box, then opens the editor on it
   save(); libClose(); stack = ["root"];
-  toast(note || (d.title || type) + " added to " + (page.id === "main" ? "Main" : page.name), "ok");
+  toast((d.title || type) + " added to " + (page.id === "main" ? "Main" : page.name), "ok");
   if (ECHO){ setTimeout(() => { location.href = displayHref(true); }, 900); return; }
   PV.editPage = page.id; PV.editTile = tid;
   go("page:" + page.id);
