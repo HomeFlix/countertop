@@ -33,7 +33,8 @@ function wordsIn(src) {
   return out;
 }
 
-const sources = [path.join(tools, "dash3.html")]
+const partsOf = d => fs.readdirSync(path.join(tools, d)).filter(f => f.endsWith(".js")).sort().map(f => path.join(tools, d, f));
+const sources = partsOf("dash").concat(partsOf("shared"))
   .concat(fs.readdirSync(path.join(tools, "tiles")).filter(f => f.endsWith(".js")).map(f => path.join(tools, "tiles", f)));
 const used = new Set();
 const own = {};                 // a tile's own translations, from its lang block: own[lang][word] = text
@@ -51,7 +52,7 @@ for (const f of sources) {
   }
 }
 // words looked up by value rather than written in a tr() call
-const dash = fs.readFileSync(path.join(tools, "dash3.html"), "utf8");
+const dash = partsOf("dash").map(f => fs.readFileSync(f, "utf8")).join("\n");
 const W = /const WORDS = (\{[^}]*\})/.exec(dash);
 if (W) Object.values(JSON.parse(W[1])).forEach(w => used.add(w));
 
