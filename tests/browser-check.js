@@ -58,6 +58,30 @@ async function main() {
       for (const w of ["Aujourd'hui", "Bleu", "Rouge", "Heures creuses", "0,1325"])
         if (!text.includes(w)) throw new Error("missing " + JSON.stringify(w) + " in " + JSON.stringify(text.slice(0, 300)));
     }]);
+    // the editor on a portrait screen edits a portrait page: a tall canvas on a 32x48 grid. Moving a box there gives
+    // the page its own portrait arrangement and leaves landscape as it was; turning the screen shows the 48x32 grid.
+    pages.push(["editor, portrait", "/dash/content?preview=1", { width: 1080, height: 1920 }, async page => {
+      const r = await page.evaluate(async () => {
+        window.dashEdit(true);
+        await new Promise(res => setTimeout(res, 800));
+        const c = document.getElementById("edcanvas").getBoundingClientRect(), pg = curPg(), s = pg.slots[0];
+        const land = JSON.stringify([s.x, s.y, s.w, s.h]), cols = getComputedStyle(document.getElementById("edgrid")).gridTemplateColumns.split(" ").length;
+        const before = portOwn(pg);
+        EDIT.sel = s.id; const g = RG(s); remember(); touch(pg); Object.assign(RG(s), {h: Math.max(1, g.h - 2)}); relayout();
+        const after = {own: portOwn(pg), land: JSON.stringify([s.x, s.y, s.w, s.h]), p: !!s.p};
+        return {tall: c.height > c.width, cols, before, after, land};
+      });
+      await page.setViewportSize({ width: 1920, height: 1080 });
+      await sleep(600);
+      r.lcols = await page.evaluate(() => {
+        const lcols = getComputedStyle(document.getElementById("edgrid")).gridTemplateColumns.split(" ").length;
+        return lcols;
+      });
+      if (!r.tall) throw new Error("the editor's canvas isn't portrait");
+      if (r.cols !== 32 || r.lcols !== 48) throw new Error("grid columns " + r.cols + " / " + r.lcols + ", not 32 / 48");
+      if (r.before || !r.after.own || !r.after.p) throw new Error("moving a box didn't give the page a portrait arrangement");
+      if (r.after.land !== r.land) throw new Error("changing portrait moved the landscape box");
+    }]);
     for (const [name, url, viewport, check, before] of pages) {
       if (before) before();
       const context = await browser.newContext({ viewport });
