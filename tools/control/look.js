@@ -389,6 +389,7 @@ function fxDraftBits(D){
   const g = root.querySelector('input[data-fxd="glyphs"]'); if (g && g.previousElementSibling){ const b = g.previousElementSibling.querySelector("b"); if (b) b.textContent = D.glyphs.join(" "); }
   const bar = root.querySelector(".draftbar");
   if (bar){ const sp = bar.querySelector("span"), sv = bar.querySelector('[data-fxa="save"]'); if (sp) sp.textContent = D.isNew ? "Not saved yet" : "Unsaved changes"; if (sv) sv.disabled = !fxDirty(); }
+  if (D.glyphs) fxPreviews();        // the picture at the top draws the new emoji
 }
 
 /* ----- sharing a theme or one of your own effects as a small file ----- */

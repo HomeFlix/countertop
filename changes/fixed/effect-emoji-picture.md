@@ -1,0 +1,1 @@
+- **New effect picture.** Changing the emoji in New effect (or an effect of yours) updates the picture at the top of the editor again.
