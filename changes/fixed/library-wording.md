@@ -1,0 +1,1 @@
+- **Library wording.** Share a layout no longer says a community gallery is planned, adding a page no longer talks about replacing Main, themes name the one actually showing, and a few small phrases read better.

@@ -443,7 +443,7 @@ function themeImpScreen(){
   h += '<p class="intro">' + esc(T.desc || "A theme from a shared file.") + (T.made ? " Made " + esc(T.made) + "." : "") + (ECHO ? "" : " The preview shows it with your own pages.") + '</p>';
   if (same) h += '<div class="sec"><div class="foot">You already have this theme: ' + esc(lookName(same)) + '.</div></div>';
   h += '<div class="saverow"><button class="pri" data-tia="use">Add and use it</button><button data-tia="add">Add to my themes</button></div>';
-  h += '<div class="sec"><div class="foot">Adding it changes nothing on the screen until you use it. Everyday stays as it is.</div></div>';
+  h += '<div class="sec"><div class="foot">Adding it changes nothing on the screen until you use it. ' + esc(lookName(curLook())) + ' stays as it is.</div></div>';
   return h;
 }
 function themeImpAction(a){

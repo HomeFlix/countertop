@@ -112,7 +112,7 @@ function commItem(id){
   if (st === "have") rows.push(["In your Library", (kind === "layout" ? "My layouts" : kind === "theme" ? "Library → Themes" : "Library → Effects") + (have.v === e.version ? ", up to date." : ".")]);
   if (kind === "layout" && LIB.imp && e){
     if (LIB.imp.skipped.length) rows.push(["Left out", "Tiles this Countertop doesn't have: " + LIB.imp.skipped.join(", ")]);
-    if (LIB.imp.kinds.length && st !== "have") rows.push(["Uses your setup", "Its " + LIB.imp.kinds.map(k => (KINDS[k] ? KINDS[k].title : k).toLowerCase()).join(" and ") + " tiles start with the first you have set up; change them in each tile's settings."]);
+    if (LIB.imp.kinds.length && st !== "have") rows.push(["Uses your setup", "Tiles that use your " + LIB.imp.kinds.map(k => (KINDS[k] ? KINDS[k].title : k).toLowerCase()).join(" and ") + " start with the first you have set up; change them in each tile's settings."]);
   }
   if (rows.length) h += '<div class="lpanel">' + rows.map(([t, s]) => '<div class="lrow"><div class="t">' + esc(t) + '<small>' + esc(s) + '</small></div></div>').join("") + '</div>';
   const act = [];

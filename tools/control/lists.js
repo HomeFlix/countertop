@@ -47,7 +47,7 @@ async function llRefresh(){
 let delArm = "";
 function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Echo can't show them reliably)
   if (delArm === id) return true;
-  delArm = id; toast("Tap Delete again to remove this " + K.one, "bad"); setTimeout(() => { if (delArm === id) delArm = ""; }, 4000);
+  delArm = id; toast("Tap again to remove this " + K.one, "bad"); setTimeout(() => { if (delArm === id) delArm = ""; }, 4000);
   return false;
 }
 function mainScreen(){

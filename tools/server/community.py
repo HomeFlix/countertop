@@ -45,6 +45,15 @@ def _clean(raw):
     return {"items": items, "revoked": revoked, "updated": str(raw.get("updated") or "")[:10]}
 
 
+def _why(e):
+    """A short reason for the person to read, not Python's own words."""
+    if isinstance(e, ValueError) and not isinstance(e, json.JSONDecodeError):
+        return str(e)[:100]
+    if isinstance(e, json.JSONDecodeError):
+        return "its list couldn't be read"
+    return str(getattr(e, "reason", None) or e)[:100]
+
+
 def community_index(refresh=False):
     """{items, revoked, updated, fetched, error}. On a failure the last good list is kept and the error says why."""
     with LOCK:
@@ -60,5 +69,5 @@ def community_index(refresh=False):
             return dict(data, error="")
         except Exception as e:
             if CACHE["data"]:
-                return dict(CACHE["data"], error="Couldn't reach the gallery just now (%s). Showing what was loaded earlier." % str(e)[:100])
-            return {"items": [], "revoked": [], "updated": "", "fetched": 0, "error": "Couldn't reach the gallery (%s). Check your internet connection and try again." % str(e)[:100]}
+                return dict(CACHE["data"], error="Couldn't reach the gallery just now (%s). Showing what was loaded earlier." % _why(e))
+            return {"items": [], "revoked": [], "updated": "", "fetched": 0, "error": "Couldn't reach the gallery (%s). Check your internet connection and try again." % _why(e)}
