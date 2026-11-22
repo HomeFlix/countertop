@@ -94,7 +94,7 @@ When rain is close, the radar can take over the space that normally shows your h
 
 <img src="docs/screenshots/radar-takeover.gif" alt="The dashboard shows its hourly forecast, then an approaching rain forecast triggers an animated radar map in the same tile." width="100%" />
 
-You can also schedule whole looks by time of day, day of the week, or date, for example a calmer look on weekends or a festive one in December.
+Pick a theme for the colors, background and tiles, and schedule others by time of day, day of the week, or date, for example a calmer theme on weekends or a festive one in December.
 
 *Shown with fictional weather and map data.*
 

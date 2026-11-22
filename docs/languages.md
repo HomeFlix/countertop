@@ -1,6 +1,6 @@
 # Languages
 
-Countertop's dashboard can show its words in another language. Choose one in Controls under **Setup → Location & units → Language**:
+Countertop's dashboard can show its words in another language. Choose one in Controls under **Settings → Language and formats → Language**:
 
 - **Automatic** follows the screen's own language. Dates and times use the device's settings, and the words are translated when Countertop has that language.
 - **English** or **Français** uses that language on the dashboard whatever the device is set to. Dates, times and numbers follow it too, keeping the device's region when it speaks the same language (a Canadian French device stays `fr-CA`).

@@ -165,6 +165,12 @@
   #toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom));transform:translateX(-50%);background:#232a33;z-index:60;
     border:1px solid var(--line);border-radius:12px;padding:10px 16px;font-size:15px;color:var(--dim);box-shadow:0 8px 30px rgba(0,0,0,.4);transition:opacity .3s;pointer-events:none}
   #toast.ok{color:var(--ok)} #toast.bad{color:var(--bad)}
+  #toast.undo{pointer-events:auto;display:flex;align-items:center;gap:14px;color:var(--fg)} #toast.undo button{color:var(--accent);font-weight:600;font-size:15px}
+  .tthumb{width:64px;flex:none;margin-right:4px} .tthumb .lpic{font-size:4px;border-radius:6px}
+  .draftbar{position:sticky;bottom:max(10px,env(safe-area-inset-bottom));z-index:5;display:flex;gap:10px;align-items:center;margin:18px 0 8px;padding:10px 12px;
+    background:#1b2330;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .draftbar span{flex:1;color:var(--dim);font-size:14px} .draftbar button{padding:9px 16px;border-radius:10px;background:#2a3443;color:var(--fg);font-size:15px}
+  .draftbar button.pri{background:var(--accent);color:#06121f;font-weight:600} .draftbar button:disabled{opacity:.45}
   /* status + setup guide */
   .row.upd b{color:var(--accent);font-weight:600}
   a.btnrow{text-decoration:none;color:var(--accent)}
@@ -323,8 +329,14 @@ async function displaySet(select){
 }
 
 function toast(msg, cls){
-  const t = $("toast"); t.textContent = msg; t.className = cls || ""; t.style.opacity = 1;
+  const t = $("toast"); t.textContent = msg; t.className = cls || ""; t.style.opacity = 1;      // (also clears an Undo button)
   clearTimeout(toast.h); toast.h = setTimeout(() => { t.style.opacity = 0; }, cls === "bad" ? 8000 : 2200);
+}
+// a toast with an Undo button, for changes that take effect right away (like Use this theme)
+function undoToast(msg, undo){
+  const t = $("toast"); t.innerHTML = '<span>' + esc(msg) + '</span><button type="button">Undo</button>'; t.className = "undo"; t.style.opacity = 1;
+  t.querySelector("button").onclick = () => { t.style.opacity = 0; t.className = ""; undo(); };
+  clearTimeout(toast.h); toast.h = setTimeout(() => { t.style.opacity = 0; t.className = ""; }, 6000);
 }
 async function load(){
   try{
@@ -340,7 +352,7 @@ function pvRefresh(){
   let ed = false; try{ ed = pvWin().dashEditing(); }catch(e){}
   if (ed){ try{ pvWin().dashApply(mods); }catch(e){} } else pvLoad();
 }
-function save(){
+function save(quiet){          // quiet: an Undo toast is showing, so don't cover it with "Saved"
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try{
@@ -348,7 +360,7 @@ function save(){
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || r.status);
       mods = j.modules;
-      toast("Saved", "ok"); pvRefresh();
+      if (!quiet) toast("Saved", "ok"); pvRefresh();
     }catch(e){ toast("Didn't save: " + e.message, "bad"); }
   }, 450);
 }
@@ -394,26 +406,31 @@ function rootScreen(){
     : '<button class="btnrow pri" data-act="edit" data-id="main">Edit dashboard on screen</button>',
     ECHO ? "Add tiles, move and resize them, and change each tile's settings. You can also hold any tile on the screen for a second." : "Add tiles, move and resize them, and change each tile's settings on the preview. You can also hold a tile on the screen itself.");
   const g = mods.general ? mods.general.settings : {};
-  h += sec("Setup",
-    row({t:"Screen orientation", sub:MOUNTS[displayMode], chev:true, attrs:'data-go="display"'}) +
-    row({t:"Location & units", sub: g.place || (g.lat ? g.lat + ", " + g.lon : "Not set: needed for weather"), chev:true, attrs:'data-go="mod:general"'}) +
+  const setup = sec("Setup",
     KIND_ORDER.filter(k => KINDS[k]).map(k => { const c = (SRC[k] || []).length;
       return row({t:KINDS[k].title, sub: c ? (SRC[k] || []).map(x => x.name).join(", ") : "None yet", chev:true, attrs:'data-go="src:' + k + '"'}); }).join("") +
     (schema.deals ? row({t:"Store deals", sub: (mods.deals.settings.stores || []).length ? (mods.deals.settings.stores || []).join(", ") : "Not set up", chev:true, attrs:'data-go="mod:deals"'}) : ""),
     "Set these up once. Any tile can use them, and several tiles can share the same one.");
+  const settings = sec("Settings",
+    row({t:"Location", sub: g.place || (g.lat ? g.lat + ", " + g.lon : "Not set: needed for weather"), chev:true, attrs:'data-go="gen:place"'}) +
+    row({t:"Language and formats", sub:langSummary(), chev:true, attrs:'data-go="gen:lang"'}) +
+    row({t:"Icons and emoji", sub:({"Simple symbols":"Simple symbols", "No emoji":"Words only"})[g.emoji] || "Color emoji", chev:true, attrs:'data-go="gen:icons"'}) +
+    row({t:"Screen orientation", sub:MOUNTS[displayMode], chev:true, attrs:'data-go="display"'}) +
+    row({t:"Settings button on the screen", post: sw(g.gear !== false, 'data-m="general" data-k="gear" data-t="bool"')}));
   const all = gpAll(), main = all.find(p => p.id === "main"), night = all.find(p => p.id === "night"), CP = cpList(), SV = savedList();
   h += sec("Pages", row({t:"Main", sub:pageShort(main), v:"Start page", chev:true, attrs:'data-go="page:main"', pre:(CP.length > 1 && !ECHO ? '<span class="grip none" aria-hidden="true">⋮⋮</span>' : "") + pagePic(main, null, "pthumb")}) +
     CP.map(p => row({t:p.name, sub:pageShort(p), chev:true, attrs:'data-go="page:' + p.id + '" data-pid="' + p.id + '"', cls: p.on === false ? "off" : "", v: p.on === false ? "Off" : "",
       pre:(CP.length > 1 && !ECHO ? '<span class="grip" data-grip="' + p.id + '" title="Drag to change the order" aria-hidden="true">⋮⋮</span>' : "") + pagePic(p, null, "pthumb")})).join("") +
+    row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
     row({t:"Add page", sub:"A premade dashboard, a full-screen page or an empty grid", chev:true, cls:"add", attrs:'data-go="newpage"'}),
-    "Swipe left and right on the screen to move between pages." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
-  h += sec("", row({t:"Night page", sub:nightText() + " · " + pageShort(night), chev:true, attrs:'data-go="night"', pre:pagePic(night, NIGHT_LOOK, "pthumb")}) +
-    row({t:"Library", sub:(SV.length ? SV.length + (SV.length === 1 ? " saved layout" : " saved layouts") + " · " : "") + "Premade layouts, every tile, sharing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
-    "The night page takes over the screen overnight. The Library keeps your saved layouts, every premade layout and every tile, and shares a layout as a file.");
-  h += sec("Look", row({t:"Looks", sub:"Colors, background, tiles, text size · now: " + lookName(curLook()), chev:true, attrs:'data-go="looks"'}) +
-    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
-    row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}));
-  return h;
+    "Swipe left and right on the screen to move between pages. The night page takes over the screen overnight." + (CP.length > 1 && !ECHO ? " Drag ⋮⋮ to change their order." : ""));
+  h += sec("Style", row({t:"Theme", sub:"Showing now: " + lookName(curLook()) + (rules().some(r => r.on !== false && lookById(r.look)) ? " · changes on a schedule" : ""), chev:true, attrs:'data-go="looks"',
+      pre:'<span class="tthumb">' + lookPic(lookVals(curLook())) + '</span>'}) +
+    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}),
+    "Colors, background, tiles and text size, and the little animations on the screen.");
+  h += sec("", row({t:"Library", sub:(SV.length ? SV.length + (SV.length === 1 ? " saved layout" : " saved layouts") + " · " : "") + "Premade layouts, every tile, sharing", chev:true, attrs:'data-act="lib" data-id="layouts"'}),
+    "Your saved layouts, every premade layout and every tile. Share a layout as a file.");
+  return h + setup + settings;
 }
 /* Each box uses the editor's 48 by 32 grid. Extra tile types rotate in the same box. */
 function starterBox(type, x, y, w, h, settings = {}, rotate = [], name = ""){
@@ -510,7 +527,7 @@ const hasLook = id => { const c = choiceOf(id); return !!(c && c.look); };
 const useLook = (id, where) => hasLook(id) && (galLook === null ? where !== "page" : galLook);
 function lookSwitch(id, where){
   if (!hasLook(id)) return "";
-  return sec("", row({t:"Switch to its colors and background", sub: useLook(id, where) ? "Changes the look of every page" : "Off: keeps your current look (" + lookName(curLook()) + ")",
+  return sec("", row({t:"Switch to its colors and background", sub: useLook(id, where) ? "Changes the theme of every page" : "Off: keeps your current theme (" + lookName(curLook()) + ")",
     post: sw(useLook(id, where), 'data-act="gallook"')}));
 }
 function sameEverydayLayout(){
@@ -559,7 +576,7 @@ function installStarter(key, onMain, withLook = onMain){
   const c = choiceOf(key); if (!c) return;
   const pages = gpAll(), main = pages.find(p => p.id === "main"), uid = newUid();
   const page = {id:uid, name:c.grid ? "Page " + (cpList().length + 2) : c.pageName || c.name, cols:GC, slots:[], on:true, back:c.back || 0};
-  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved || c.imported ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); };
+  const applyLook = () => { if (!withLook || !c.look) return; Object.assign(LS(), c.saved || c.imported ? {} : {mode:"Dark", tiles:"Solid", fx:"On", opacity:60}, c.look); LS().use = ""; };
   if (c.saved) page.slots = cloneSlots(c.page.slots, uid);
   else if (key === "everyday"){
     if (onMain && sameEverydayLayout()){ applyLook(); return; }
@@ -651,6 +668,21 @@ function modScreen(m){
   const keys = Object.keys(s.settings).filter(k => k !== "items");
   if (keys.length) h += sec("Settings", keys.map(k => field(m, k, s.settings[k], c.settings[k])).join(""));
   return h;
+}
+// Settings: the general module, one screen per group
+const GEN = {place:["Location", ["place", "lat", "lon"]], lang:["Language and formats", ["lang", "units", "h24", "dateFmt", "weekStart"]], icons:["Icons and emoji", ["emoji", "swap"]]};
+function langSummary(){
+  const g = mods.general ? mods.general.settings : {};
+  return [g.lang && g.lang !== "Automatic" ? g.lang : "Language: automatic", "°" + (g.units || "F"), g.h24 ? "24-hour" : "12-hour", (g.weekStart || "Sunday") + " first"].join(" · ");
+}
+function genScreen(k){
+  const s = schema.general, c = mods.general, G = GEN[k]; if (!G) return "";
+  let h = '<div class="big">' + esc(G[0]) + '</div>';
+  if (k === "place") return h + '<p class="intro">Where you are, for the weather, radar, sunrise and things overhead.</p>' +
+    sec("", '<button class="btnrow blue" data-act="locate">Find a place by name…</button>', "Or type the latitude and longitude below.") +
+    sec("Place", G[1].filter(x => s.settings[x]).map(x => field("general", x, s.settings[x], c.settings[x])).join(""));
+  if (k === "icons") return h + emojiPicker(c.settings.emoji, c.settings.swap);
+  return h + sec("", G[1].filter(x => s.settings[x]).map(x => field("general", x, s.settings[x], c.settings[x])).join(""));
 }
 // Icons: color emoji, simple one-color symbols, or words only, each shown as it would look
 const EMOJI_OPTS = [["Emoji", "Color emoji", "☁️ 44° · 🌅 6:45 AM · 🌔 Waxing gibbous · 🦃 Thanksgiving in 7 days"],
@@ -797,7 +829,7 @@ function confirmDel(K, id){      // tap Delete twice (no pop-up dialogs: the Ech
 }
 function newPageScreen(){
   const c = choiceOf(selectedStarter);
-  return '<div class="big">Add page</div><p class="intro">A new page to swipe to. Every page shares the same look.</p>' +
+  return '<div class="big">Add page</div><p class="intro">A new page to swipe to. Every page shares the same theme.</p>' +
     starterGallery(selectedStarter, "page") + lookSwitch(selectedStarter, "page") +
     (c ? '<div class="saverow"><button class="pri" data-act="starterpage">Add ' + esc(c.name) + '</button></div>' : '');
 }
@@ -926,9 +958,11 @@ function show(){
   else if (cur.startsWith("page:")){ const p = cpById(cur.slice(5)); h = pageScreen(cur.slice(5)); title = cur === "page:main" ? "Main" : p ? p.name : "Page"; }
   else if (cur.startsWith("src:")){ const k = cur.slice(4); h = srcScreen(k); title = KINDS[k] ? KINDS[k].title : ""; }
   else if (cur.startsWith("srci:")){ const [, k, id] = cur.split(":"); h = srcItemScreen(k, id); title = KINDS[k] ? KINDS[k].title : ""; }
-  else if (cur === "looks"){ h = looksScreen(); title = "Looks"; }
-  else if (cur === "newlook"){ h = newLookScreen(); title = "New look"; }
-  else if (cur.startsWith("look:")){ h = lookScreen(cur.slice(5)); title = lookName(cur.slice(5)); }
+  else if (cur === "looks"){ h = looksScreen(); title = "Themes"; }
+  else if (cur === "newlook"){ h = newLookScreen(); title = "New theme"; }
+  else if (cur.startsWith("theme:")){ h = themeScreen(cur.slice(6)); title = lookName(cur.slice(6)); }
+  else if (cur.startsWith("look:")){ h = lookScreen(cur.slice(5)); title = "Customize"; }
+  else if (cur.startsWith("gen:")){ h = genScreen(cur.slice(4)); title = GEN[cur.slice(4)] ? GEN[cur.slice(4)][0] : ""; }
   else if (cur === "sched"){ h = schedScreen(); title = "Schedule"; }
   else if (cur.startsWith("rule:")){ h = ruleScreen(cur.slice(5)); title = "Schedule"; }
   else if (cur === "night"){ h = nightScreen(); title = "Night page"; }
@@ -946,11 +980,13 @@ function show(){
   $("title").textContent = title;
   $("back").hidden = stack.length < 2;
   const prev = stack[stack.length - 2];
-  const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Looks", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New look"};
-  $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? lookName(prev.slice(5)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
+  const LBL = {"mod:general":"Location & units", root:"Dashboard", looks:"Themes", sched:"Schedule", effects:"Effects", night:"Night page", newlook:"New theme"};
+  $("backlbl").textContent = !prev ? "" : LBL[prev] ? LBL[prev] : prev.startsWith("look:") ? "Customize" : prev.startsWith("theme:") ? lookName(prev.slice(6)) : prev.startsWith("src:") ? KINDS[prev.slice(4)].title :
     prev === "page:main" ? "Main" : prev.startsWith("page:") ? ((cpById(prev.slice(5)) || {}).name || "Page") : prev === "newpage" ? "Add page" : prev === "saved" ? "Saved layouts" : "Back";
-  const want = cur.startsWith("look:") ? cur.slice(5) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
-  if (!ECHO && (want !== PV.theme || night !== !!PV.night)){ PV.theme = want; PV.night = night; pvLoad(); }
+  const want = cur.startsWith("theme:") ? cur.slice(6) : cur.startsWith("rule:") ? ((ruleById(cur.slice(5)) || {}).look || "") : "", night = cur === "night";
+  if (!cur.startsWith("look:") && DRAFT) DRAFT = null;          // left the Customize screen (Save, Cancel or back): the draft is gone
+  if (!ECHO && cur.startsWith("look:")){ if (!PV.trial) draftPreview(true); }
+  else if (!ECHO && (want !== PV.theme || night !== !!PV.night || PV.trial)){ PV.theme = want; PV.night = night; PV.trial = ""; pvLoad(); }
   fxPreviews();
   if (!ECHO && cur.startsWith("page:")) pvGoPage(cur.slice(5));
 }
@@ -1073,7 +1109,7 @@ function wizScreen(){
     if (extra) h += sec("", extra);
     h += nav(["Next", "wizlist"]);
   } else if (st === 4){
-    h += '<div class="big">Choose your dashboard</div><p class="intro">Pick a layout and look for your main screen. You can edit every tile later. Your previous layout is kept in Saved layouts.</p>' + starterGallery(WIZ.starter || (sameEverydayLayout() ? "everyday" : ""), "wiz");
+    h += '<div class="big">Choose your dashboard</div><p class="intro">Pick a layout and theme for your main screen. You can edit every tile later. Your previous layout is kept in Saved layouts.</p>' + starterGallery(WIZ.starter || (sameEverydayLayout() ? "everyday" : ""), "wiz");
     h += '<div class="saverow"><button data-act="wizback">Back</button>' +
       (sameEverydayLayout() ? '' : '<button data-act="wizkeep">Keep current layout</button>') +
       (WIZ.starter || sameEverydayLayout() ? '<button class="pri" data-act="wiznext">Next</button>' : '') + '</div>';
@@ -1081,7 +1117,7 @@ function wizScreen(){
     h += '<div class="big">You\'re all set</div><p class="intro">Open these addresses on your devices. Bookmark them, since they don\'t change.</p>';
     h += sec("", row({t:"On the Echo Show or the kitchen screen", sub:"Open Silk and go to this address, then tap the screen once so it stays full screen.", v:host + "/dash"}) +
       row({t:"On your phone", sub:"Add to the grocery list from anywhere in the house.", v:host + "/list"}) +
-      row({t:"Controls (this page)", sub:"Change tiles, looks, effects and pages.", v:host + "/control"}));
+      row({t:"Controls (this page)", sub:"Change tiles, themes, effects and pages.", v:host + "/control"}));
     h += sec("", '<div class="row"><div class="t"><small>Keep Countertop on your home network. Anyone who can reach it can change its settings, so don\'t forward its port to the internet.</small></div></div>');
     h += '<div class="saverow"><button data-act="wizback">Back</button><button class="pri" data-act="wizdone">Finish</button></div>';
   }
@@ -1129,7 +1165,10 @@ async function wizAct(a, id){
   if (a === "stcheck"){ toast("Checking…"); await statusLoad(true); toast(STATUS && STATUS.latest.error ? "Couldn't reach GitHub" : STATUS && STATUS.update ? "A new version is out" : "You're up to date", STATUS && STATUS.latest.error ? "bad" : "ok"); }
 }
 
-$("back").addEventListener("click", () => { stack.pop(); show(); });
+$("back").addEventListener("click", () => {
+  if (DRAFT && draftDirty()){ toast("Save or Cancel your changes first", "bad"); const b = document.querySelector(".draftbar"); if (b) b.scrollIntoView({block:"nearest"}); return; }
+  stack.pop(); show();
+});
 
 /* ---------- edits ---------- */
 // drag ⋮⋮ to change the order of pages
@@ -1634,14 +1673,41 @@ const LOOK_KEYS = ["mode", "accent", "holiday", "tiles", "opacity", "textScale",
 function lookVals(id){
   const v = {}; LOOK_KEYS.forEach(k => { v[k] = LS()[k]; });
   const t = id === "default" ? null : lookById(id);
-  return Object.assign(v, t ? t.values || {} : {});
+  return Object.assign(v, t ? t.values || {} : {}, DRAFT && DRAFT.id === id ? DRAFT.values : {});
 }
+// Customize works on a draft: nothing changes on the screen until Save. The preview shows the draft (a trial, as in the Library).
+let DRAFT = null;
+function draftStart(id){ DRAFT = {id, values:{}, name:lookName(id)}; }
+const draftDirty = () => !!DRAFT && (Object.keys(DRAFT.values).length > 0 || DRAFT.name !== lookName(DRAFT.id));
 function lookSet(id, k, v){
+  if (DRAFT && DRAFT.id === id){ DRAFT.values[k] = v; draftPreview(); return; }
   if (id === "default") LS()[k] = v;
   else { const t = lookById(id); t.values = t.values || {}; t.values[k] = v; }
   save();
 }
-const lookName = id => id === "default" ? "Everyday" : (lookById(id) || {}).name || "Look";
+function draftSave(){
+  const d = DRAFT; if (!d) return;
+  if (d.id === "default") Object.assign(LS(), d.values);
+  else { const t = lookById(d.id); if (t){ t.values = Object.assign(t.values || {}, d.values); t.name = d.name.trim() || t.name; } }
+  DRAFT = null; save(); toast("Saved " + lookName(d.id), "ok"); stack.pop(); show();
+}
+function draftCancel(){ DRAFT = null; stack.pop(); show(); }
+let draftT = null;
+function draftPreview(now){
+  if (ECHO || !DRAFT) return;
+  clearTimeout(draftT);
+  draftT = setTimeout(async () => {
+    const d = DRAFT; if (!d) return;
+    const look = Object.assign({}, lookVals(d.id));
+    try{
+      const r = await fetch("/trial", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pages:gpAll(), tiles:tileList(), look, name:d.name})});
+      const j = await r.json(); if (!r.ok || j.error) throw new Error(j.error || r.status);
+      if (DRAFT !== d) return;
+      PV.trial = j.id; PV.theme = "default"; PV.night = false; pvLoad();
+    }catch(e){}
+  }, now ? 0 : 400);
+}
+const lookName = id => id === "default" ? "Everyday" : (lookById(id) || {}).name || "Theme";
 const PRESETS = [
   {name:"Dark", sub:"Dark tiles over a sky that follows the sun", values:{mode:"Dark", tiles:"Solid", bg:"Sky", textScale:100}},
   {name:"Light", sub:"Light tiles on a soft gray background", values:{mode:"Light", tiles:"Solid", bg:"Color", bgColor:"#d9e0e8", accent:"#2b7de9"}},
@@ -1684,7 +1750,9 @@ function ruleMatches(r, d){
     if (a <= b ? !(k >= a && k <= b) : !(k >= a || k <= b)) return false; }
   return true;
 }
-function curLook(){ const R = rules(); for (let i = R.length - 1; i >= 0; i--) if (lookById(R[i].look) && ruleMatches(R[i], new Date())) return R[i].look; return "default"; }
+// the theme on the screen: the last schedule rule that matches, else the theme picked with Use this theme, else Everyday
+const usedLook = () => lookById(LS().use) ? LS().use : "default";
+function curLook(){ const R = rules(); for (let i = R.length - 1; i >= 0; i--) if (lookById(R[i].look) && ruleMatches(R[i], new Date())) return R[i].look; return usedLook(); }
 function curTheme(){ const id = curLook(); return id === "default" ? null : lookById(id); }        // the root screen's summary
 function hm12(x){ const [h, m] = x.split(":").map(Number); return new Date(2000, 0, 1, h, m).toLocaleTimeString([], {hour:"numeric", minute: m ? "2-digit" : undefined}); }
 const hr12 = h => new Date(2000, 0, 1, +h || 0).toLocaleTimeString([], {hour:"numeric"});
@@ -1699,32 +1767,56 @@ function whenText(r){
 const nightText = () => mods.night && mods.night.on ? hr12(mods.night.settings.start) + "–" + hr12(mods.night.settings.end) : "Off";
 
 /* ----- screens ----- */
+function themeWhen(id){       // a short line on when a theme shows
+  const R = rules().filter(r => r.look === id && r.on !== false);
+  if (id === curLook()) return "Showing now";
+  if (id === usedLook()) return "Shows when nothing is scheduled";
+  return R.length ? R.map(whenText).join("; ") : "Not in use";
+}
 function looksScreen(){
   const now = curLook();
-  const card = id => { const R = rules().filter(r => r.look === id);
-    const sub = id === now ? "Showing now" : id === "default" ? "When nothing else is scheduled" : R.length ? R.map(whenText).join("; ") : "Not on the schedule";
-    return '<button class="lcard' + (id === now ? " now" : "") + '" data-go="look:' + id + '">' + lookPic(lookVals(id)) + '<b>' + esc(lookName(id)) + '</b><small>' + esc(sub) + '</small></button>'; };
-  let h = '<div class="big">Looks</div><p class="intro">Tap a look to change it. Your everyday look shows unless the schedule switches to another one.</p>';
+  const card = id => '<button class="lcard' + (id === now ? " now" : "") + '" data-go="theme:' + id + '">' + lookPic(lookVals(id)) + '<b>' + esc(lookName(id)) + '</b><small>' + esc(themeWhen(id)) + '</small></button>';
+  let h = '<div class="big">Themes</div><p class="intro">Colors, background, tiles and text size for every page. Tap a theme to see it on the preview, then use it or customize it.</p>';
   h += '<div class="lcards">' + ["default"].concat(looks().map(t => t.id)).map(card).join("") +
-    '<button class="lcard new" data-go="newlook"><div class="lpic plus">＋</div><b>New look</b><small>Start from a style</small></button></div>';
-  h += sec("", row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") + " · now: " + lookName(now) : "Switch looks at certain times", chev:true, attrs:'data-go="sched"'}) +
-    row({t:"Effects", sub: fxSummary(), chev:true, attrs:'data-go="effects"'}) +
-    row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}));
-  h += '<div class="sec"><div class="foot">Date format, 24-hour time and emoji are the same in every look: Setup → Location &amp; units.</div></div>';
+    '<button class="lcard new" data-go="newlook"><div class="lpic plus">＋</div><b>New theme</b><small>Start from a style</small></button></div>';
+  h += sec("", row({t:"Schedule", sub: rules().length ? rules().length + (rules().length === 1 ? " rule" : " rules") + " · now: " + lookName(now) : "Switch themes at certain times", chev:true, attrs:'data-go="sched"'}),
+    "Date format, 24-hour time and emoji are the same in every theme: Settings → Language and formats, and Icons and emoji.");
+  return h;
+}
+// one theme: see it on the preview, use it, customize it, and when it shows by itself
+function themeScreen(id){
+  const t = id === "default" ? null : lookById(id);
+  if (id !== "default" && !t) return '<div class="big">Theme not found</div>';
+  const now = curLook(), used = usedLook() === id;
+  let h = '<div class="big">' + esc(lookName(id)) + '</div>' + lookPic(lookVals(id), "big");
+  h += '<p class="intro">' + esc(themeWhen(id)) + (now !== id ? " · " + esc(lookName(now)) + " is showing now" : "") + "." + (ECHO || now === id ? "" : " The preview shows " + esc(lookName(id)) + ".") + '</p>';
+  h += '<div class="saverow">' + (used ? '<button disabled>In use</button>' : '<button class="pri" data-lact="use" data-id="' + id + '">Use this theme</button>') +
+    '<button' + (used ? ' class="pri"' : "") + ' data-go="look:' + id + '">Customize</button></div>';
+  if (used && now !== id) h += '<div class="sec"><div class="foot">The schedule is showing ' + esc(lookName(now)) + ' right now. ' + esc(lookName(id)) + ' comes back when its time is over.</div></div>';
+  if (t){
+    const R = rules().filter(r => r.look === id);
+    h += sec("Shows by itself", (R.length ? R.map(r => row({t:whenText(r), cls: r.on === false ? "off" : "", chev:true, attrs:'data-go="rule:' + r.id + '"'})).join("") : "") +
+      row({t:R.length ? "Add another time" : "Add a time", cls:"add", chev:true, attrs:'data-lact="sched" data-id="' + id + '"'}),
+      "At these times it takes over from the theme in use. See every time in Themes → Schedule.");
+  }
+  h += sec("", '<button class="btnrow" data-lact="dup" data-id="' + id + '">Duplicate</button>' + (t ? '<button class="btnrow red" data-lact="del" data-id="' + id + '">Delete theme</button>' : ""),
+    t ? "" : "Everyday can't be deleted. Duplicate it to start a theme of your own.");
   return h;
 }
 function newLookScreen(){
   const base = lookVals(curLook());
-  return '<div class="big">New look</div><p class="intro">Pick a style to start from. It starts as a copy of the look showing now, with the style\'s changes. You can change anything after.</p>' +
+  return '<div class="big">New theme</div><p class="intro">Pick a style to start from. It starts as a copy of the theme showing now, with the style\'s changes. You can change anything after.</p>' +
     '<div class="lcards">' + PRESETS.map((p, i) => '<button class="lcard" data-lact="make" data-id="' + i + '">' + lookPic(Object.assign({}, base, p.values)) + '<b>' + esc(p.name) + '</b><small>' + esc(p.sub) + '</small></button>').join("") + '</div>';
 }
 const opt = (id, k, val, label, sub, cur, pic) => '<button class="opt' + (cur === val ? " on" : "") + '" data-lid="' + id + '" data-lk="' + k + '" data-lv="' + esc(val) + '">' + (pic || "") + '<b>' + esc(label) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : "") + '</button>';
 function lookScreen(id){
   const t = id === "default" ? null : lookById(id);
-  if (id !== "default" && !t) return '<div class="big">Look not found</div>';
+  if (id !== "default" && !t) return '<div class="big">Theme not found</div>';
+  if (!DRAFT || DRAFT.id !== id) draftStart(id);
   const v = lookVals(id), A = 'data-lid="' + id + '"';
-  let h = '<div class="big">' + esc(lookName(id)) + '</div>' + lookPic(v, "big");
-  if (t) h += sec("Name", '<div class="row col"><input type="text" ' + A + ' data-lk="__name" value="' + esc(t.name) + '"></div>');
+  let h = '<div class="big">Customize ' + esc(DRAFT.name) + '</div>' + lookPic(v, "big");
+  h += '<p class="intro">' + (ECHO ? "Nothing changes on the screen until you save." : "The preview follows your changes. The screen keeps its theme until you save.") + '</p>';
+  if (t) h += sec("Name", '<div class="row col"><input type="text" ' + A + ' data-lk="__name" value="' + esc(DRAFT.name) + '"></div>');
   const bgPic = b => '<span class="sample" style="background:' + (b === "Sky" ? "linear-gradient(180deg,#2f6aa3,#0d1a2b)" : b === "Color" ? esc(v.bgColor) : "linear-gradient(165deg,#88a6c2,#d7b08a 52%,#4d5e43 53%)") + '"></span>';
   h += sec("Background", '<div class="opts">' + opt(id, "bg", "Sky", "Sky", "Follows the sun", v.bg, bgPic("Sky")) + opt(id, "bg", "Color", "Solid color", "", v.bg, bgPic("Color")) + opt(id, "bg", "Photos", "Photos", "From your album", v.bg, bgPic("Photos")) + '</div>' +
     (v.bg === "Color" ? row({t:"Background color", post:'<input type="color" ' + A + ' data-lk="bgColor" value="' + esc(v.bgColor) + '">'}) : ""),
@@ -1743,35 +1835,28 @@ function lookScreen(id){
   h += '<details class="sec more"' + (store.more ? " open" : "") + '><summary>More</summary><div class="grp">' +
     row({t:"Dim the screen", sub:"Darker without changing the colors", post:'<input type="range" min="0" max="80" step="5" ' + A + ' data-lk="dim" value="' + (v.dim || 0) + '"><span class="v">' + (v.dim || 0) + '%</span>'}) +
     row({t:"Tile titles", sub:"The small heading on each tile", post: sw(v.titles !== false, A + ' data-lk="titles" data-lb="1"')}) +
-    row({t:"Effects", sub:"Off pauses every effect while this look shows", post: sw(v.fx !== "Off", A + ' data-lk="fx" data-lb="OnOff"')}) +
+    row({t:"Effects", sub:"Off pauses every effect while this theme shows", post: sw(v.fx !== "Off", A + ' data-lk="fx" data-lb="OnOff"')}) +
     '</div></details>';
-  if (t){
-    const R = rules().filter(r => r.look === id);
-    h += sec("When it shows", (R.length ? R.map(r => row({t:whenText(r), cls: r.on === false ? "off" : "", chev:true, attrs:'data-go="rule:' + r.id + '"'})).join("") : "") +
-      row({t:R.length ? "Add another time" : "Add it to the schedule", cls:"add", chev:true, attrs:'data-lact="sched" data-id="' + id + '"'}),
-      R.length ? "" : "This look only shows once it's on the schedule.");
-    h += sec("", '<button class="btnrow red" data-lact="del" data-id="' + id + '">Delete look</button>');
-  }
+  h += '<div class="draftbar"><span>' + (draftDirty() ? "Unsaved changes" : "No changes yet") + '</span><button data-lact="cancel">Cancel</button><button class="pri" data-lact="save"' + (draftDirty() ? "" : " disabled") + '>Save</button></div>';
   return h;
 }
 function schedScreen(){
   const R = rules(), now = curLook();
-  let h = '<div class="big">Schedule</div><p class="intro">Switch to another look at certain times or dates. The rest of the time your everyday look shows.</p>';
-  h += sec("At night", row({t:"Night page", sub: nightText(), chev:true, attrs:'data-go="night"'}), "A page of its own that takes over the screen at night.");
-  h += sec("Looks", (R.length ? R.map((r, i) => row({t:lookName(r.look), sub:whenText(r), cls: r.on === false ? "off" : "", attrs:'data-go="rule:' + r.id + '"', chev:true,
+  let h = '<div class="big">Schedule</div><p class="intro">Switch to another theme at certain times or dates. The rest of the time ' + esc(lookName(usedLook())) + ' shows.</p>';
+  h += sec("Themes", (R.length ? R.map((r, i) => row({t:lookName(r.look), sub:whenText(r), cls: r.on === false ? "off" : "", attrs:'data-go="rule:' + r.id + '"', chev:true,
       v: ruleMatches(r, new Date()) && now === r.look ? "Now" : "",
       pre:'<span style="display:flex;flex-direction:column;gap:2px;margin-right:2px"><button class="link" style="padding:0 4px;font-size:13px" data-ract="up" data-id="' + r.id + '"' + (i ? "" : " disabled") + '>▲</button><button class="link" style="padding:0 4px;font-size:13px" data-ract="down" data-id="' + r.id + '"' + (i < R.length - 1 ? "" : " disabled") + '>▼</button></span>',
-      post: sw(r.on !== false, 'data-ract="toggle" data-id="' + r.id + '"')})).join("") : '<div class="row"><div class="t"><small>Nothing scheduled: your everyday look always shows</small></div></div>') +
+      post: sw(r.on !== false, 'data-ract="toggle" data-id="' + r.id + '"')})).join("") : '<div class="row"><div class="t"><small>Nothing scheduled: ' + esc(lookName(usedLook())) + ' always shows</small></div></div>') +
     row({t:"Add a time", cls:"add", chev:true, attrs:'data-ract="new"'}),
-    "Showing now: " + lookName(now) + ". When several match, the lowest one in the list wins.");
+    "Showing now: " + lookName(now) + ". When several match, the lowest one in the list wins. The night page has its own hours: Pages → Night page.");
   return h;
 }
 function ruleScreen(id){
   const r = ruleById(id); if (!r) return '<div class="big">Not found</div>';
   const w = r.when || {}, a = 'data-rid="' + id + '"';
   let h = '<div class="big">' + esc(lookName(r.look)) + '</div>';
-  h += sec("Use this look", looks().length ? '<div class="row col"><select ' + a + ' data-rk="look">' + looks().map(t => '<option value="' + t.id + '"' + (t.id === r.look ? " selected" : "") + '>' + esc(t.name) + '</option>').join("") + '</select></div>'
-    : row({t:"Make a look first", cls:"add", chev:true, attrs:'data-go="newlook"'}));
+  h += sec("Theme", looks().length ? '<div class="row col"><select ' + a + ' data-rk="look">' + looks().map(t => '<option value="' + t.id + '"' + (t.id === r.look ? " selected" : "") + '>' + esc(t.name) + '</option>').join("") + '</select></div>'
+    : row({t:"Make a theme first", cls:"add", chev:true, attrs:'data-go="newlook"'}));
   const mon = (x, k) => '<select ' + a + ' data-rk="' + k + '" data-t="md-m"><option value="">—</option>' + MONTHS.map((m, i) => '<option value="' + (i + 1) + '"' + (x && +x.split("-")[0] === i + 1 ? " selected" : "") + '>' + m + '</option>').join("") + '</select>' +
     ' <input type="number" min="1" max="31" style="width:64px" ' + a + ' data-rk="' + k + '" data-t="md-d" value="' + (x ? +x.split("-")[1] : "") + '">';
   h += sec("When", row({t:"From", sub:"Time of day (leave both empty for all day)", post:'<input type="time" ' + a + ' data-rk="from" value="' + esc(w.from || "") + '">'}) +
@@ -1814,7 +1899,8 @@ function effectsScreen(){
   h += sec("", row({t:"Effects", post: sw(c.on, 'data-on="effects"')}) +
     row({t:"Rain, snow and falling things in front of the tiles", sub:"Off puts them behind the tiles, where they show only between and through see-through tiles.", post: sw(c.settings.front !== false, 'data-m="effects" data-k="front" data-t="bool"')}));
   const noEmo = (mods.general.settings.emoji || "Emoji") !== "Emoji";
-  if (noEmo) h += '<div class="sec"><div class="foot">Emoji are off (Setup → Location &amp; units → Icons), so only the weather effects run. The others keep their settings for when emoji come back.</div></div>';
+  if (noEmo) h += '<div class="sec"><div class="foot">Emoji are off (Settings → Icons and emoji), so only the weather effects run. The others keep their settings for when emoji come back.</div></div>';
+  if (lookVals(curLook()).fx === "Off") h += '<div class="sec"><div class="foot">The theme showing now, ' + esc(lookName(curLook())) + ', pauses every effect. Turn that off in Themes → ' + esc(lookName(curLook())) + ' → Customize → More.</div></div>';
   for (const [g, foot] of FXLIB.GROUPS){
     const L = FXLIB.L.filter(d => d.grp === g);
     h += '<div class="sec"><h2>' + esc(g) + '</h2><div class="fxgrid">' + L.map(d => { const f = fxC(d.id), now = !d.wx && !d.party && FXLIB.timeOk(f, new Date());
@@ -1887,11 +1973,24 @@ function lookAction(act, id){
   if (act === "make"){
     const p = PRESETS[+id], nid = "t" + Date.now().toString(36);
     looks().push({id:nid, name: looks().some(t => t.name === p.name) ? p.name + " " + (looks().length + 1) : p.name, values:Object.assign(lookVals(curLook()), p.values)});
-    save(); stack.pop(); go("look:" + nid); return;
+    save(); stack.pop(); go("theme:" + nid); return;
   }
+  if (act === "dup"){
+    const nid = "t" + Date.now().toString(36), base = lookName(id) + " copy";
+    looks().push({id:nid, name: looks().some(t => t.name === base) ? base + " " + (looks().length + 1) : base, values:lookVals(id)});
+    save(); stack.pop(); go("theme:" + nid); toast("Made a copy. Customize it, then use it", "ok"); return;
+  }
+  if (act === "use"){
+    const was = LS().use || "";
+    LS().use = id === "default" ? "" : id; save(true); show();
+    undoToast("Using " + lookName(id), () => { LS().use = was; save(true); show(); }); return;
+  }
+  if (act === "save") return draftSave();
+  if (act === "cancel") return draftCancel();
   if (act === "sched"){ const r = {id:"r" + Date.now().toString(36), on:true, look:id, when:{from:"20:00", to:"23:00"}}; rules().push(r); save(); go("rule:" + r.id); return; }
   if (act === "del"){
-    if (!confirmDel({one:"look"}, id)) return;
+    if (!confirmDel({one:"theme"}, id)) return;
+    if (LS().use === id) LS().use = "";
     LS().items = looks().filter(t => t.id !== id); LS().rules = rules().filter(r => r.look !== id); save(); stack.pop(); show(); return;
   }
 }
@@ -1925,7 +2024,7 @@ function lookClick(t){
 }
 function lookChange(t){
   const d = t.dataset;
-  if (d.lk === "__name"){ const L = lookById(d.lid); L.name = t.value.trim() || L.name; save(); $("title").textContent = L.name; return true; }
+  if (d.lk === "__name"){ if (DRAFT && DRAFT.id === d.lid){ DRAFT.name = t.value; show(); } return true; }
   if (d.lk){ let v = t.value; if (t.type === "range") v = +v; lookSet(d.lid, d.lk, v); if (t.type === "range"){ const s = t.nextElementSibling; if (s) s.textContent = v + "%"; } show(); return true; }
   if (d.rk){ const r = ruleById(d.rid); r.when = r.when || {};
     if (d.rk === "look") r.look = t.value; else if (d.rk === "dFrom" || d.rk === "dTo") r.when[d.rk] = mdVal(t); else r.when[d.rk] = t.value || "";
@@ -2195,7 +2294,7 @@ function libLayoutItem(key){
     if (LIB.imp.code) warn.push(["Has a tile with its own code", "It runs sealed off from the rest of the dashboard, like every Your own tile."]);
     if (warn.length) h += '<div class="lpanel">' + warn.map(([t, s]) => '<div class="lrow"><div class="t">' + esc(t) + '<small>' + esc(s) + '</small></div></div>').join("") + '</div>';
   }
-  if (libHasLook(key)) h += '<div class="lpanel"><div class="lrow"><div class="t">Switch to its colors and background<small>' + (LIB.look ? "Changes the look of every page" : "Off: keeps your current look") + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>';
+  if (libHasLook(key)) h += '<div class="lpanel"><div class="lrow"><div class="t">Switch to its colors and background<small>' + (LIB.look ? "Changes the theme of every page" : "Off: keeps your current theme") + '</small></div>' + sw(LIB.look, 'data-l="look"') + '</div></div>';
   h += '<div class="lact"><button class="lbtn pri" data-l="use" data-id="main">Use on Main</button><button class="lbtn" data-l="use" data-id="page">Add as a new page</button></div>';
   h += '<div class="lact"><button class="lbtn ghost" data-l="try">' + (LIB.trialEnd > Date.now() ? "Stop trying it on the screen" : "Try it on the screen for 2 minutes") + '</button></div>';
   if (imp) h += '<div class="lact"><button class="lbtn" data-l="keep">Save to My layouts</button></div>';
@@ -2527,7 +2626,7 @@ function pvSize(b){
   pvFit();
 }
 function pvCur(){ try{ return pvWin().dashPage(); }catch(e){ return 0; } }
-function pvLoad(){ PV.page = pvCur(); $("pvf").src = "/dash/content?preview=1" + (PV.theme ? "&theme=" + PV.theme : "") + (PV.night ? "&night=1" : "") + "&t=" + Date.now(); }
+function pvLoad(){ PV.page = pvCur(); $("pvf").src = "/dash/content?preview=1" + (PV.trial ? "&trial=" + PV.trial : "") + (PV.theme ? "&theme=" + PV.theme : "") + (PV.night ? "&night=1" : "") + "&t=" + Date.now(); }
 function pvTabs(){
   let L = ["main"];
   try{ L = pvWin().pageList(); }catch(e){}

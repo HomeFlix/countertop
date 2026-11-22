@@ -61,12 +61,13 @@ The first time you open Controls, a short setup guide asks for your location, a 
 
 - **Add page** adds a page to swipe to. Choose a dashboard, a **Full-screen** page with one big tile (a month calendar, the next hours, deals or a photo frame), or an empty grid.
 - Tap **Main**, then **Change layout**, to give your start page a different layout. Your old layout goes to **Saved layouts**, where you can put it back on Main, add it as a page or delete it. **Save a copy** keeps the current layout there too.
-- A dashboard can bring its own colors and background. Use the **Switch to its colors and background** option to choose. Looks apply to every page, and scheduled looks still take effect at their usual times.
+- A dashboard can bring its own colors and background. Use the **Switch to its colors and background** option to choose. Themes apply to every page, and scheduled themes still take effect at their usual times.
 - Drag **⋮⋮** to change the order of your pages. Open a page to turn it off or delete it.
+
+Your location and formats live in **Controls → Settings**: search for your town under **Location**, and pick your language, temperature and time formats under **Language and formats**.
 
 Your data sources live in **Controls → Setup**:
 
-- **Location & units.** Search for your town and pick your temperature and time formats.
 - **Calendars.** Add an iCal link for each calendar you want to see. In iCloud Calendar, open the calendar’s information, turn on **Public Calendar**, and use **Share Link**. Google Calendar calls its link **Secret address in iCal format** in the calendar’s settings. Keep those links private.
 - **Lists.** Choose **This dashboard** to share a list across phones and screens. To show an Apple Reminders list or a list kept in another app, see [list sync](list-sync.md). Reading Reminders directly needs a Mac as the server; the iPhone Shortcut and the Mac helper work with any server.
 - **Home Assistant.** Add its address and an access token to show and switch things at home. See [Home Assistant](home-assistant.md).
@@ -79,7 +80,7 @@ From Controls, choose **Edit dashboard on screen** to arrange your tiles. For id
 
 Open `/dash` in a tall browser window or rotate your display. Countertop reads your existing layout from top to bottom and left to right, puts wide tiles on their own rows, and pairs neighboring smaller tiles. Week ahead wraps onto two rows. Swipe left or right to change pages as usual.
 
-If Silk keeps reporting landscape on a vertically mounted Echo Show, open **Controls → Screen orientation** on any device. Pick **Portrait · left edge up** or **Portrait · right edge up** according to which edge of the landscape screen is now at the top. Countertop saves the setting on the server. Every display at the usual `/dash` address picks it up on its next settings check, within about 30 seconds. Choose **Automatic** to follow each browser's viewport again.
+If Silk keeps reporting landscape on a vertically mounted Echo Show, open **Controls → Settings → Screen orientation** on any device. Pick **Portrait · left edge up** or **Portrait · right edge up** according to which edge of the landscape screen is now at the top. Countertop saves the setting on the server. Every display at the usual `/dash` address picks it up on its next settings check, within about 30 seconds. Choose **Automatic** to follow each browser's viewport again.
 
 On a computer, choose **Portrait** in the Controls preview to see the dashboard at 1080×1920. The editor uses the shared dashboard layout, so changes to your boxes apply in both orientations.
 

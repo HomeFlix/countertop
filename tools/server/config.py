@@ -34,8 +34,8 @@ SCHEMA = {
         "front": {"type": "bool", "label": "Rain, snow and falling things in front of the tiles", "default": True},
         "items": {"type": "effects", "label": "Effects", "default": []},
     }},
-    "look": {"title": "Looks", "global": True, "theme": True,
-             "desc": "How the dashboard looks. Your everyday look, plus other looks the schedule can switch to.", "settings": {
+    "look": {"title": "Themes", "global": True, "theme": True,
+             "desc": "How the dashboard looks. Everyday, plus your own themes: one in use, and others the schedule can switch to.", "settings": {
         "mode": {"type": "choice", "label": "Light or dark", "choices": ["Dark", "Light"], "default": "Dark"},
         "accent": {"type": "color", "label": "Accent color", "default": "#7cb7ff"},
         "holiday": {"type": "bool", "label": "Holiday colors", "default": False},
@@ -47,7 +47,8 @@ SCHEMA = {
         "bgColor": {"type": "color", "label": "Background color", "default": "#0a0c0f"},
         "dim": {"type": "int", "label": "Dim the screen (%)", "default": 0, "min": 0, "max": 80},
         "fx": {"type": "choice", "label": "Effects", "choices": ["On", "Off"], "default": "On"},
-        "items": {"type": "looks", "label": "Other looks", "default": []},
+        "items": {"type": "looks", "label": "Other themes", "default": []},
+        "use": {"type": "text", "label": "Theme that shows when nothing is scheduled (empty: Everyday)", "default": ""},
         "rules": {"type": "rules", "label": "Schedule", "default": []},
     }},
     "night": {"title": "Night page", "global": True, "desc": "A page of its own that takes over the screen at night, dimmed. Touch the screen to see the main page for a minute.", "settings": {
