@@ -38,6 +38,12 @@ jobs:
           set -euo pipefail
           tag=$(python3 .github/prepare-release.py "$KIND")
           python3 .github/release-notes.py "$tag" > "$RUNNER_TEMP/notes.md"
+          # An optional hand-written story goes first; the changelog notes follow under "What's changed".
+          if [ -s changes/release-story.md ]; then
+            { cat changes/release-story.md; printf '\n\n## What'"'"'s changed\n\n'; cat "$RUNNER_TEMP/notes.md"; } > "$RUNNER_TEMP/body.md"
+            mv "$RUNNER_TEMP/body.md" "$RUNNER_TEMP/notes.md"
+            rm changes/release-story.md
+          fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Releasing $tag"
       - name: Commit and publish

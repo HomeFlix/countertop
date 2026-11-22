@@ -13,3 +13,7 @@ Name the file after the change (for example `new/portrait-displays.md`) and writ
 ```
 
 When a release is published, these notes become its section in [CHANGELOG.md](../CHANGELOG.md) and the release notes, and the files are removed. See [releasing](../docs/releasing.md).
+
+## A story for a bigger release
+
+For a release worth showing off, add `release-story.md` here: a plain-language introduction with screenshots or GIFs, in Markdown. The release puts it at the top of the release notes, with the generated notes below under "What's changed", and removes the file. It is not added to the changelog. Without the file, the release notes are just the generated ones.
