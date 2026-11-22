@@ -42,7 +42,7 @@ Tile("week", {
         evs.slice(0, 3).forEach(e => chips.push('<div class="ev"><em>' + (e.allDay ? tr("All day") : esc(fmtTime(evDate(e)))) + '</em>' + esc(e.summary) + '</div>'));
         if (!evs.length && !hol && !matches.length){
           const tm = eventsOn(new Date(today.getTime() + 86400e3 + 7200e3), this.s.cals)[0];
-          chips.push('<div class="ev"><em>Today</em>Nothing else on 🎉</div>');
+          chips.push('<div class="ev">' + tr("Nothing else today") + ' 🎉</div>');
           if (tm) chips.push('<div class="ev"><em>Tmrw</em>' + esc(tm.summary) + (tm.allDay ? "" : " · " + esc(fmtTime(evDate(tm)))) + '</div>');
         }
       } else {
